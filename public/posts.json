@@ -2,12 +2,12 @@
   {
     "file": "claude-prompting-guide_v2_v02.html",
     "title": "The Claude Prompting Guide",
-    "description": "A field guide to prompting Claude well, covering six core principles, task-specific playbooks, reliability safeguards, and two fully worked examples.",
+    "description": "A field guide to prompting Claude well, covering six core principles, task-specific playbooks, reliability safeguards, and two worked examples.",
     "tags": [
       "claude",
       "prompt-engineering",
-      "field-guide",
       "ai-tools",
+      "field-guide",
       "best-practices"
     ],
     "date": "2026-06-01"
@@ -15,12 +15,12 @@
   {
     "file": "claude-projects-vs-notebooklm_v02.html",
     "title": "NotebookLM's Equivalent in the Claude Ecosystem",
-    "description": "Explains how Claude Projects maps to Google NotebookLM as a source-grounded workspace, covering shared concepts, key differences, file limits, and setup.",
+    "description": "Maps Google NotebookLM to Claude Projects as a source-grounded workspace, covering shared concepts, key differences, supported formats, file limits, and setup.",
     "tags": [
-      "claude-projects",
+      "claude",
       "notebooklm",
-      "knowledge-base",
       "ai-tools",
+      "knowledge-base",
       "rag"
     ],
     "date": "2026-06-01"
@@ -32,9 +32,9 @@
     "tags": [
       "static-site",
       "github-pages",
-      "html",
-      "field-guide",
-      "fuse-js"
+      "github-actions",
+      "client-side-search",
+      "json-manifest"
     ],
     "date": "2026-06-01"
   },
@@ -44,8 +44,8 @@
     "description": "A reference guide for organizing Claude Code config, memory, skills, and subagents in a Bun + Vite + Next.js + React Three Fiber 3D web project.",
     "tags": [
       "claude-code",
-      "react-three-fiber",
       "three-js",
+      "react-three-fiber",
       "next-js",
       "vite",
       "project-structure"
@@ -55,20 +55,39 @@
   {
     "file": "Claude Context Switcher (Refined) Marathon style.html",
     "title": "Claude Context Switcher",
-    "description": "",
-    "tags": [],
-    "date": "2026-05-30"
+    "description": "Guide to switching Claude Code between a personal Pro subscription and a work API-key account via shell functions, with the key stored in macOS Keychain or Windows DPAPI.",
+    "tags": [
+      "claude-code",
+      "shell-config",
+      "macos",
+      "windows",
+      "api-key"
+    ],
+    "date": "2026-06-01"
+  },
+  {
+    "file": "Claude Context Switcher (Refined).html",
+    "title": "Claude Context Switcher",
+    "description": "A guide to switching Claude Code between a personal Pro subscription and a work API-key account using shell functions on macOS (zsh/Keychain) and Windows (PowerShell/DPAPI).",
+    "tags": [
+      "claude-code",
+      "shell-config",
+      "macos",
+      "windows",
+      "api-key"
+    ],
+    "date": "2026-06-01"
   },
   {
     "file": "claude-code-dynamic-workflows_v02.html",
     "title": "Dynamic Workflows in Claude Code — A Field Guide",
-    "description": "A field guide to Claude Code dynamic workflows: how Claude writes orchestration scripts that fan out across parallel subagents, and when to use them.",
+    "description": "A field guide to Claude Code dynamic workflows, covering how Claude writes orchestration scripts that fan out across parallel subagents, when to use them, and trade-offs.",
     "tags": [
       "claude-code",
-      "dynamic-workflows",
+      "ai-agents",
       "subagents",
       "orchestration",
-      "ai-agents"
+      "dynamic-workflows"
     ],
     "date": "2026-05-28"
   }
