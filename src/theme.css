@@ -107,6 +107,14 @@ a { color: inherit; text-decoration: none; }
   z-index: 0;
 }
 
+/* Inlined SVG cover fills the panel (its 1600/900 viewBox matches the
+   container's aspect-ratio, so it lines up exactly). */
+.site-cover__bg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* Dark scrim along the bottom so the title stays legible over the artwork. */
 .site-cover::after {
   content: '';

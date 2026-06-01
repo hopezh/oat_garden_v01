@@ -5,6 +5,9 @@ import TagFilter from './components/TagFilter.jsx'
 import CardGrid from './components/CardGrid.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 import { useTheme } from './hooks/useTheme.js'
+// Inlined (not <img>) so the page's data-theme on <html> cascades into the
+// SVG and its embedded dark/light <style> tracks the theme toggle live.
+import coverSvg from '../public/cover_img_v14.svg?raw'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -91,7 +94,12 @@ export default function App() {
   return (
     <div className="app">
       <div className="site-cover">
-        <img className="site-cover__bg" src={`${BASE}cover_img_v01.svg`} alt="" />
+        <div
+          className="site-cover__bg"
+          role="presentation"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: coverSvg }}
+        />
         <header className="site-header">
           <div>
             <h1 className="site-title">
