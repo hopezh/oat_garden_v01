@@ -66,19 +66,6 @@
     "date": "2026-06-01"
   },
   {
-    "file": "Claude Context Switcher (Refined).html",
-    "title": "Claude Context Switcher",
-    "description": "A guide to switching Claude Code between a personal Pro subscription and a work API-key account using shell functions on macOS (zsh/Keychain) and Windows (PowerShell/DPAPI).",
-    "tags": [
-      "claude-code",
-      "shell-config",
-      "macos",
-      "windows",
-      "api-key"
-    ],
-    "date": "2026-06-01"
-  },
-  {
     "file": "claude-code-dynamic-workflows_v02.html",
     "title": "Dynamic Workflows in Claude Code — A Field Guide",
     "description": "A field guide to Claude Code dynamic workflows, covering how Claude writes orchestration scripts that fan out across parallel subagents, when to use them, and trade-offs.",
