@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Coding Workflow v2 — Pipeline Diagram</title>
+<meta name="description" content="A systematic multi-agent Claude Code methodology using a 5-session, file-driven prompt pipeline to build a tested NES emulator with zero hand-written code.">
+<meta name="keywords" content="claude-code, multi-agent, ai-workflow, prompt-engineering, python">
+<meta name="date" content="2026-06-01">
+<style>
+:root {
+  --bg:#0d0f17;--surface:#161929;--surface2:#1e2438;--border:#2a3050;
+  --accent:#6c63ff;--accent2:#00d4aa;--accent3:#ff6b6b;--accent4:#ffd166;
+  --text:#e8eaf0;--muted:#8892aa;
+  --s1:#6c63ff;--s2:#00d4aa;--s3:#ff6b6b;--s4:#ffd166;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,15,23,.88);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.06);padding:.75rem 2rem;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-weight:700;font-size:.95rem;background:linear-gradient(135deg,#fff,#a09bff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:1.5rem;list-style:none}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:.85rem;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+@media(max-width:640px){.nav-links{display:none}}
+
+/* HERO */
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(108,99,255,.25) 0%,transparent 70%),radial-gradient(ellipse 60% 50% at 80% 100%,rgba(0,212,170,.15) 0%,transparent 60%)}
+.grid-overlay{position:absolute;inset:0;background-image:linear-gradient(rgba(108,99,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(108,99,255,.07) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 0%,transparent 100%)}
+.hero-content{position:relative;z-index:1;max-width:860px}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);border-radius:100px;padding:.35rem 1rem;font-size:.8rem;color:#a09bff;margin-bottom:2rem;letter-spacing:.05em;text-transform:uppercase}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+.hero h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:800;letter-spacing:-.02em;line-height:1.1;margin-bottom:1.5rem;background:linear-gradient(135deg,#fff 0%,#c5c0ff 50%,#00d4aa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-subtitle{font-size:1.15rem;color:var(--muted);max-width:600px;margin:0 auto 2.5rem;line-height:1.7}
+.hero-meta{display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;margin-bottom:3rem}
+.hero-meta a,.hero-meta span{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.2rem;border-radius:8px;font-size:.875rem;font-weight:500;text-decoration:none;transition:all .2s}
+.btn-yt{background:rgba(255,0,0,.15);border:1px solid rgba(255,0,0,.3);color:#ff6b6b}
+.btn-yt:hover{background:rgba(255,0,0,.25);transform:translateY(-1px)}
+.btn-fig{background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.3);color:var(--accent2)}
+.btn-fig:hover{background:rgba(0,212,170,.22);transform:translateY(-1px)}
+.hero-tag{background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:default}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem;margin-bottom:3rem}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem 1rem;text-align:center}
+.stat-num{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,#fff,var(--s-color,var(--accent)));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:.4rem}
+.stat-label{font-size:.82rem;color:var(--muted)}
+.scroll-hint{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;color:var(--muted);font-size:.8rem;animation:bounce 2s ease-in-out infinite}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(8px)}}
+
+/* LAYOUT */
+.container{max-width:1100px;margin:0 auto;padding:0 2rem}
+section{padding:6rem 0}
+.section-label{display:inline-flex;align-items:center;gap:.5rem;font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem}
+.section-label::before{content:'';width:20px;height:2px;background:var(--accent);border-radius:2px}
+h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;letter-spacing:-.02em;margin-bottom:1rem;line-height:1.2}
+.section-desc{color:var(--muted);font-size:1.05rem;max-width:600px;margin-bottom:3.5rem;line-height:1.7}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:0 2rem}
+
+/* FADE-IN */
+.fade-in{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+
+/* ═══════════════════════════════════════
+   FIGJAM DIAGRAM
+═══════════════════════════════════════ */
+.fj-legend{display:flex;flex-wrap:wrap;gap:.75rem;margin-bottom:1.75rem}
+.fj-leg{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--muted)}
+.fj-leg-dot{width:14px;height:14px;border-radius:4px;flex-shrink:0}
+
+.fj-wrap{overflow-x:auto;border-radius:20px;border:1px solid #555;box-shadow:0 0 60px rgba(0,0,0,.5)}
+.fj-board{
+  background:#3a3a3a;
+  border-radius:20px;
+  padding:2rem;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  min-width:860px;
+  position:relative;
+}
+
+/* Chat bubble rows */
+.fj-row{
+  background:#525255;
+  border-radius:16px;
+  padding:1.1rem 1.25rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  position:relative;
+  cursor:default;
+  transition:background .25s,box-shadow .25s;
+}
+.fj-row:hover{background:#5e5e62;box-shadow:inset 0 0 0 2px rgba(255,255,255,.18)}
+.fj-row.active-row{box-shadow:inset 0 0 0 2px rgba(255,255,255,.4)}
+
+.fj-lbl{
+  font-weight:700;color:#fff;font-size:.95rem;
+  min-width:62px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+}
+.fj-lbl .fj-phase{font-size:.6rem;font-weight:600;color:rgba(255,255,255,.45);letter-spacing:.06em;text-transform:uppercase}
+
+.fj-flow{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:nowrap}
+
+/* Mini prompt card */
+.fj-mini{
+  background:#F59E0B;border-radius:6px;padding:5px 7px;
+  font-size:.58rem;color:#1a1a1a;font-weight:600;
+  flex-shrink:0;width:82px;cursor:pointer;transition:.2s;
+}
+.fj-mini:hover{filter:brightness(1.1);transform:scale(1.04)}
+.fj-mini div{border-bottom:1px solid rgba(0,0,0,.12);padding:1.5px 0;line-height:1.4}
+.fj-mini div:last-child{border:none}
+
+/* File / prompt boxes (amber) */
+.fj-file{
+  background:#F59E0B;border-radius:10px;padding:.55rem .9rem;
+  font-size:.78rem;font-weight:700;color:#1a1a1a;
+  flex-shrink:0;text-align:center;min-width:148px;
+  cursor:pointer;transition:.2s;
+}
+.fj-file:hover{filter:brightness(1.12);transform:scale(1.04) translateY(-1px)}
+.fj-fsub{font-size:.58rem;font-weight:400;opacity:.65;margin-top:2px;white-space:nowrap}
+
+/* AI Agent circles */
+.fj-ag{
+  width:58px;height:58px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.64rem;font-weight:700;color:#fff;text-align:center;
+  flex-shrink:0;cursor:pointer;transition:.25s;line-height:1.25;
+}
+.fj-ag.red{background:#EF4444;box-shadow:0 0 14px rgba(239,68,68,.45)}
+.fj-ag.red:hover{box-shadow:0 0 26px rgba(239,68,68,.75);transform:scale(1.14)}
+.fj-ag.org{background:#F97316;box-shadow:0 0 14px rgba(249,115,22,.45)}
+.fj-ag.org:hover{box-shadow:0 0 26px rgba(249,115,22,.75);transform:scale(1.14)}
+
+/* Output pills (blue) */
+.fj-out{
+  background:#3B82F6;border-radius:10px;padding:.55rem .9rem;
+  font-size:.78rem;font-weight:700;color:#fff;
+  flex-shrink:0;text-align:center;min-width:148px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 10px rgba(59,130,246,.3);
+  cursor:pointer;transition:.2s;
+}
+.fj-out:hover{box-shadow:0 0 22px rgba(59,130,246,.65);transform:scale(1.04) translateY(-1px)}
+
+/* Horizontal arrows */
+.fj-ha{
+  flex-shrink:0;width:22px;height:2px;
+  background:rgba(255,255,255,.6);position:relative;
+}
+.fj-ha::after{
+  content:'';position:absolute;right:-6px;top:-4px;
+  border-top:5px solid transparent;border-bottom:5px solid transparent;
+  border-left:7px solid rgba(255,255,255,.6);
+}
+
+/* Output stack + branch SVG wrapper (Chat 3) */
+.fj-branch-wrap{display:flex;align-items:center;flex-shrink:0}
+.fj-bsvg{flex-shrink:0;display:block}
+.fj-stack{display:flex;flex-direction:column;gap:7px}
+.fj-stack .fj-out{min-width:148px}
+
+/* Vertical connectors between rows */
+.fj-vc{
+  display:flex;flex-direction:column;
+  align-items:flex-end;
+  padding-right:112px;
+  height:38px;
+}
+.fj-vc .vl{width:2px;flex:1;background:rgba(255,255,255,.55)}
+.fj-vc .vh{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid rgba(255,255,255,.55)}
+
+/* Funnel connector Chat3→4 */
+.fj-funnel{height:52px;position:relative}
+.fj-funnel svg{width:100%;height:100%;display:block}
+
+/* Chat4→Chat5 fan-in connector */
+.fj-vc-c{display:flex;flex-direction:column;align-items:center;height:38px}
+.fj-vc-c .vl{width:2px;flex:1;background:rgba(255,255,255,.55)}
+.fj-vc-c .vh{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid rgba(255,255,255,.55)}
+
+/* Chat5 layout: agents centered */
+.fj-agents-flow{display:flex;align-items:center;justify-content:center;gap:8px;flex:1}
+
+/* App */
+.fj-app{
+  align-self:center;background:#22C55E;border-radius:40px;
+  padding:14px 96px;font-size:1.1rem;font-weight:700;color:#fff;
+  box-shadow:0 0 20px rgba(34,197,94,.35);transition:.3s;cursor:pointer;
+  margin-top:0;
+}
+.fj-app:hover{box-shadow:0 0 36px rgba(34,197,94,.65);transform:scale(1.04)}
+
+/* Tooltip */
+.fj-tip{
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:#1e2438;border:1px solid var(--border);border-radius:8px;
+  padding:.4rem .8rem;font-size:.75rem;color:var(--text);white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .15s;z-index:20;
+}
+.fj-row:hover .fj-tip,
+.fj-ag:hover .fj-tip,
+.fj-out:hover .fj-tip,
+.fj-file:hover .fj-tip{opacity:1}
+
+/* Phase label badge on each row */
+.fj-phase-badge{
+  position:absolute;top:-10px;right:12px;
+  background:var(--badge-bg,rgba(108,99,255,.8));
+  border-radius:100px;padding:.15rem .65rem;
+  font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  pointer-events:none;
+}
+
+/* ── REST OF PAGE (carried over from v1) ── */
+.problem-box{position:relative;background:linear-gradient(135deg,rgba(255,107,107,.1),rgba(255,107,107,.03));border:1px solid rgba(255,107,107,.25);border-radius:16px;padding:2rem 2.5rem;margin-bottom:4rem;overflow:hidden}
+.problem-box::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent3);border-radius:4px 0 0 4px}
+.problem-box h3{color:var(--accent3);margin-bottom:.75rem;font-size:1.1rem}
+.problem-box p{color:var(--muted);line-height:1.7}
+.problem-box .quote{font-size:1.1rem;color:var(--text);font-style:italic;margin-bottom:.75rem}
+.lang-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:2rem}
+.lang-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.75rem;transition:all .3s;cursor:default;overflow:hidden}
+.lang-card:hover{transform:translateY(-4px);border-color:var(--card-accent)}
+.lang-card.python{--card-accent:#3776ab}.lang-card.js{--card-accent:#f7df1e}.lang-card.rust{--card-accent:#ce422b}
+.lang-badge{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .6rem;border-radius:4px;margin-bottom:1rem}
+.lang-card.python .lang-badge{background:rgba(55,118,171,.2);color:#5ba3d9;border:1px solid rgba(55,118,171,.3)}
+.lang-card.js .lang-badge{background:rgba(247,223,30,.15);color:#f7df1e;border:1px solid rgba(247,223,30,.3)}
+.lang-card.rust .lang-badge{background:rgba(206,66,43,.15);color:#e06b58;border:1px solid rgba(206,66,43,.3)}
+.lang-card h3{font-size:1.2rem;margin-bottom:.5rem}
+.lang-card p{color:var(--muted);font-size:.9rem;line-height:1.6}
+.lang-pros{margin-top:1rem;display:flex;flex-direction:column;gap:.35rem}
+.lang-pro{display:flex;align-items:flex-start;gap:.5rem;font-size:.85rem;color:var(--muted)}
+.lang-pro::before{content:'✓';color:var(--accent2);flex-shrink:0;font-weight:700}
+.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem}
+.principle{display:flex;gap:1rem;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;transition:all .3s}
+.principle:hover{border-color:var(--accent);transform:translateY(-2px)}
+.principle .pr-icon{font-size:1.5rem;flex-shrink:0;margin-top:.1rem}
+.principle h3{font-size:.95rem;font-weight:700;margin-bottom:.35rem}
+.principle p{font-size:.85rem;color:var(--muted);line-height:1.5}
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.25rem}
+.pillar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;transition:all .3s;cursor:default}
+.pillar:hover{transform:translateY(-4px);border-color:var(--p-accent)}
+.pillar .p-icon{font-size:2rem;margin-bottom:.75rem}
+.pillar h3{font-size:.95rem;font-weight:700;margin-bottom:.5rem;color:var(--p-accent)}
+.pillar p{font-size:.82rem;color:var(--muted);line-height:1.5}
+.prompt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.5rem;margin-bottom:3rem}
+@media(max-width:640px){.prompt-grid{grid-template-columns:1fr}}
+.prompt-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.75rem;position:relative;overflow:hidden;transition:all .3s}
+.prompt-card::before{content:attr(data-num);position:absolute;top:-10px;right:1rem;font-size:5rem;font-weight:900;color:var(--p-color);opacity:.07;line-height:1;pointer-events:none}
+.prompt-card:hover{border-color:var(--p-color);transform:translateY(-3px)}
+.prompt-card[data-num="1"]{--p-color:var(--s1)}.prompt-card[data-num="2"]{--p-color:var(--s2)}.prompt-card[data-num="3"]{--p-color:var(--s3)}.prompt-card[data-num="4"]{--p-color:var(--s4)}
+.prompt-label{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--p-color);margin-bottom:.75rem}
+.prompt-card h3{font-size:1.1rem;margin-bottom:.5rem}
+.prompt-card p{color:var(--muted);font-size:.9rem;line-height:1.6}
+.prompt-example{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:1.5rem;font-family:'Consolas','Fira Code',monospace;font-size:.85rem;line-height:1.7;color:var(--text);position:relative}
+.prompt-example::before{content:'Example Prompt Structure';display:block;font-family:inherit;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.pe-goal{color:#a09bff}.pe-input{color:var(--accent2)}.pe-out{color:var(--accent3)}.pe-step{color:var(--accent4)}.pe-key{font-weight:700}.pe-comment{color:var(--muted)}
+.accordion{display:flex;flex-direction:column;gap:.75rem}
+.acc-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .3s}
+.acc-item.open{border-color:var(--accent)}
+.acc-header{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.5rem;cursor:pointer;user-select:none;gap:1rem}
+.acc-header:hover{background:rgba(255,255,255,.02)}
+.acc-title{display:flex;align-items:center;gap:.75rem;font-weight:600;font-size:.95rem}
+.acc-icon{width:28px;height:28px;border-radius:6px;background:rgba(108,99,255,.15);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.acc-arrow{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--muted);flex-shrink:0;transition:transform .3s}
+.acc-item.open .acc-arrow{transform:rotate(180deg)}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.acc-item.open .acc-body{max-height:600px}
+.acc-content{padding:0 1.5rem 1.5rem;color:var(--muted);font-size:.9rem;line-height:1.7}
+.acc-content ul{padding-left:1.25rem;margin-top:.5rem;display:flex;flex-direction:column;gap:.35rem}
+.acc-content code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-family:monospace;font-size:.85em;color:var(--accent2)}
+.context-warning{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);border-radius:10px;padding:1rem 1.25rem;display:flex;align-items:flex-start;gap:.75rem;font-size:.875rem;color:var(--muted);margin-top:1rem}
+.context-warning .cw-icon{color:var(--accent4);font-size:1.1rem;flex-shrink:0;margin-top:.1rem}
+.arch-diagram{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2.5rem;margin-bottom:2rem;position:relative;overflow:hidden}
+.arch-master{display:flex;align-items:center;justify-content:center;margin-bottom:1rem}
+.arch-node{background:var(--surface2);border:2px solid var(--n-color,var(--border));border-radius:12px;padding:1rem 1.5rem;text-align:center;min-width:160px;box-shadow:0 0 20px var(--n-glow,transparent);position:relative}
+.arch-node .n-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--n-color,var(--muted));margin-bottom:.25rem}
+.arch-node .n-title{font-weight:600;font-size:.95rem}
+.arch-node .n-sub{font-size:.8rem;color:var(--muted);margin-top:.25rem}
+.arch-node.master{--n-color:var(--accent);--n-glow:rgba(108,99,255,.2)}
+.arch-node.sub-agent{--n-color:var(--accent2);--n-glow:rgba(0,212,170,.1);min-width:120px}
+.arch-arrow{display:flex;flex-direction:column;align-items:center;margin:.25rem 0}
+.arch-arrow-line{width:2px;height:24px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px}
+.arch-arrow-head{width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid var(--accent2)}
+.arch-subs{display:flex;flex-wrap:wrap;gap:1rem;justify-content:center}
+.arch-sub-item{display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.arch-sub-arrow{width:2px;height:20px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px}
+.arch-compare{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:2rem}
+@media(max-width:640px){.arch-compare{grid-template-columns:1fr}}
+.compare-card{border-radius:12px;padding:1.5rem;border:1px solid var(--border)}
+.compare-card.bad{background:rgba(255,107,107,.05);border-color:rgba(255,107,107,.2)}
+.compare-card.good{background:rgba(0,212,170,.05);border-color:rgba(0,212,170,.2)}
+.compare-card h4{font-size:.9rem;font-weight:700;margin-bottom:.75rem}
+.compare-card.bad h4{color:var(--accent3)}.compare-card.good h4{color:var(--accent2)}
+.compare-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.compare-list li{display:flex;gap:.5rem;align-items:flex-start;font-size:.875rem;color:var(--muted)}
+.compare-list li::before{flex-shrink:0;font-weight:700}
+.compare-card.bad .compare-list li::before{content:'✗';color:var(--accent3)}
+.compare-card.good .compare-list li::before{content:'✓';color:var(--accent2)}
+.progress-track{background:var(--surface2);border-radius:100px;height:6px;margin-top:.5rem;overflow:hidden}
+.progress-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width 1.2s cubic-bezier(.16,1,.3,1)}
+.progress-fill.animate{width:var(--w)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Vibe Coding Workflow</div>
+  <ul class="nav-links">
+    <li><a href="#diagram">Diagram</a></li>
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#prompt">Prompt</a></li>
+    <li><a href="#agents">Agents</a></li>
+    <li><a href="#results">Results</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="grid-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><span class="dot"></span>v2 — With Native Pipeline Diagram</div>
+    <h1>The Professional<br>Vibe Coding Workflow</h1>
+    <p class="hero-subtitle">A systematic AI coding methodology — from requirements to a working NES emulator with 196 passing tests, zero hand-written code.</p>
+    <div class="hero-meta">
+      <a class="btn-yt" href="https://www.youtube.com/watch?v=ytT4-lGEf6A" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.2.7 11.4v2c0 2.3.3 4.5.3 4.5s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.2 22 12 22 12 22s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.2.3-4.5v-2C23.3 9.2 23 7 23 7zM9.7 15.5V8.4l8.1 3.6-8.1 3.5z"/></svg>
+        Watch on YouTube
+      </a>
+      <a class="btn-fig" href="https://www.figma.com/board/RUbRW6oifsFARPung4SSkO/vibe-coding-workflow?node-id=0-1&t=34NUBVHJ7HvKoWOF-1" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 24c2.2 0 4-1.8 4-4v-4H8c-2.2 0-4 1.8-4 4s1.8 4 4 4zm0-20H4c-2.2 0-4 1.8-4 4s1.8 4 4 4h4V4zm4 8c0 2.2 1.8 4 4 4s4-1.8 4-4-1.8-4-4-4h-4v4zm0-8v4h4c2.2 0 4-1.8 4-4S18.2 0 16 0s-4 1.8-4 4z"/></svg>
+        Original FigJam
+      </a>
+      <span class="hero-tag">Claude Code</span>
+      <span class="hero-tag">Multi-Agent</span>
+      <span class="hero-tag">Python</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-num" style="--s-color:var(--s1)">5</div><div class="stat-label">Chat Sessions</div></div>
+      <div class="stat"><div class="stat-num" style="--s-color:var(--s2)">~15<span style="font-size:1rem">m</span></div><div class="stat-label">To Full Emulator</div></div>
+      <div class="stat"><div class="stat-num" style="--s-color:var(--s3)">196</div><div class="stat-label">Tests Passing</div></div>
+      <div class="stat"><div class="stat-num" style="--s-color:var(--s4)">0</div><div class="stat-label">Code Written</div></div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll to see the diagram</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════
+     FIGJAM DIAGRAM SECTION
+═══════════════════════════════════════ -->
+<section id="diagram">
+  <div class="container">
+    <div class="section-label">Pipeline Diagram</div>
+    <h2>The Complete Vibe Coding Pipeline</h2>
+    <p class="section-desc">Faithful recreation of the FigJam workflow board — 5 chat sessions, each producing files that feed the next, culminating in a multi-agent build system.</p>
+
+    <div class="fj-legend">
+      <div class="fj-leg"><div class="fj-leg-dot" style="background:#F59E0B"></div>Prompt / File input</div>
+      <div class="fj-leg"><div class="fj-leg-dot" style="background:#EF4444;border-radius:50%"></div>AI Agent</div>
+      <div class="fj-leg"><div class="fj-leg-dot" style="background:#3B82F6"></div>Output file</div>
+      <div class="fj-leg"><div class="fj-leg-dot" style="background:#F97316;border-radius:50%"></div>Sub-agent</div>
+      <div class="fj-leg"><div class="fj-leg-dot" style="background:#22C55E;border-radius:8px"></div>Shipped App</div>
+    </div>
+
+    <div class="fj-wrap fade-in">
+    <div class="fj-board" id="fjBoard">
+
+      <!-- ── CHAT 1: Requirements ── -->
+      <div class="fj-row" id="chat1" data-tip="Generate requirements via interactive Q&A">
+        <div class="fj-phase-badge" style="--badge-bg:rgba(108,99,255,.75)">Requirements</div>
+        <div class="fj-lbl">Chat 1<span class="fj-phase">New session</span></div>
+        <div class="fj-flow">
+          <div class="fj-mini" title="4-part prompt template">
+            <div>1. objectives</div><div>2. Inputs</div><div>3. Outputs</div><div>4. Steps</div>
+          </div>
+          <div class="fj-ha"></div>
+          <div class="fj-file" title="Prompt sent to Claude Code">
+            1_gen_proposal.md
+            <div class="fj-fsub">1. objectives, 2. Inputs, 3. Outputs, 4. Steps</div>
+          </div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag red" title="Claude Code AI Agent">AI<br>Agent</div>
+          <div class="fj-ha"></div>
+          <div class="fj-out" id="out1" title="Generated requirements document">2_proposal.md</div>
+        </div>
+      </div>
+
+      <!-- Connector 1 → 2 -->
+      <div class="fj-vc" id="vc1"><div class="vl"></div><div class="vh"></div></div>
+
+      <!-- ── CHAT 2: Design ── -->
+      <div class="fj-row" id="chat2" data-tip="Detailed module design — keep modules independent">
+        <div class="fj-phase-badge" style="--badge-bg:rgba(0,180,140,.75)">Design</div>
+        <div class="fj-lbl">Chat 2<span class="fj-phase">New session</span></div>
+        <div class="fj-flow">
+          <div class="fj-mini" title="4-part prompt template">
+            <div>1. objectives</div><div>2. Inputs</div><div>3. Outputs</div><div>4. Steps</div>
+          </div>
+          <div class="fj-ha"></div>
+          <div class="fj-file" title="Prompt referencing proposal.md">3_gen_design.md</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag red" title="Claude Code AI Agent">AI<br>Agent</div>
+          <div class="fj-ha"></div>
+          <div class="fj-out" id="out2" title="Detailed per-module design docs">4_design.md</div>
+        </div>
+      </div>
+
+      <!-- Connector 2 → 3 -->
+      <div class="fj-vc" id="vc2"><div class="vl"></div><div class="vh"></div></div>
+
+      <!-- ── CHAT 3: Tasks (fans out to 4 outputs) ── -->
+      <div class="fj-row" id="chat3" data-tip="Break design into per-module task checklists">
+        <div class="fj-phase-badge" style="--badge-bg:rgba(239,68,68,.75)">Tasks</div>
+        <div class="fj-lbl">Chat 3<span class="fj-phase">New session</span></div>
+        <div class="fj-flow">
+          <div class="fj-mini" title="4-part prompt template">
+            <div>1. objectives</div><div>2. Inputs</div><div>3. Outputs</div><div>4. Steps</div>
+          </div>
+          <div class="fj-ha"></div>
+          <div class="fj-file" title="Prompt referencing design.md">5_gen_tasks.md</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag red" id="chat3agent" title="Claude Code AI Agent">AI<br>Agent</div>
+          <!-- Branch: agent → 4 outputs -->
+          <div class="fj-branch-wrap">
+            <svg class="fj-bsvg" id="branchSvg" style="width:32px;height:165px"></svg>
+            <div class="fj-stack" id="chat3stack">
+              <div class="fj-out" title="Overall progress tracker">6_0_progress.md</div>
+              <div class="fj-out" title="Task list for module 1">6_1_task_01.md</div>
+              <div class="fj-out" title="Task list for module 2">6_2_task_02.md</div>
+              <div class="fj-out" title="Task list for module 3">6_3_task_03.md</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funnel connector: Chat3 4 outputs → Chat4 -->
+      <div class="fj-funnel" id="funnel34">
+        <svg id="funnel34svg"></svg>
+      </div>
+
+      <!-- ── CHAT 4: Generate run prompt ── -->
+      <div class="fj-row" id="chat4" data-tip="Generate the master multi-agent run prompt">
+        <div class="fj-phase-badge" style="--badge-bg:rgba(255,209,102,.8);color:#1a1a1a">Run Prompt</div>
+        <div class="fj-lbl">Chat 4<span class="fj-phase">New session</span></div>
+        <div class="fj-flow">
+          <div class="fj-mini" title="4-part prompt template">
+            <div>1. objectives</div><div>2. Inputs</div><div>3. Outputs</div><div>4. Steps</div>
+          </div>
+          <div class="fj-ha"></div>
+          <div class="fj-file" title="Prompt to generate the master orchestrator prompt">7_gen_run.md</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag red" title="Claude Code AI Agent">AI<br>Agent</div>
+          <div class="fj-ha"></div>
+          <div class="fj-out" id="out4" title="Master prompt for multi-agent coding session">8_run.md</div>
+        </div>
+      </div>
+
+      <!-- Connector 4 → 5 (centered, feeds into Progress Agent) -->
+      <div class="fj-vc-c" id="vc4"><div class="vl"></div><div class="vh"></div></div>
+
+      <!-- ── CHAT 5: Multi-agent execution ── -->
+      <div class="fj-row" id="chat5" data-tip="Fully autonomous: master agent spawns task agents">
+        <div class="fj-phase-badge" style="--badge-bg:rgba(34,197,94,.75)">Execution</div>
+        <div class="fj-lbl">Chat 5<span class="fj-phase">Autonomous</span></div>
+        <div class="fj-agents-flow">
+          <div class="fj-ag red" title="Orchestrator: reads progress.md and spawns task agents">Progress<br>Agent</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag org" title="Codes module 1 with tests, passes mypy + ruff">Task<br>Agent 1</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag org" title="Codes module 2 with tests, passes mypy + ruff">Task<br>Agent 2</div>
+          <div class="fj-ha"></div>
+          <div class="fj-ag org" title="Codes module 3 with tests, passes mypy + ruff">Task<br>Agent 3</div>
+        </div>
+      </div>
+
+      <!-- Connector 5 → App -->
+      <div class="fj-vc-c" id="vc5"><div class="vl"></div><div class="vh"></div></div>
+
+      <!-- APP -->
+      <div class="fj-app" title="Working NES emulator — 196 tests passing, mypy + ruff clean">App</div>
+
+    </div><!-- /fj-board -->
+    </div><!-- /fj-wrap -->
+
+    <!-- Info cards below the diagram -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-top:2rem">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="color:#F59E0B;font-weight:700;font-size:.8rem;margin-bottom:.5rem">AMBER BOXES</div>
+        <p style="color:var(--muted);font-size:.85rem">4-part prompt files (Goal · Input · Output · Steps) fed to the AI agent in each session.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="color:#EF4444;font-weight:700;font-size:.8rem;margin-bottom:.5rem">RED CIRCLES</div>
+        <p style="color:var(--muted);font-size:.85rem">Claude Code AI agents. Each runs in a fresh context window to avoid compression drift.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="color:#3B82F6;font-weight:700;font-size:.8rem;margin-bottom:.5rem">BLUE OUTPUTS</div>
+        <p style="color:var(--muted);font-size:.85rem">Generated files that persist knowledge. They become the input to the next chat session.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="color:#F97316;font-weight:700;font-size:.8rem;margin-bottom:.5rem">ORANGE AGENTS</div>
+        <p style="color:var(--muted);font-size:.85rem">Specialist sub-agents, one per module. Each has its own short context — no compression artifacts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="section-label">The Problem</div>
+    <h2>Why Casual AI Coding Fails</h2>
+    <p class="section-desc">AI makes code generation look easy. Without structure, complex projects quickly become unmaintainable.</p>
+    <div class="problem-box fade-in">
+      <p class="quote">"Fix one thing and something else breaks. Implement one feature and another stops working. After spending millions of tokens the code becomes a garbage dump."</p>
+      <p>— The core frustration with unstructured vibe coding, as described in the video</p>
+    </div>
+    <div class="accordion fade-in">
+      <div class="acc-item open">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">⚠️</div>Context window overload</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          When everything lives in one agent's context, the AI auto-compresses prior conversation. This drops critical implementation details — precise function signatures become vague descriptions, edge cases disappear — leading to subtle bugs and module inconsistencies.
+        </div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">🌀</div>Ambiguous requirements → hallucinations</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          The root cause: you don't know exactly what you want. When requirements are fuzzy, AI fills gaps with guesses. People then iterate reactively — accumulating technical debt instead of clarifying upfront.
+        </div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">🏗️</div>No module boundaries = tangled code</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          Generating all code in one shot produces a monolith where everything is coupled. When AI touches one area it breaks another. Independent modules are the only way to ensure AI can safely add features without regression.
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LANGUAGE -->
+<section>
+  <div class="container">
+    <div class="section-label">Language Selection</div>
+    <h2>Best Languages for AI Coding</h2>
+    <p class="section-desc">Choose a language where AI excels and quality gates exist. Three clear options.</p>
+    <div class="lang-grid fade-in">
+      <div class="lang-card python">
+        <div class="lang-badge">Python</div>
+        <h3>AI's Native Language</h3>
+        <p>Largest training corpus. AI produces its most natural code. Vast ecosystem means AI rarely reinvents the wheel.</p>
+        <div class="lang-pros">
+          <div class="lang-pro">Enormous AI training data</div>
+          <div class="lang-pro">Type-check with mypy, lint with ruff</div>
+          <div class="lang-pro">Unit test with pytest</div>
+        </div>
+      </div>
+      <div class="lang-card js">
+        <div class="lang-badge">JavaScript / TypeScript</div>
+        <h3>Web-Native Powerhouse</h3>
+        <p>Equally strong AI training corpus. TypeScript adds static typing that catches errors early. Ideal for browser and full-stack.</p>
+        <div class="lang-pros">
+          <div class="lang-pro">Massive AI training data</div>
+          <div class="lang-pro">TypeScript enforces type safety</div>
+          <div class="lang-pro">Universal — frontend to backend</div>
+        </div>
+      </div>
+      <div class="lang-card rust">
+        <div class="lang-badge">Rust</div>
+        <h3>Safety by Compiler Mandate</h3>
+        <p>AI's weakest of the three, but Rust's strict compiler does the quality-gating for you. With AI absorbing the pain, you get safety for free.</p>
+        <div class="lang-pros">
+          <div class="lang-pro">Compiler enforces correctness</div>
+          <div class="lang-pro">Memory safety guaranteed</div>
+          <div class="lang-pro">AI absorbs the Rust pain</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROMPT FRAMEWORK -->
+<section id="prompt">
+  <div class="container">
+    <div class="section-label">The Prompt Framework</div>
+    <h2>Structure Every AI Message in 4 Parts</h2>
+    <p class="section-desc">Every prompt should have all four parts. The final part — Steps — is where the magic happens.</p>
+    <div class="prompt-grid fade-in">
+      <div class="prompt-card" data-num="1"><div class="prompt-label">Part 1</div><h3>Goal (目標)</h3><p>State the single, clear objective. Not "build an app" but "build an FC emulator that runs Super Mario Bros."</p></div>
+      <div class="prompt-card" data-num="2"><div class="prompt-label">Part 2</div><h3>Input (輸入)</h3><p>Describe what you're providing: specific files, existing code structure, known constraints. Anchors AI to your actual project.</p></div>
+      <div class="prompt-card" data-num="3"><div class="prompt-label">Part 3</div><h3>Output (輸出)</h3><p>Specify exactly which file(s) to generate, in what format, and where. "Generate docs/proposal.md" beats "write a requirements doc."</p></div>
+      <div class="prompt-card" data-num="4"><div class="prompt-label">Part 4 — Key</div><h3>Steps (步驟)</h3><p>Don't describe what to build — describe how to approach it. Killer technique: instruct AI to ask <em>you</em> questions instead of guessing.</p></div>
+    </div>
+    <div class="prompt-example fade-in">
+<span class="pe-goal pe-key">## GOAL</span>
+<span class="pe-goal">Develop an FC emulator in Python that runs Super Mario Bros.
+Help me generate a requirements document.</span>
+
+<span class="pe-input pe-key">## INPUT</span>
+<span class="pe-input">- UV-managed Python workspace (empty)
+- roms/super_mario.nes for testing</span>
+
+<span class="pe-out pe-key">## OUTPUT</span>
+<span class="pe-out">Generate docs/proposal.md</span>
+
+<span class="pe-step pe-key">## STEPS</span>
+<span class="pe-step">I have zero FC emulator knowledge.
+Use questions to help me clarify requirements.
+Do NOT guess my intent — ask about anything unclear.</span>
+
+<span class="pe-comment">→ AI interviews YOU → surfaces unknowns → fewer bugs later</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- AGENTS -->
+<section id="agents">
+  <div class="container">
+    <div class="section-label">Multi-Agent Architecture</div>
+    <h2>Orchestrator + Specialists</h2>
+    <p class="section-desc">Instead of one long conversation, spawn a hierarchy. The master agent orchestrates; specialist sub-agents each own one module.</p>
+    <div class="arch-diagram fade-in">
+      <div class="arch-master">
+        <div class="arch-node master">
+          <div class="n-label">Master Agent</div>
+          <div class="n-title">🤖 Orchestrator</div>
+          <div class="n-sub">Reads progress.md</div>
+        </div>
+      </div>
+      <div class="arch-arrow"><div class="arch-arrow-line"></div><div class="arch-arrow-head"></div></div>
+      <div class="arch-subs">
+        <div class="arch-sub-item"><div class="arch-sub-arrow"></div><div class="arch-node sub-agent"><div class="n-label">Sub-Agent 1</div><div class="n-title">CPU Module</div></div></div>
+        <div class="arch-sub-item"><div class="arch-sub-arrow"></div><div class="arch-node sub-agent"><div class="n-label">Sub-Agent 2</div><div class="n-title">PPU Module</div></div></div>
+        <div class="arch-sub-item"><div class="arch-sub-arrow"></div><div class="arch-node sub-agent"><div class="n-label">Sub-Agent 3</div><div class="n-title">ROM Loader</div></div></div>
+        <div class="arch-sub-item"><div class="arch-sub-arrow"></div><div class="arch-node sub-agent"><div class="n-label">Sub-Agent N</div><div class="n-title">...</div></div></div>
+      </div>
+      <p style="text-align:center;color:var(--muted);font-size:.85rem;margin-top:1.5rem">Each sub-agent: detailed design path · task file · implementation rules · test requirements</p>
+    </div>
+    <div class="arch-compare fade-in">
+      <div class="compare-card bad">
+        <h4>Single Agent</h4>
+        <ul class="compare-list">
+          <li>Context grows without bound</li>
+          <li>Auto-compression loses details</li>
+          <li>Serial execution only</li>
+          <li>Regressions between modules</li>
+        </ul>
+      </div>
+      <div class="compare-card good">
+        <h4>Multi-Agent</h4>
+        <ul class="compare-list">
+          <li>Each agent has short, focused context</li>
+          <li>No compression — all details preserved</li>
+          <li>Modules developed in parallel</li>
+          <li>Failures are isolated & restartable</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- QUALITY -->
+<section>
+  <div class="container">
+    <div class="section-label">Code Quality</div>
+    <h2>Quality Gates at Every Level</h2>
+    <p class="section-desc">Tests and static analysis are load-bearing architecture — they enable continued AI development without regression.</p>
+    <div class="pillars fade-in">
+      <div class="pillar" style="--p-accent:var(--s1)"><div class="p-icon">🔍</div><h3>mypy</h3><p>Static type checker. Catches type mismatches before runtime.</p></div>
+      <div class="pillar" style="--p-accent:var(--s2)"><div class="p-icon">⚡</div><h3>ruff</h3><p>Fast linter and formatter. Enforces consistent style automatically.</p></div>
+      <div class="pillar" style="--p-accent:var(--s3)"><div class="p-icon">🧪</div><h3>pytest</h3><p>Unit tests required for every generated line. Tasks don't close until tests pass.</p></div>
+      <div class="pillar" style="--p-accent:var(--s4)"><div class="p-icon">🛡️</div><h3>Regression Safety</h3><p>Tests prevent AI breaking existing features when adding new ones.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="container">
+    <div class="section-label">Outcome</div>
+    <h2>From Zero to NES Emulator in 15 Minutes</h2>
+    <p class="section-desc">A working Famicom/NES emulator running Super Mario Bros, with zero hand-written code.</p>
+    <div class="accordion fade-in">
+      <div class="acc-item open">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">📁</div>File structure matches the design</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">Every module in the detailed design corresponds to exactly one source file and one test file: <code>src/cpu.py</code> ↔ <code>tests/test_cpu.py</code>, etc. Clean, navigable, matches the docs.</div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">✅</div>196 unit tests — all passing</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          mypy passes. ruff passes. 196 unit tests pass. Emulator boots and runs Super Mario Bros.
+          <div class="progress-track"><div class="progress-fill" style="--w:100%"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-size:.8rem;color:var(--muted)"><span>196 / 196 tests</span><span>100%</span></div>
+        </div></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-title"><div class="acc-icon">🔁</div>Continuing development: same workflow</div>
+          <div class="acc-arrow">▼</div>
+        </div>
+        <div class="acc-body"><div class="acc-content">Optimization or new features follow the same loop: re-clarify → update design → update tasks → spawn coding agents. The test suite acts as a safety net against regressions.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRINCIPLES -->
+<section>
+  <div class="container">
+    <div class="section-label">Key Principles</div>
+    <h2>The Mental Model</h2>
+    <p class="section-desc">Distilled rules from the workflow that apply beyond this specific project.</p>
+    <div class="principles fade-in">
+      <div class="principle"><div class="pr-icon">🗣️</div><div><h3>Make AI ask you questions</h3><p>Explicitly instruct AI not to guess. Any ambiguity must be surfaced as a question before generating anything.</p></div></div>
+      <div class="principle"><div class="pr-icon">📁</div><div><h3>Files beat chat history</h3><p>Every decision goes into a file. New chat sessions read the file. Chat history is disposable; files are durable.</p></div></div>
+      <div class="principle"><div class="pr-icon">🔬</div><div><h3>Modules must be independent</h3><p>Design every module to be testable in isolation. This is the single biggest lever for AI code quality.</p></div></div>
+      <div class="principle"><div class="pr-icon">🧪</div><div><h3>Tests are non-negotiable</h3><p>Require tests for every generated line. No exceptions. Tests are the only mechanism that makes AI projects maintainable.</p></div></div>
+      <div class="principle"><div class="pr-icon">🤖</div><div><h3>Humans command only the master</h3><p>Once coding begins, interact with one orchestrator only. Sub-agents execute autonomously. Leverage is in the upfront prompts.</p></div></div>
+      <div class="principle"><div class="pr-icon">📐</div><div><h3>Let AI build the prompts too</h3><p>The complex multi-agent prompt.md is itself AI-generated. Meta-prompting reduces cognitive load and produces consistent results.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<footer style="padding:3rem 2rem;text-align:center;color:var(--muted);font-size:.85rem;line-height:1.7">
+  <p>Summary of <a href="https://www.youtube.com/watch?v=ytT4-lGEf6A" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">this YouTube video</a> by 成軒老王 (Lao Wang)</p>
+  <p style="margin-top:.5rem">FigJam board: <a href="https://www.figma.com/board/RUbRW6oifsFARPung4SSkO/vibe-coding-workflow?node-id=0-1&t=34NUBVHJ7HvKoWOF-1" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">vibe-coding-workflow on Figma</a></p>
+  <p style="margin-top:.5rem;opacity:.5;font-size:.8rem">v2 — Built with Claude Code · 2026</p>
+</footer>
+
+<script>
+// ── Accordion ──
+function toggleAcc(header) {
+  const item = header.closest('.acc-item');
+  const isOpen = item.classList.contains('open');
+  const acc = item.closest('.accordion');
+  if (acc) acc.querySelectorAll('.acc-item.open').forEach(el => el.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+// ── Fade-in on scroll ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      e.target.querySelectorAll('.progress-fill').forEach(b => b.classList.add('animate'));
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// ── Smooth scroll ──
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// ── Draw FigJam Connectors (runs after layout) ──
+function drawDiagramConnectors() {
+  const board = document.getElementById('fjBoard');
+  if (!board) return;
+  const boardRect = board.getBoundingClientRect();
+
+  // 1. Branch SVG: AI Agent → 4 output boxes in Chat 3
+  const agent3 = document.getElementById('chat3agent');
+  const stack3 = document.getElementById('chat3stack');
+  const bsvg   = document.getElementById('branchSvg');
+  if (agent3 && stack3 && bsvg) {
+    const agR  = agent3.getBoundingClientRect();
+    const svgR = bsvg.getBoundingClientRect();
+    const items = stack3.querySelectorAll('.fj-out');
+    const W = svgR.width, H = svgR.height;
+    const srcX = 0;
+    const srcY = agR.top + agR.height / 2 - svgR.top;
+    let paths = '';
+    items.forEach(item => {
+      const iR = item.getBoundingClientRect();
+      const tY = iR.top + iR.height / 2 - svgR.top;
+      paths += `<line x1="${srcX}" y1="${srcY}" x2="${W}" y2="${tY}" stroke="rgba(255,255,255,.65)" stroke-width="2"/>`;
+      paths += `<polygon points="${W-7},${tY-4} ${W-7},${tY+4} ${W},${tY}" fill="rgba(255,255,255,.65)"/>`;
+    });
+    bsvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    bsvg.setAttribute('preserveAspectRatio', 'none');
+    bsvg.innerHTML = paths;
+  }
+
+  // 2. Funnel SVG: 4 outputs in Chat3 → Chat4 top
+  const funnel = document.getElementById('funnel34');
+  const fsvg   = document.getElementById('funnel34svg');
+  const chat4  = document.getElementById('chat4');
+  if (funnel && fsvg && stack3 && chat4) {
+    const fR   = funnel.getBoundingClientRect();
+    const c4R  = chat4.getBoundingClientRect();
+    const W = fR.width, H = fR.height;
+    const items = stack3.querySelectorAll('.fj-out');
+    // target: center of chat4 flow (roughly where AI agent is in chat4)
+    const c4AgEl = chat4.querySelector('.fj-ag');
+    let tX = W * 0.62; // fallback
+    if (c4AgEl) {
+      const c4AgR = c4AgEl.getBoundingClientRect();
+      tX = c4AgR.left + c4AgR.width / 2 - fR.left;
+    }
+    const tY = H;
+    let paths = '';
+    items.forEach(item => {
+      const iR = item.getBoundingClientRect();
+      const sX = iR.left + iR.width / 2 - fR.left;
+      const sY = 0;
+      paths += `<line x1="${sX}" y1="${sY}" x2="${tX}" y2="${tY - 8}" stroke="rgba(255,255,255,.55)" stroke-width="2"/>`;
+    });
+    paths += `<polygon points="${tX-6},${tY-8} ${tX+6},${tY-8} ${tX},${tY}" fill="rgba(255,255,255,.55)"/>`;
+    fsvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    fsvg.setAttribute('preserveAspectRatio', 'none');
+    fsvg.style.width = '100%'; fsvg.style.height = '100%';
+    fsvg.innerHTML = paths;
+  }
+
+  // 3. Align vc1, vc2 connectors to output boxes
+  [
+    { vcId: 'vc1', outId: 'out1' },
+    { vcId: 'vc2', outId: 'out2' },
+  ].forEach(({ vcId, outId }) => {
+    const vc  = document.getElementById(vcId);
+    const out = document.getElementById(outId);
+    if (!vc || !out) return;
+    const vcR  = vc.getBoundingClientRect();
+    const outR = out.getBoundingClientRect();
+    const outCenterX = outR.left + outR.width / 2;
+    const pr = vcR.right - outCenterX;
+    vc.style.paddingRight = Math.max(8, pr) + 'px';
+  });
+
+  // 4. Align vc4 to output4 center
+  const vc4 = document.getElementById('vc4');
+  const out4 = document.getElementById('out4');
+  const chat5 = document.getElementById('chat5');
+  if (vc4 && out4 && chat5) {
+    const vc4R = vc4.getBoundingClientRect();
+    const o4R  = out4.getBoundingClientRect();
+    const o4CX = o4R.left + o4R.width / 2;
+    // vc4 is centered; adjust to out4 center
+    const c5AgEl = chat5.querySelector('.fj-ag');
+    if (c5AgEl) {
+      const c5R = c5AgEl.getBoundingClientRect();
+      const c5CX = c5R.left + c5R.width / 2;
+      // Show connector between out4 center and progressAgent center
+      // For simplicity just keep centered
+    }
+  }
+}
+
+// Run after fonts/layout settle
+if (document.readyState === 'complete') {
+  drawDiagramConnectors();
+} else {
+  window.addEventListener('load', drawDiagramConnectors);
+}
+window.addEventListener('resize', drawDiagramConnectors);
+
+// ── Diagram row highlight on hover ──
+document.querySelectorAll('.fj-row').forEach(row => {
+  row.addEventListener('mouseenter', () => {
+    document.querySelectorAll('.fj-row').forEach(r => r.style.opacity = r === row ? '1' : '0.65');
+  });
+  row.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.fj-row').forEach(r => r.style.opacity = '1');
+  });
+});
+
+// ── Tooltip on node hover ──
+document.querySelectorAll('[title]').forEach(el => {
+  if (!el.closest('.fj-board')) return;
+  el.addEventListener('mouseenter', function(e) {
+    let tip = this._tip;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.className = 'fj-tip';
+      tip.textContent = this.getAttribute('title');
+      this.style.position = 'relative';
+      this.appendChild(tip);
+      this._tip = tip;
+      this.removeAttribute('title');
+    }
+    tip.style.opacity = '1';
+  });
+  el.addEventListener('mouseleave', function() {
+    if (this._tip) this._tip.style.opacity = '0';
+  });
+});
+</script>
+</body>
+</html>

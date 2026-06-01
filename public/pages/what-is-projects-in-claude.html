@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects in the Claude Desktop App — A Summary</title>
+<meta name="description" content="Explains where the Projects sidebar section appears across the Claude desktop app's Chat, Cowork, and Code tabs and how those tabs relate.">
+<meta name="keywords" content="claude-desktop, claude-projects, claude-code, ai-tools">
+<meta name="date" content="2026-06-01">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F6F2EB;
+    --bg-grain: rgba(0,0,0,0.015);
+    --surface: #FFFEFB;
+    --surface-2: #F1ECE2;
+    --text: #1B1916;
+    --text-soft: #4A453E;
+    --muted: #857D71;
+    --border: #E2DBCE;
+    --border-strong: #D2C9B8;
+    --accent: #A8472A;
+    --accent-soft: rgba(168,71,42,0.10);
+    --accent-line: rgba(168,71,42,0.28);
+    --shadow: 0 1px 2px rgba(27,25,22,0.04), 0 8px 28px rgba(27,25,22,0.06);
+    --shadow-lift: 0 2px 6px rgba(27,25,22,0.06), 0 18px 50px rgba(27,25,22,0.10);
+    --topbar-h: 64px;
+    --side-w: 268px;
+  }
+  [data-theme="dark"] {
+    --bg: #100F0D;
+    --bg-grain: rgba(255,255,255,0.012);
+    --surface: #1A1816;
+    --surface-2: #211E1B;
+    --text: #ECE6DC;
+    --text-soft: #C3BBAD;
+    --muted: #8E867A;
+    --border: #2B2825;
+    --border-strong: #3A3631;
+    --accent: #E07A4E;
+    --accent-soft: rgba(224,122,78,0.12);
+    --accent-line: rgba(224,122,78,0.34);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.45);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,0.5), 0 18px 50px rgba(0,0,0,0.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--topbar-h) + 24px); }
+
+  body {
+    font-family: 'Hanken Grotesk', -apple-system, sans-serif;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(circle at 18% 12%, var(--accent-soft), transparent 38%),
+      radial-gradient(circle at 92% 88%, var(--accent-soft), transparent 42%);
+    color: var(--text);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color .4s ease, color .4s ease;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--accent); color: var(--surface); }
+
+  /* ---------- TOP BAR ---------- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(16px, 3vw, 32px);
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    transition: background-color .4s ease, border-color .4s ease;
+  }
+  .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+  .brand-mark {
+    width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px;
+    background: var(--accent); position: relative; box-shadow: var(--shadow);
+  }
+  .brand-mark::before, .brand-mark::after {
+    content: ""; position: absolute; background: var(--surface);
+  }
+  .brand-mark::before { width: 13px; height: 2.4px; top: 13.8px; left: 8.5px; transform: rotate(-24deg); }
+  .brand-mark::after { width: 2.4px; height: 13px; top: 8.5px; left: 13.8px; transform: rotate(-24deg); }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  .brand-text strong {
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px;
+    letter-spacing: -0.01em; white-space: nowrap;
+  }
+  .brand-text span {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav-link {
+    text-decoration: none; color: var(--text-soft); font-size: 13.5px; font-weight: 500;
+    padding: 7px 13px; border-radius: 8px; white-space: nowrap; position: relative;
+    transition: color .2s ease, background-color .2s ease;
+  }
+  .topnav-link:hover { color: var(--text); background: var(--surface-2); }
+  .topnav-link.active { color: var(--accent); font-weight: 600; }
+  .topnav-link.active::after {
+    content: ""; position: absolute; left: 13px; right: 13px; bottom: 2px; height: 2px;
+    border-radius: 2px; background: var(--accent);
+  }
+
+  .top-actions { display: flex; align-items: center; gap: 10px; }
+
+  .theme-toggle {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 14px 7px 11px; color: var(--text-soft);
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em;
+    text-transform: uppercase; transition: all .25s ease;
+  }
+  .theme-toggle:hover { border-color: var(--accent-line); color: var(--text); transform: translateY(-1px); }
+  .theme-toggle svg { width: 15px; height: 15px; }
+  .theme-toggle .lbl { display: inline; }
+
+  .menu-btn {
+    display: none; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 10px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    transition: all .25s ease;
+  }
+  .menu-btn:hover { border-color: var(--accent-line); }
+  .menu-btn svg { width: 19px; height: 19px; }
+
+  /* ---------- LAYOUT ---------- */
+  .layout { display: flex; padding-top: var(--topbar-h); }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar {
+    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; width: var(--side-w);
+    border-right: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 50%, transparent);
+    padding: 30px 20px 40px; overflow-y: auto; z-index: 90;
+    transition: transform .35s cubic-bezier(.4,0,.2,1), background-color .4s ease, border-color .4s ease;
+  }
+  .side-eyebrow {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); padding: 0 12px; margin-bottom: 16px;
+  }
+  .nav-link {
+    display: flex; align-items: baseline; gap: 11px; text-decoration: none;
+    color: var(--text-soft); padding: 9px 12px; border-radius: 9px; font-size: 14.5px;
+    font-weight: 500; position: relative; transition: all .2s ease; margin-bottom: 2px;
+  }
+  .nav-link .num {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted);
+    flex-shrink: 0; transition: color .2s ease;
+  }
+  .nav-link:hover { background: var(--surface-2); color: var(--text); }
+  .nav-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav-link.active .num { color: var(--accent); }
+  .nav-link.active::before {
+    content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--accent);
+  }
+  .side-foot {
+    margin-top: 28px; padding: 16px 12px 0; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); line-height: 1.5;
+  }
+  .side-foot code {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--text-soft); background: var(--surface-2);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 85;
+    opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility .35s ease;
+  }
+  .overlay.show { opacity: 1; visibility: visible; }
+
+  /* ---------- MAIN ---------- */
+  main {
+    margin-left: var(--side-w); flex: 1; min-width: 0;
+    padding: clamp(28px, 5vw, 64px) clamp(20px, 5vw, 76px) 96px;
+    max-width: 920px;
+  }
+
+  .hero { margin-bottom: 60px; }
+  .hero .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 22px;
+    padding: 5px 12px; border: 1px solid var(--accent-line); border-radius: 999px;
+    background: var(--accent-soft);
+  }
+  .hero .kicker .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .hero h1 {
+    font-family: 'Fraunces', serif; font-weight: 600; letter-spacing: -0.02em;
+    font-size: clamp(34px, 5.5vw, 56px); line-height: 1.04; margin-bottom: 20px;
+  }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+  .hero .lede { font-size: clamp(16px, 2vw, 19px); color: var(--text-soft); max-width: 62ch; }
+
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px;
+    padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .chip {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: 0.02em;
+    color: var(--text-soft); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 11px;
+  }
+  .chip b { color: var(--accent); font-weight: 600; }
+
+  section { margin-bottom: 56px; scroll-margin-top: calc(var(--topbar-h) + 24px); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; }
+  .sec-head .idx {
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent);
+    font-weight: 600; padding-top: 4px;
+  }
+  .sec-head h2 {
+    font-family: 'Fraunces', serif; font-weight: 600; letter-spacing: -0.01em;
+    font-size: clamp(22px, 3vw, 30px); line-height: 1.12;
+  }
+  section p { color: var(--text-soft); margin-bottom: 16px; font-size: 15.5px; }
+  section p:last-child { margin-bottom: 0; }
+  strong.k { color: var(--text); font-weight: 600; }
+  .accent-word { color: var(--accent); font-weight: 600; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: clamp(20px, 3vw, 30px); box-shadow: var(--shadow);
+    transition: background-color .4s ease, border-color .4s ease, box-shadow .3s ease;
+  }
+  .card + .card, .card + .note, .note + .card { margin-top: 18px; }
+  .card:hover { box-shadow: var(--shadow-lift); }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 12px 12px 0; padding: 18px 22px;
+  }
+  .note .tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 7px;
+    display: block;
+  }
+  .note p { color: var(--text-soft); margin: 0; font-size: 14.5px; }
+
+  /* mode cards */
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .mode {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 20px; transition: all .28s ease; position: relative; overflow: hidden;
+  }
+  .mode::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+    background: var(--accent); opacity: 0; transition: opacity .28s ease;
+  }
+  .mode:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); border-color: var(--accent-line); }
+  .mode:hover::after { opacity: 1; }
+  .mode h3 {
+    font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; margin-bottom: 4px;
+  }
+  .mode .role {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: block;
+  }
+  .mode p { font-size: 13.5px; color: var(--text-soft); margin: 0; }
+
+  /* projects verdict table */
+  .verdict { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .vcard {
+    border-radius: 14px; padding: 20px; border: 1px solid var(--border);
+    background: var(--surface); transition: all .28s ease;
+  }
+  .vcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  .vcard .vhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .vcard .vname { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; }
+  .badge {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em;
+    padding: 3px 9px; border-radius: 999px; font-weight: 600; text-transform: uppercase;
+  }
+  .badge.yes { color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-line); }
+  .badge.no {
+    color: var(--muted); background: var(--surface-2); border: 1px solid var(--border-strong);
+  }
+  .vcard p { font-size: 13px; color: var(--text-soft); margin: 0; }
+
+  ul.clean { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  ul.clean li {
+    position: relative; padding-left: 26px; color: var(--text-soft); font-size: 15px;
+  }
+  ul.clean li::before {
+    content: ""; position: absolute; left: 4px; top: 9px; width: 7px; height: 7px;
+    border-radius: 2px; background: var(--accent); transform: rotate(45deg);
+  }
+  ul.clean li b { color: var(--text); font-weight: 600; }
+
+  .corrections { display: flex; flex-direction: column; gap: 14px; }
+  .corr {
+    display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 22px; box-shadow: var(--shadow);
+  }
+  .corr .step {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;
+    color: var(--surface); background: var(--accent); width: 30px; height: 30px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .corr h4 { font-size: 15.5px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .corr p { font-size: 14px; margin: 0; }
+
+  footer {
+    margin-top: 72px; padding-top: 26px; border-top: 1px solid var(--border);
+    font-size: 12.5px; color: var(--muted); line-height: 1.6;
+  }
+  footer .src {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    display: block; margin-top: 8px;
+  }
+
+  /* reveal animation */
+  .reveal { opacity: 0; transform: translateY(16px); animation: rise .7s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 1023px) {
+    .menu-btn { display: flex; }
+    .topnav { display: none; }
+    .sidebar { transform: translateX(-100%); box-shadow: var(--shadow-lift); background: var(--surface); }
+    .sidebar.open { transform: translateX(0); }
+    main { margin-left: 0; max-width: 100%; }
+    .modes, .verdict { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 660px) {
+    :root { --topbar-h: 58px; }
+    .theme-toggle .lbl { display: none; }
+    .theme-toggle { padding: 8px; }
+    .modes, .verdict { grid-template-columns: 1fr; }
+    .meta-row .chip { font-size: 10.5px; }
+    .corr { grid-template-columns: 1fr; gap: 10px; }
+    .brand-text span { display: none; }
+    main { padding-left: 18px; padding-right: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="brand-mark"></div>
+    <div class="brand-text">
+      <strong>Projects in Claude Desktop</strong>
+      <span>Chat · Cowork · Code</span>
+    </div>
+  </div>
+  <nav class="topnav" id="topnav">
+    <a class="topnav-link" href="#overview">Overview</a>
+    <a class="topnav-link" href="#modes">Tabs</a>
+    <a class="topnav-link" href="#projects">Projects</a>
+    <a class="topnav-link" href="#relate">Relate</a>
+    <a class="topnav-link" href="#takeaways">Takeaways</a>
+  </nav>
+  <div class="top-actions">
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <span id="themeIcon"></span>
+      <span class="lbl" id="themeLabel">Dark</span>
+    </button>
+  </div>
+</header>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-eyebrow">Contents</div>
+    <nav id="nav">
+      <a class="nav-link" href="#overview"><span class="num">00</span>Overview</a>
+      <a class="nav-link" href="#question"><span class="num">01</span>The question</a>
+      <a class="nav-link" href="#modes"><span class="num">02</span>The three tabs</a>
+      <a class="nav-link" href="#projects"><span class="num">03</span>Where Projects appears</a>
+      <a class="nav-link" href="#corrections"><span class="num">04</span>How we got there</a>
+      <a class="nav-link" href="#relate"><span class="num">05</span>How they relate</a>
+      <a class="nav-link" href="#caveats"><span class="num">06</span>Caveats</a>
+      <a class="nav-link" href="#takeaways"><span class="num">07</span>Takeaways</a>
+    </nav>
+    <div class="side-foot">
+      Sources verified against <code>claude.com</code> tutorials and <code>code.claude.com</code> docs.
+    </div>
+  </aside>
+
+  <main>
+    <div class="hero reveal">
+      <span class="kicker"><span class="dot"></span>Conversation summary</span>
+      <h1>What “<em>Projects</em>” means across the Claude desktop app</h1>
+      <p class="lede">A walk through the question, an initial answer, two rounds of verification, and the corrected conclusion about how Projects appears in Chat, Cowork, and Code.</p>
+      <div class="meta-row">
+        <span class="chip"><b>Topic</b> &nbsp;Desktop app structure</span>
+        <span class="chip"><b>Tabs</b> &nbsp;Chat · Cowork · Code</span>
+        <span class="chip"><b>Verdict</b> &nbsp;Projects = Chat + Cowork</span>
+      </div>
+    </div>
+
+    <section id="overview">
+      <div class="sec-head"><span class="idx">00</span><h2>Overview</h2></div>
+      <p>The Claude desktop app presents three tabs — <strong class="k">Chat</strong>, <strong class="k">Cowork</strong>, and <strong class="k">Code</strong>. The conversation set out to pin down what the “Projects” item in the sidebar is, and how it connects to those tabs. Along the way, an early answer was corrected twice through verification against the documentation.</p>
+      <div class="note">
+        <span class="tag">Bottom line</span>
+        <p>“Projects” shows up as a sidebar section in <span class="accent-word">Chat</span> and <span class="accent-word">Cowork</span> — but <strong class="k">not</strong> in Code. The Chat and Cowork versions share a name but are distinct systems.</p>
+      </div>
+    </section>
+
+    <section id="question">
+      <div class="sec-head"><span class="idx">01</span><h2>The question</h2></div>
+      <p>The opening question was simple: <em>What is the “Projects” entry in the desktop sidebar, and how does it relate to the Code section that sits alongside Chat and Cowork?</em></p>
+      <p>That turned out to hinge on an ambiguity — the word “project” is reused across surfaces with different meanings, so the honest answer depends on which tab's sidebar you're looking at.</p>
+    </section>
+
+    <section id="modes">
+      <div class="sec-head"><span class="idx">02</span><h2>The three tabs</h2></div>
+      <p>All three run inside one app, but each is built for a different kind of work. Cowork and Code share the same underlying engine; Chat mirrors claude.ai.</p>
+      <div class="modes">
+        <div class="mode">
+          <h3>Chat</h3>
+          <span class="role">Quick exchanges</span>
+          <p>The same Claude as claude.ai, plus native desktop extras: quick entry, screenshots, dictation, connectors.</p>
+        </div>
+        <div class="mode">
+          <h3>Cowork</h3>
+          <span class="role">Sustained work</span>
+          <p>Research, analysis, and finished deliverables from many sources. Reads shared folders, runs scheduled tasks, spins up sub-agents.</p>
+        </div>
+        <div class="mode">
+          <h3>Code</h3>
+          <span class="role">Building software</span>
+          <p>A development environment powered by Claude Code: full file-system access, terminal, visual diffs, and git.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="projects">
+      <div class="sec-head"><span class="idx">03</span><h2>Where “Projects” appears</h2></div>
+      <p>This is the core finding. A navigable <strong class="k">Projects</strong> section lives in two tabs, while Code has no such section at all.</p>
+      <div class="verdict">
+        <div class="vcard">
+          <div class="vhead"><span class="vname">Chat</span><span class="badge yes">Yes</span></div>
+          <p>Sidebar shows recent chats <em>and</em> Projects, exactly like claude.ai — workspaces that group chats with shared context.</p>
+        </div>
+        <div class="vcard">
+          <div class="vhead"><span class="vname">Cowork</span><span class="badge yes">Yes</span></div>
+          <p>Its own Projects: group tasks with shared files, instructions, and memory so context carries between sessions.</p>
+        </div>
+        <div class="vcard">
+          <div class="vhead"><span class="vname">Code</span><span class="badge no">No</span></div>
+          <p>The sidebar lists <em>sessions</em>. “Project” is only a per-session folder/repo attribute you can filter or group by.</p>
+        </div>
+      </div>
+      <div class="note" style="margin-top:18px;">
+        <span class="tag">Same word, different systems</span>
+        <p>Chat's Projects (claude.ai-style) and Cowork's Projects (files + instructions + memory) are separate features that happen to share a name.</p>
+      </div>
+    </section>
+
+    <section id="corrections">
+      <div class="sec-head"><span class="idx">04</span><h2>How we got there</h2></div>
+      <p>The final answer emerged through correction — a useful reminder to verify product claims against current docs rather than memory.</p>
+      <div class="corrections">
+        <div class="corr">
+          <div class="step">1</div>
+          <div>
+            <h4>Initial answer overreached</h4>
+            <p>It implied Code had a “Projects” concept comparable to the sidebar section. That framing was misleading.</p>
+          </div>
+        </div>
+        <div class="corr">
+          <div class="step">2</div>
+          <div>
+            <h4>Correction: Code has no Projects section</h4>
+            <p>Verified in the Code docs — the sidebar lists sessions; “project” is just a session's folder/repo, usable as a filter or group-by dimension.</p>
+          </div>
+        </div>
+        <div class="corr">
+          <div class="step">3</div>
+          <div>
+            <h4>Verification: Chat does show Projects</h4>
+            <p>Confirmed that the Chat tab mirrors claude.ai, whose sidebar includes Projects alongside recent chats.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="relate">
+      <div class="sec-head"><span class="idx">05</span><h2>How the tabs relate</h2></div>
+      <div class="card">
+        <ul class="clean">
+          <li><b>Shared engine.</b> Cowork and Code both run on Claude Code underneath — local, able to work independently, spin up sub-agents, and sustain long tasks.</li>
+          <li><b>Different scope.</b> Cowork runs in a contained workspace limited to folders you share; Code runs directly in your project with full file-system, terminal, and dev-tool access.</li>
+          <li><b>Chat is the light surface.</b> It's the claude.ai experience for quick back-and-forth, enhanced by desktop-native features.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="caveats">
+      <div class="sec-head"><span class="idx">06</span><h2>Caveats</h2></div>
+      <div class="card">
+        <ul class="clean">
+          <li><b>Rollout.</b> The Code tab is still rolling out and may not appear for every user yet.</li>
+          <li><b>Plan requirements.</b> Cowork and the Code tab require a Pro, Max, Team, or Enterprise subscription.</li>
+          <li><b>Verify, don't assume.</b> Product features shift; conclusions here were checked against the official tutorials and Code docs.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="takeaways">
+      <div class="sec-head"><span class="idx">07</span><h2>Takeaways</h2></div>
+      <div class="note">
+        <span class="tag">If you see “Projects” in the sidebar</span>
+        <p>You're in <span class="accent-word">Chat</span> or <span class="accent-word">Cowork</span> — never Code. Check which tab is active to know which Projects system you're working with.</p>
+      </div>
+      <div class="card" style="margin-top:18px;">
+        <ul class="clean">
+          <li><b>Chat Projects</b> — claude.ai-style workspaces for grouping chats with shared context.</li>
+          <li><b>Cowork Projects</b> — task groupings with their own files, instructions, and persistent memory.</li>
+          <li><b>Code</b> — think in <em>sessions</em>, not projects; use the project filter to organize the session list.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>
+      A summary of one conversation about the Claude desktop app's structure.
+      <span class="src">Verified against claude.com/resources/tutorials and code.claude.com/docs — accurate as of the conversation; features may change.</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+  // ----- Theme toggle (in-memory; respects system preference) -----
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeLabel = document.getElementById('themeLabel');
+
+  const sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg>';
+  const moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+
+  function applyTheme(mode) {
+    root.setAttribute('data-theme', mode);
+    if (mode === 'dark') { themeIcon.innerHTML = sun; themeLabel.textContent = 'Light'; }
+    else { themeIcon.innerHTML = moon; themeLabel.textContent = 'Dark'; }
+  }
+  let current = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  applyTheme(current);
+  themeToggle.addEventListener('click', () => {
+    current = (current === 'dark') ? 'light' : 'dark';
+    applyTheme(current);
+  });
+
+  // ----- Mobile sidebar drawer -----
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  const menuBtn = document.getElementById('menuBtn');
+  function openNav() { sidebar.classList.add('open'); overlay.classList.add('show'); }
+  function closeNav() { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+  menuBtn.addEventListener('click', () => sidebar.classList.contains('open') ? closeNav() : openNav());
+  overlay.addEventListener('click', closeNav);
+
+  // ----- Scroll spy + close drawer on click (side + top nav) -----
+  const links = Array.from(document.querySelectorAll('.nav-link, .topnav-link'));
+  const map = {};
+  links.forEach(l => {
+    const id = l.getAttribute('href').slice(1);
+    (map[id] = map[id] || []).push(l);
+  });
+  links.forEach(l => l.addEventListener('click', () => { if (window.innerWidth < 1024) closeNav(); }));
+
+  const sections = Array.from(document.querySelectorAll('section[id]'));
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        (map[e.target.id] || []).forEach(l => l.classList.add('active'));
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+  sections.forEach(s => spy.observe(s));
+
+  // ----- Staggered reveal -----
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        e.target.classList.add('reveal');
+        e.target.style.animationDelay = (i * 0.04) + 's';
+        revObs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('section').forEach(s => revObs.observe(s));
+</script>
+</body>
+</html>

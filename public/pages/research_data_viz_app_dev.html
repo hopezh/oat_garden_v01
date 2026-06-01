@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Output: Dash + Plotly Data Viz App</title>
+<meta name="description" content="Research guide for building a multi-page interactive Dash + Plotly data viz app with 3D/geo charts, Claude.ai integration, MCP servers, and dev tooling.">
+<meta name="keywords" content="data-visualization, plotly, dash, mcp, anthropic-sdk, claude-code">
+<meta name="date" content="2026-05-27">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" id="hljs-light" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<link rel="stylesheet" id="hljs-dark" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" disabled>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root {
+  --bg:            #ffffff;
+  --bg-subtle:     #f9fafb;
+  --bg-hover:      #f3f4f6;
+  --border:        #e5e7eb;
+  --border-strong: #d1d5db;
+  --text:          #111827;
+  --text-muted:    #6b7280;
+  --text-light:    #9ca3af;
+  --accent:        #4f6ef7;
+  --accent-light:  #eef1fe;
+  --accent-hover:  #3b58e8;
+  --warn-bg:#fffbeb;    --warn-border:#d97706;  --warn-text:#92400e;
+  --danger-bg:#fef2f2;  --danger-border:#dc2626;--danger-text:#991b1b;
+  --success-bg:#f0fdf4; --success-border:#16a34a;--success-text:#166534;
+  --info-bg:#eef1fe;    --info-border:#4f6ef7;  --info-text:#3b58e8;
+  /* code always dark */
+  --code-bg:#0f1117;
+  /* sidebar always dark */
+  --sb-bg:#0f1117;
+  --sb-label:#374151;
+  --sb-text:#6b7280;
+  --sb-hover:rgba(255,255,255,.05);
+  --sb-active-bg:rgba(79,110,247,.12);
+  --sb-active-text:#a5b4fc;
+  --sb-active-border:#4f6ef7;
+  --sidebar-w:248px;
+  --header-h:52px;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  --r:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+}
+[data-theme="dark"] {
+  --bg:#0d1117;         --bg-subtle:#161b22;    --bg-hover:#1c2128;
+  --border:#21262d;     --border-strong:#30363d;
+  --text:#e6edf3;       --text-muted:#7d8590;   --text-light:#484f58;
+  --accent:#818cf8;     --accent-light:#131829; --accent-hover:#a5b4fc;
+  --warn-bg:#1f1800;    --warn-border:#9e6a03;  --warn-text:#e3b341;
+  --danger-bg:#1a0000;  --danger-border:#8b1a1a;--danger-text:#ff7b7b;
+  --success-bg:#081f0e; --success-border:#238636;--success-text:#56d364;
+  --info-bg:#0d1228;    --info-border:#818cf8;  --info-text:#a5b4fc;
+  --code-bg:#0d1117;
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+}
+
+/* ── RESET ───────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);font-size:13.5px;line-height:1.65;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+/* ── TOPBAR ──────────────────────────────────────────────── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:var(--header-h);
+  background:var(--bg);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px 0 calc(var(--sidebar-w) + 24px);
+  gap:10px;
+  box-shadow:0 1px 0 var(--border);
+  transition: padding-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body.sidebar-collapsed .topbar {
+  padding-left: 20px;
+}
+.topbar-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.topbar-dot{color:var(--border-strong)}
+.topbar-meta{font-size:12px;color:var(--text-muted);margin-left:auto}
+.theme-toggle{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border-strong);background:transparent;
+  color:var(--text-muted);font-size:11.5px;font-family:var(--font);font-weight:500;
+  transition:all .15s;flex-shrink:0;
+}
+.theme-toggle:hover{background:var(--bg-hover);color:var(--text);border-color:var(--text-muted)}
+.theme-toggle .ti{font-size:12px;line-height:1}
+
+/* ── PROGRESS ────────────────────────────────────────────── */
+.progress-bar{position:fixed;top:var(--header-h);left:0;right:0;z-index:199;height:2px;background:transparent}
+.progress-fill{height:100%;background:var(--accent);width:0%;transition:width .08s linear}
+
+/* ── BADGE ───────────────────────────────────────────────── */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:2px 7px;border-radius:20px;font-size:10.5px;font-weight:600;
+  letter-spacing:.02em;white-space:nowrap;
+}
+.badge-blue{background:var(--accent-light);color:var(--accent)}
+.badge-green{background:var(--success-bg);color:var(--success-text)}
+.badge-red{background:var(--danger-bg);color:var(--danger-text)}
+.badge-amber{background:var(--warn-bg);color:var(--warn-text)}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar{
+  position:fixed;top:var(--header-h);left:0;bottom:0;
+  width:var(--sidebar-w);
+  background:var(--sb-bg);
+  border-right:1px solid rgba(255,255,255,.05);
+  overflow-y:auto;padding:16px 0 32px;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+}
+body.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+
+/* ── SIDEBAR ACCORDION GROUPS ───────────────────────────── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 12px;
+}
+.sidebar-action-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sb-text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+.sidebar-action-btn:hover {
+  background: var(--sb-hover);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.nav-group{margin-bottom:4px}
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+  border-radius: 4px;
+  margin: 0 8px;
+}
+.nav-group-header:hover {
+  background: var(--sb-hover);
+}
+.nav-group-label{
+  display:block;
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sb-label);
+  transition: color 0.12s;
+}
+.nav-group-header:hover .nav-group-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+.nav-group-chevron {
+  font-size: 8px;
+  color: var(--sb-label);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.12s;
+}
+.nav-group-header:hover .nav-group-chevron {
+  color: rgba(255, 255, 255, 0.8);
+}
+.nav-group.open .nav-group-chevron {
+  transform: rotate(180deg);
+}
+.nav-group-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.nav-group.open .nav-group-wrapper {
+  grid-template-rows: 1fr;
+}
+.nav-group-content {
+  min-height: 0;
+}
+.nav-link{
+  display:block;padding:5px 16px 5px 24px;
+  font-size:12px;font-weight:400;color:var(--sb-text);
+  text-decoration:none;cursor:pointer;
+  border-left:2px solid transparent;
+  transition:color .12s,background .12s,border-color .12s;
+}
+.nav-link:hover{background:var(--sb-hover);color:rgba(255,255,255,.8)}
+.nav-link.active{
+  color:var(--sb-active-text);background:var(--sb-active-bg);
+  border-left-color:var(--sb-active-border);font-weight:500;
+}
+.nav-link-h{padding-left:16px;font-weight:600;font-size:12px}
+
+/* ── MAIN ────────────────────────────────────────────────── */
+.main{
+  margin-left:var(--sidebar-w);margin-top:var(--header-h);
+  padding:44px 52px 100px;max-width:900px;
+  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body.sidebar-collapsed .main {
+  margin-left: 0;
+}
+
+/* ── FLOATING RESTORE TAB ────────────────────────────────── */
+.restore-tab {
+  position: fixed;
+  left: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--sb-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  border-radius: 0 var(--r) var(--r) 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--sb-text);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, color 0.2s;
+  z-index: 150;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+}
+.restore-tab:hover {
+  background: var(--accent);
+  color: #fff;
+}
+body.sidebar-collapsed .restore-tab {
+  left: 0;
+}
+
+/* ── TOPBAR HAMBURGER ────────────────────────────────────── */
+.hamburger-menu {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: var(--text);
+  cursor: pointer;
+  margin-right: 12px;
+  padding: 4px;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+}
+.hamburger-menu:hover {
+  background: var(--bg-hover);
+}
+
+/* ── SIDEBAR OVERLAY ─────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 250;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+body.mobile-sidebar-open .sidebar-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── PAGE HEADER ─────────────────────────────────────────── */
+.page-header{margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.page-header h1{font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.3}
+.page-header .subtitle{margin-top:5px;font-size:13px;color:var(--text-muted)}
+.meta-row{margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* ── CHECKLIST ───────────────────────────────────────────── */
+.checklist{list-style:none;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.checklist li{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;font-size:13px;border-bottom:1px solid var(--border)}
+.checklist li:last-child{border-bottom:none}
+.check-icon{flex-shrink:0;color:var(--success-text);font-size:14px;margin-top:1px}
+
+/* ── SECTION ─────────────────────────────────────────────── */
+section{margin-bottom:44px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.section-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:6px;
+  background:var(--accent);color:#fff;
+  font-size:11.5px;font-weight:700;flex-shrink:0;letter-spacing:-.01em;
+}
+section h2{font-size:16px;font-weight:700;letter-spacing:-.01em}
+
+/* ── SUBSECTION ──────────────────────────────────────────── */
+.subsection{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  margin-bottom:10px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.subsection-toggle{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 16px;cursor:pointer;user-select:none;
+  transition:background .1s;
+}
+.subsection-toggle:hover{background:var(--bg-subtle)}
+.subsection-toggle h3{font-size:13px;font-weight:600;letter-spacing:-.01em;flex:1}
+.chevron{
+  flex-shrink:0;width:16px;height:16px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text-light);font-size:10px;
+  transition:transform .2s;
+}
+.subsection.open .chevron{transform:rotate(180deg)}
+.subsection-body{
+  display:none;padding:0 16px 16px;
+  border-top:1px solid var(--border);
+}
+.subsection.open .subsection-body{display:block}
+
+/* ── INFO TABLE ──────────────────────────────────────────── */
+.info-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+.info-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.info-table tr:last-child td{border-bottom:none}
+.info-table td:first-child{
+  font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-light);white-space:nowrap;width:110px;
+  background:var(--bg-subtle);
+}
+
+/* ── DATA TABLE ──────────────────────────────────────────── */
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0}
+.data-table th{
+  text-align:left;padding:7px 10px;
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-muted);background:var(--bg-subtle);
+  border-bottom:1px solid var(--border-strong);
+}
+.data-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg-subtle)}
+
+/* ── CALLOUTS ────────────────────────────────────────────── */
+.callout{
+  border-radius:var(--r);padding:11px 14px;
+  margin:12px 0;font-size:12.5px;line-height:1.6;
+  border-left:3px solid;
+}
+.callout-warn  {background:var(--warn-bg);   border-color:var(--warn-border);   color:var(--warn-text)}
+.callout-danger{background:var(--danger-bg); border-color:var(--danger-border); color:var(--danger-text)}
+.callout-success{background:var(--success-bg);border-color:var(--success-border);color:var(--success-text)}
+.callout-info  {background:var(--info-bg);   border-color:var(--info-border);   color:var(--info-text)}
+.callout strong{font-weight:700}
+
+/* ── FINDINGS ────────────────────────────────────────────── */
+.findings{margin:12px 0}
+.findings-label{
+  font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-light);margin-bottom:6px;display:block;
+}
+.findings ul{list-style:none;padding:0;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.findings ul li{
+  padding:6px 10px 6px 22px;font-size:12.5px;position:relative;
+  border-bottom:1px solid var(--border);
+}
+.findings ul li:last-child{border-bottom:none}
+.findings ul li::before{content:"›";position:absolute;left:8px;color:var(--accent);font-weight:700}
+
+/* ── CODE ────────────────────────────────────────────────── */
+.code-wrap{position:relative;margin:12px 0}
+.code-wrap pre{
+  background:var(--code-bg);border:1px solid rgba(255,255,255,.06);
+  border-radius:var(--r);padding:14px 16px;
+  overflow-x:auto;font-size:12px;line-height:1.6;
+}
+.code-wrap code{font-family:var(--mono)}
+.copy-btn{
+  position:absolute;top:8px;right:8px;
+  padding:3px 8px;font-size:10.5px;font-weight:600;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:4px;cursor:pointer;color:rgba(255,255,255,.6);
+  transition:all .15s;font-family:var(--font);
+}
+.copy-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.copy-btn.copied{background:rgba(22,163,74,.2);color:#56d364;border-color:rgba(22,163,74,.3)}
+code:not(pre code){
+  font-family:var(--mono);font-size:11.5px;
+  background:var(--bg-subtle);border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;color:var(--text);
+}
+
+/* ── LINKS ───────────────────────────────────────────────── */
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── SUB-LABEL ───────────────────────────────────────────── */
+.sub-label{
+  font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--text-light);margin:14px 0 6px;display:block;
+}
+
+/* ── STACK GRID ──────────────────────────────────────────── */
+.stack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin:14px 0}
+.stack-card{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:13px 14px;background:var(--bg);
+  box-shadow:var(--shadow);
+}
+.card-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);margin-bottom:3px}
+.card-value{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.card-note{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+/* ── SKILL TIER HEADER ───────────────────────────────────── */
+.tier-label{
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-light);padding:10px 0 4px;border-bottom:1px solid var(--border);
+  margin-bottom:2px;
+}
+
+/* ── SOURCES ─────────────────────────────────────────────── */
+.sources-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 20px;margin:10px 0}
+.sources-grid a{font-size:12px;display:block;padding:5px 0;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── MISC ────────────────────────────────────────────────── */
+hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+.dep{color:var(--danger-text);text-decoration:line-through;opacity:.75}
+.repl{color:var(--success-text);font-weight:600}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media(max-width: 1023px){
+  .hamburger-menu {
+    display: inline-flex;
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 300;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  body.mobile-sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+  .topbar {
+    padding-left: 20px;
+  }
+  .main {
+    margin-left: 0;
+    padding: 24px 18px 60px;
+  }
+  .sources-grid {
+    grid-template-columns: 1fr;
+  }
+  .stack-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media(max-width: 768px){
+  .sources-grid{grid-template-columns:1fr}
+  .stack-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <button class="hamburger-menu" id="hamburgerMenuBtn" aria-label="Toggle Menu">☰</button>
+  <span class="topbar-title">Research Output</span>
+  <span class="topbar-dot">·</span>
+  <span class="badge badge-blue">Dash + Plotly.py + Plotly.js</span>
+  <span class="badge badge-green">2026-05-27</span>
+  <span class="topbar-meta">Official Anthropic &amp; Plotly sources</span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <span class="ti" id="themeIcon">☽</span>
+    <span id="themeLabel">Dark</span>
+  </button>
+</header>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="restore-tab" id="restoreTab" title="Restore Sidebar">❯</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <button class="sidebar-action-btn" id="globalToggleBtn" title="Expand/Collapse All Groups">↕</button>
+    <button class="sidebar-action-btn sidebar-minimize-btn" id="minimizeBtn" title="Minimize Sidebar">◂</button>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Overview</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link nav-link-h" data-target="overview">Summary &amp; Checklist</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Area 1 — Skills</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link" data-target="s1-1">1.1 Multi-Page Architecture</a>
+        <a class="nav-link" data-target="s1-2">1.2 3D Visualization</a>
+        <a class="nav-link" data-target="s1-3">1.3 Geo / Map</a>
+        <a class="nav-link" data-target="s1-4">1.4 Plotly.js &amp; Components</a>
+        <a class="nav-link" data-target="s1-5">1.5 Callbacks</a>
+        <a class="nav-link" data-target="s1-6">1.6 Claude.ai Integration</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Area 2 — MCP &amp; Skills</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link" data-target="s2-1">2.1 Claude Code MCP Config</a>
+        <a class="nav-link" data-target="s2-2">2.2 Official MCP Servers</a>
+        <a class="nav-link" data-target="s2-3">2.3 Community MCP Servers</a>
+        <a class="nav-link" data-target="s2-4">2.4 Built-in Skills</a>
+        <a class="nav-link" data-target="s2-5">2.5 Anthropic Data Viz Skills</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Area 3 — Boilerplates</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link" data-target="s3-1">3.1 Multi-Page Templates</a>
+        <a class="nav-link" data-target="s3-2">3.2 3D Templates</a>
+        <a class="nav-link" data-target="s3-3">3.3 Geo Templates</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Area 4 — Dev Tooling</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link" data-target="s4-1">4.1 Local Development</a>
+        <a class="nav-link" data-target="s4-2">4.2 Testing</a>
+        <a class="nav-link" data-target="s4-3">4.3 Linting &amp; Formatting</a>
+        <a class="nav-link" data-target="s4-4">4.4 Deployment</a>
+        <a class="nav-link" data-target="s4-5">4.5 SDK &amp; Tools</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group open">
+    <div class="nav-group-header" onclick="toggleNavGroup(this)">
+      <span class="nav-group-label">Reference</span>
+      <span class="nav-group-chevron">▼</span>
+    </div>
+    <div class="nav-group-wrapper">
+      <div class="nav-group-content">
+        <a class="nav-link nav-link-h" data-target="summary">Recommendations</a>
+        <a class="nav-link nav-link-h" data-target="sources">Sources</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header" id="overview">
+    <h1>Research Output: Multi-Page Interactive Data Visualization App</h1>
+    <p class="subtitle">Ecosystem: Dash + Plotly.py + Plotly.js &nbsp;·&nbsp; Claude.ai Integration</p>
+    <div class="meta-row">
+      <span class="badge badge-blue">Research: 2026-05-27</span>
+      <span class="badge badge-green">Sources verified</span>
+      <span class="badge badge-blue">Dash 4.1.0</span>
+      <span class="badge badge-blue">Plotly.py 6.7.0</span>
+      <span class="badge badge-blue">anthropic 0.104.1</span>
+    </div>
+  </div>
+
+  <!-- CHECKLIST -->
+  <section>
+    <ul class="checklist">
+      <li><span class="check-icon">✓</span> Core skills for multi-page + 3D + geo identified from official Plotly/Dash docs</li>
+      <li><span class="check-icon">✓</span> Relevant MCP servers and agent skills listed with install instructions from current Anthropic docs</li>
+      <li><span class="check-icon">✓</span> Working boilerplate identified per target (multi-page, AI integration, custom components)</li>
+      <li><span class="check-icon">✓</span> Dev tooling chain (local dev → test → deploy) documented with official sources</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <!-- ═══ AREA 1 ═══ -->
+  <section id="skills">
+    <div class="section-header">
+      <span class="section-num">1</span>
+      <h2>Skills</h2>
+    </div>
+
+    <!-- 1.1 -->
+    <div class="subsection open" id="s1-1">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.1 &nbsp;Multi-Page App Architecture (Dash Pages API)</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com/urls" target="_blank">dash.plotly.com/urls</a> — official, versioned</td></tr>
+          <tr><td>Version</td><td>Pages API introduced in <strong>Dash 2.5</strong>; current stable: <strong>Dash 4.1.0</strong> (2026-03-23)</td></tr>
+          <tr><td>Caveats</td><td>None — Pages API is mature and well-documented</td></tr>
+          <tr><td>Next step</td><td>Scaffold a <code>/pages</code> directory structure in the project</td></tr>
+        </table>
+        <div class="findings">
+          <span class="findings-label">Key findings</span>
+          <ul>
+            <li>Pages are <code>.py</code> files in a <code>/pages</code> directory; each calls <code>dash.register_page(__name__)</code> and defines a <code>layout</code> variable or function</li>
+            <li>Main <code>app.py</code> sets <code>app = Dash(__name__, use_pages=True)</code> and places <code>dash.page_container</code> in the layout</li>
+            <li>Routing auto-generated from module names (e.g. <code>analytics.py</code> → <code>/analytics</code>); override with <code>path='/'</code></li>
+            <li>Dynamic URL segments: <code>path_template="/report/&lt;report_id&gt;"</code> passes variables to the layout function</li>
+            <li>All pages available in <code>dash.page_registry</code> (an <code>OrderedDict</code>)</li>
+            <li>Redirects via <code>redirect_from=["/old-path"]</code>; custom 404 via <code>not_found_404.py</code> in <code>/pages</code></li>
+            <li>Page ordering: use the <code>order</code> parameter; unordered pages sort alphabetically</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.2 -->
+    <div class="subsection open" id="s1-2">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.2 &nbsp;Plotly.py — 3D Visualization</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://plotly.com/python/3d-charts/" target="_blank">plotly.com/python/3d-charts/</a> — official</td></tr>
+          <tr><td>Version</td><td><strong>Plotly.py 6.7.0</strong> (released 2026-04-09); Python ≥3.8</td></tr>
+          <tr><td>Caveats</td><td>None — all three trace types are stable and fully documented</td></tr>
+          <tr><td>Next step</td><td>Use <code>px.scatter_3d</code> for quick prototyping; graduate to <code>go.*</code> for fine-grained control</td></tr>
+        </table>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Trace type</th><th>Use case</th><th>Docs</th></tr></thead>
+          <tbody>
+            <tr><td><code>go.Surface</code></td><td>3D surface from a Z matrix</td><td><a href="https://plotly.com/python/3d-surface-plots/" target="_blank">3d-surface-plots</a></td></tr>
+            <tr><td><code>go.Scatter3d</code></td><td>3D scatter of individual points</td><td><a href="https://plotly.com/python/3d-scatter-plots/" target="_blank">3d-scatter-plots</a></td></tr>
+            <tr><td><code>go.Mesh3d</code></td><td>3D mesh / triangulated surface</td><td><a href="https://plotly.com/python/3d-mesh/" target="_blank">3d-mesh</a></td></tr>
+          </tbody>
+        </table>
+        <div class="findings">
+          <span class="findings-label">Additional notes</span>
+          <ul>
+            <li>High-level <code>px.scatter_3d</code> wraps <code>go.Scatter3d</code> for quick use</li>
+            <li>Full API ref: <a href="https://plotly.com/python-api-reference/generated/plotly.graph_objects.Scatter3d.html" target="_blank">go.Scatter3d</a> · <a href="https://plotly.com/python-api-reference/generated/plotly.graph_objects.Mesh3d" target="_blank">go.Mesh3d</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.3 -->
+    <div class="subsection open" id="s1-3">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.3 &nbsp;Plotly.py — Geo / Map Visualization</h3>
+        <span class="badge badge-red" style="margin-left:auto;margin-right:6px;flex-shrink:0">Deprecation</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <div class="callout callout-danger">
+          <strong>Mapbox traces are deprecated.</strong> Do not use <code>*mapbox</code> types in new projects. Migrate to the <code>*map</code> equivalents (introduced Plotly.py 5.24.0). No Mapbox API key required.
+        </div>
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://plotly.com/python/mapbox-to-maplibre/" target="_blank">plotly.com/python/mapbox-to-maplibre/</a> — official migration guide</td></tr>
+          <tr><td>Version</td><td>New MapLibre-based types in <strong>Plotly.py 5.24.0</strong>; current: 6.7.0</td></tr>
+          <tr><td>Caveats</td><td>Avoid all <code>*mapbox</code> examples online — deprecated API</td></tr>
+          <tr><td>Next step</td><td>Use new <code>*map</code> trace types; no Mapbox API key needed</td></tr>
+        </table>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Deprecated — avoid</th><th>Current replacement</th></tr></thead>
+          <tbody>
+            <tr><td class="dep"><code>px.scatter_mapbox</code></td><td class="repl"><code>px.scatter_map</code></td></tr>
+            <tr><td class="dep"><code>px.line_mapbox</code></td><td class="repl"><code>px.line_map</code></td></tr>
+            <tr><td class="dep"><code>px.choropleth_mapbox</code></td><td class="repl"><code>px.choropleth_map</code></td></tr>
+            <tr><td class="dep"><code>px.density_mapbox</code></td><td class="repl"><code>px.density_map</code></td></tr>
+            <tr><td class="dep"><code>go.Scattermapbox</code></td><td class="repl"><code>go.Scattermap</code></td></tr>
+            <tr><td class="dep"><code>go.Choroplethmapbox</code></td><td class="repl"><code>go.Choroplethmap</code></td></tr>
+          </tbody>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Migration steps</span>
+          <ul>
+            <li>Remove "box" suffix from trace names</li>
+            <li>Rename <code>layout.mapbox</code> → <code>layout.map</code></li>
+            <li>Rename <code>mapbox_style</code> → <code>map_style</code></li>
+            <li>Built-in styles now reference Carto &amp; ESRI — <strong>no Mapbox API key required</strong></li>
+            <li><code>go.Scattergeo</code> — geographic scatter on projections; <strong>unchanged, not deprecated</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.4 -->
+    <div class="subsection" id="s1-4">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.4 &nbsp;Plotly.js / Custom Dash Components</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com/plugins" target="_blank">dash.plotly.com/plugins</a> · <a href="https://dash.plotly.com/dash-3-for-component-developers" target="_blank">Dash 3 component dev guide</a></td></tr>
+          <tr><td>Version</td><td>Dash 4.1.0; Plotly.js bundled inside <code>dcc.Graph</code></td></tr>
+          <tr><td>Caveats</td><td>Custom component pipeline requires Node.js; TypeScript support added in Dash 3</td></tr>
+          <tr><td>Next step</td><td>Use <code>dcc.Graph</code> for all standard charts; build custom components only for missing types</td></tr>
+        </table>
+        <div class="findings">
+          <span class="findings-label">Key findings</span>
+          <ul>
+            <li><code>dcc.Graph</code> uses Plotly.js internally — all 50+ chart types work without touching JS</li>
+            <li>Override Plotly.js: place a custom bundle in the <code>assets/</code> folder</li>
+            <li>Custom components: built from React (JS/TS) using <a href="https://github.com/plotly/dash-component-boilerplate" target="_blank">dash-component-boilerplate</a></li>
+            <li>Dash 3.3+ <code>hooks.devtool</code> API: extend the DevTools panel with custom React components</li>
+            <li>Clientside callbacks (§1.5) are a lighter alternative to full custom components for browser-side logic</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.5 -->
+    <div class="subsection" id="s1-5">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.5 &nbsp;Dash Callbacks &amp; Clientside Callbacks</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com/basic-callbacks" target="_blank">basic-callbacks</a> · <a href="https://dash.plotly.com/clientside-callbacks" target="_blank">clientside-callbacks</a></td></tr>
+          <tr><td>Version</td><td>Dash 4.1.0; Promises since 2.4; <code>Patch</code> since 3.3; <code>set_props</code> since 2.16</td></tr>
+          <tr><td>Caveats</td><td>Clientside callbacks block the browser's main thread — avoid heavy computation</td></tr>
+          <tr><td>Next step</td><td>Use Python callbacks by default; add clientside callbacks for high-frequency UI updates</td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Python callbacks</span>
+          <ul>
+            <li><code>@callback(Output(...), Input(...), State(...))</code> decorator pattern</li>
+            <li>Multiple inputs and outputs per callback; chained callbacks supported</li>
+            <li>Unit testing (Dash 2.6+): import and call callback functions directly — no browser needed</li>
+            <li><strong>Never</strong> modify global variables inside callbacks — causes multi-user state corruption</li>
+          </ul>
+        </div>
+        <div class="findings">
+          <span class="findings-label">Clientside callbacks</span>
+          <ul>
+            <li>Run JavaScript in the browser; eliminate server roundtrips for frequent/large-data callbacks</li>
+            <li>Inline JS string or external <code>.js</code> in <code>assets/</code> via <code>window.dash_clientside</code></li>
+            <li>Async support: return a <code>Promise</code> (Dash 2.4+) · Partial updates: <code>dash_clientside.Patch</code> (3.3+)</li>
+            <li>Direct component updates: <code>set_props(id, props)</code> (Dash 2.16+)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1.6 -->
+    <div class="subsection open" id="s1-6">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>1.6 &nbsp;Claude.ai Integration via Anthropic SDK</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://github.com/plotly/dash-ai-chat-tutorial" target="_blank">plotly/dash-ai-chat-tutorial</a> (official) · <a href="https://pypi.org/project/anthropic/" target="_blank">PyPI: anthropic</a></td></tr>
+          <tr><td>Version</td><td><code>anthropic</code> SDK <strong>0.104.1</strong> (2026-05-22); Python ≥3.9; MIT</td></tr>
+          <tr><td>Caveats</td><td>No built-in streaming in standard callbacks; use SSE or polling for streaming responses</td></tr>
+          <tr><td>Next step</td><td>Use <code>plotly/dash-ai-chat-tutorial</code> as reference; wire Claude via Python callbacks</td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Key findings</span>
+          <ul>
+            <li>Official Plotly tutorial integrates Claude, Gemini, and ChatGPT into a single Dash app</li>
+            <li>Stack: <code>dash</code>, <code>dash-mantine-components</code>, <code>anthropic</code>, <code>dash-iconify</code></li>
+            <li>Recommended models (2026): <code>claude-opus-4-7</code>, <code>claude-sonnet-4-6</code>, <code>claude-haiku-4-5-20251001</code></li>
+            <li>Install: <code>uv add anthropic</code> · API key: <code>ANTHROPIC_API_KEY</code> env var</li>
+          </ul>
+        </div>
+        <span class="sub-label">Integration pattern</span>
+        <div class="code-wrap">
+          <pre><code class="language-python">import anthropic
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+
+@callback(
+    Output('response', 'children'),
+    Input('submit', 'n_clicks'),
+    State('prompt', 'value')
+)
+def call_claude(n_clicks, prompt):
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.content[0].text</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ═══ AREA 2 ═══ -->
+  <section id="mcp">
+    <div class="section-header">
+      <span class="section-num">2</span>
+      <h2>MCP &amp; Agent Skills</h2>
+    </div>
+
+    <!-- 2.1 -->
+    <div class="subsection open" id="s2-1">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>2.1 &nbsp;Claude Code MCP Configuration</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://code.claude.com/docs/en/mcp" target="_blank">code.claude.com/docs/en/mcp</a> — official</td></tr>
+          <tr><td>Version</td><td>Claude Code v2.1.121+; MCP spec: <code>mcp-client-2025-11-20</code></td></tr>
+          <tr><td>Caveats</td><td>SSE transport deprecated — use HTTP for remote servers</td></tr>
+          <tr><td>Next step</td><td>Add Filesystem + DuckDB servers; commit <code>.mcp.json</code> for team sharing</td></tr>
+        </table>
+        <span class="sub-label">CLI commands</span>
+        <div class="code-wrap">
+          <pre><code class="language-bash"># Add a remote HTTP server
+claude mcp add --transport http &lt;name&gt; &lt;url&gt;
+
+# Add a local stdio server
+claude mcp add --transport stdio &lt;name&gt; -- &lt;command&gt; [args...]
+
+# Manage
+claude mcp list | claude mcp get &lt;name&gt; | claude mcp remove &lt;name&gt;
+
+# In-session status check
+/mcp</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Scope</th><th>Stored in</th><th>Shared with team</th></tr></thead>
+          <tbody>
+            <tr><td><code>local</code> (default)</td><td><code>~/.claude.json</code></td><td>No</td></tr>
+            <tr><td><code>project</code></td><td><code>.mcp.json</code> in project root</td><td>Yes (via git)</td></tr>
+            <tr><td><code>user</code></td><td><code>~/.claude.json</code></td><td>No (cross-project)</td></tr>
+          </tbody>
+        </table>
+        <span class="sub-label">.mcp.json format</span>
+        <div class="code-wrap">
+          <pre><code class="language-json">{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/data"],
+      "type": "stdio"
+    }
+  }
+}</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Additional notes</span>
+          <ul>
+            <li>OAuth 2.0 supported for remote servers (authenticate via <code>/mcp</code> in session)</li>
+            <li>Claude.ai connectors sync automatically to Claude Code when logged in</li>
+            <li>MCP Tool Search enabled by default: tools load on demand to save context window</li>
+            <li><code>alwaysLoad: true</code> in server config forces tools into context at session start</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2.2 -->
+    <div class="subsection" id="s2-2">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>2.2 &nbsp;Official MCP Reference Servers</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://github.com/modelcontextprotocol/servers" target="_blank">github.com/modelcontextprotocol/servers</a> — official MCP org</td></tr>
+          <tr><td>Caveats</td><td>Reference quality, not hardened for production</td></tr>
+          <tr><td>Next step</td><td>Use <strong>Filesystem</strong> for local data; pair with community DuckDB/PostGIS servers</td></tr>
+        </table>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Server</th><th>Purpose</th><th>Relevance</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Filesystem</strong></td><td>Secure file ops</td><td><span class="badge badge-green">⭐⭐⭐ CSV, GeoJSON, HDF5</span></td></tr>
+            <tr><td><strong>Fetch</strong></td><td>Web content fetching</td><td><span class="badge badge-blue">⭐⭐ Remote datasets</span></td></tr>
+            <tr><td><strong>Git</strong></td><td>Git repo access</td><td>⭐ Code/config</td></tr>
+            <tr><td><strong>Memory</strong></td><td>Knowledge graph persistence</td><td>⭐ Session context</td></tr>
+            <tr><td><strong>Sequential Thinking</strong></td><td>Reflective problem-solving</td><td>⭐ Analysis</td></tr>
+            <tr><td><strong>Everything / Time</strong></td><td>Reference/test · Timezone</td><td>Utility</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2.3 -->
+    <div class="subsection" id="s2-3">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>2.3 &nbsp;Community MCP Servers for Data Viz</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <div class="callout callout-warn">
+          <strong>Quality varies.</strong> Verify commit activity within the last 6 months before adopting any community server.
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Server</th><th>Repo</th><th>Use case</th></tr></thead>
+          <tbody>
+            <tr><td><strong>mcp-visualization-duckdb</strong></td><td><a href="https://github.com/xoniks/mcp-visualization-duckdb" target="_blank">xoniks/mcp-visualization-duckdb</a></td><td>NLP → Plotly HTML charts via DuckDB</td></tr>
+            <tr><td><strong>mcp-server-motherduck</strong></td><td><a href="https://github.com/motherduckdb/mcp-server-motherduck" target="_blank">motherduckdb/mcp-server-motherduck</a></td><td>DuckDB + MotherDuck; SQL over local or S3 files</td></tr>
+            <tr><td><strong>pg-mcp-server</strong></td><td><a href="https://github.com/stuzero/pg-mcp-server" target="_blank">stuzero/pg-mcp-server</a></td><td>PostgreSQL + PostGIS; geo queries</td></tr>
+            <tr><td><strong>postgis-mcp</strong></td><td><a href="https://github.com/receptopalak/postgis-mcp" target="_blank">receptopalak/postgis-mcp</a></td><td>PostGIS-specific server</td></tr>
+            <tr><td><strong>mcp-server-chart</strong></td><td><a href="https://github.com/antvis/mcp-server-chart" target="_blank">antvis/mcp-server-chart</a></td><td>25+ chart types for chart generation</td></tr>
+          </tbody>
+        </table>
+        <span class="sub-label">Install example — Filesystem + DuckDB</span>
+        <div class="code-wrap">
+          <pre><code class="language-bash"># Filesystem (read local data files)
+claude mcp add --transport stdio --scope project filesystem \
+  -- npx -y @modelcontextprotocol/server-filesystem ./data
+
+# DuckDB via MotherDuck
+claude mcp add --transport stdio --scope project duckdb \
+  -- npx -y @motherduck/mcp-server-motherduck</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2.4 -->
+    <div class="subsection" id="s2-4">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>2.4 &nbsp;Claude Code Built-in Skills</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="data-table">
+          <thead><tr><th>Skill</th><th>Trigger</th><th>Relevance</th></tr></thead>
+          <tbody>
+            <tr><td><code>run</code></td><td>Ask Claude to run / start the app</td><td>Launch Dash dev server</td></tr>
+            <tr><td><code>verify</code></td><td>Ask Claude to confirm a change works</td><td>Test a feature in the real running app</td></tr>
+            <tr><td><code>code-review</code></td><td>Ask Claude to review the diff</td><td>Pre-commit review of Dash/Plotly code</td></tr>
+            <tr><td><code>claude-api</code></td><td>Code imports <code>anthropic</code></td><td>Help with Anthropic SDK integration</td></tr>
+            <tr><td><code>mcp-server-dev</code></td><td><code>/plugin install mcp-server-dev@claude-plugins-official</code></td><td>Scaffold a custom MCP server</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2.5 — EXPANDED -->
+    <div class="subsection open" id="s2-5">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>2.5 &nbsp;Official Anthropic Data Visualization Agent Skills</h3>
+        <span class="badge badge-green" style="margin-left:auto;margin-right:6px;flex-shrink:0">Official Anthropic</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <div class="callout callout-info">
+          These are Claude Code <strong>agent skills / plugins</strong> from <a href="https://github.com/anthropics/knowledge-work-plugins" target="_blank">anthropics/knowledge-work-plugins</a>, not MCP servers. Skills activate automatically when relevant and can be invoked as slash commands. Source: <a href="https://mcpservers.org/agent-skills/author/anthropic" target="_blank">mcpservers.org/agent-skills/author/anthropic</a>.
+        </div>
+
+        <span class="sub-label">Install the full data plugin (recommended)</span>
+        <div class="code-wrap">
+          <pre><code class="language-bash"># Step 1 — add the marketplace
+claude plugin marketplace add anthropics/knowledge-work-plugins
+
+# Step 2 — install the data plugin (includes all skills below)
+claude plugin install data@knowledge-work-plugins</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+
+        <!-- TIER 1 -->
+        <div class="tier-label" style="margin-top:16px">Tier 1 — Core Visualization Skills</div>
+        <table class="data-table">
+          <thead><tr><th>Skill</th><th>Description</th><th>Slash command</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/data-visualization" target="_blank"><strong>data-visualization</strong></a></td>
+              <td>Chart selection guidance for <strong>13+ chart types</strong>, Python code patterns (Plotly), design principles, anti-patterns (pie abuse, misleading 3D, dual-axis)</td>
+              <td><code>/data:data-visualization</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/create-viz" target="_blank"><strong>create-viz</strong></a></td>
+              <td>Create publication-quality visualizations with Python</td>
+              <td><code>/data:create-viz</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/build-dashboard" target="_blank"><strong>build-dashboard</strong></a></td>
+              <td>Build an interactive HTML dashboard with charts, filters, and tables</td>
+              <td><code>/data:build-dashboard</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/interactive-dashboard-builder" target="_blank"><strong>interactive-dashboard-builder</strong></a></td>
+              <td>Self-contained HTML dashboards with Chart.js, filters, and styling — zero backend required</td>
+              <td><code>/data:interactive-dashboard-builder</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- TIER 2 -->
+        <div class="tier-label" style="margin-top:14px">Tier 2 — Data Preparation &amp; Analysis Skills</div>
+        <table class="data-table">
+          <thead><tr><th>Skill</th><th>Description</th><th>Slash command</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/analyze" target="_blank"><strong>analyze</strong></a></td>
+              <td>Answer data questions — from quick lookups to full analyses</td>
+              <td><code>/data:analyze</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/explore-data" target="_blank"><strong>explore-data</strong></a></td>
+              <td>Profile and explore datasets — understand shape, quality, and patterns</td>
+              <td><code>/data:explore-data</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/statistical-analysis" target="_blank"><strong>statistical-analysis</strong></a></td>
+              <td>Statistical methods for trend detection, outlier ID, and hypothesis testing</td>
+              <td><code>/data:statistical-analysis</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/sql-queries" target="_blank"><strong>sql-queries</strong></a></td>
+              <td>Write correct, performant SQL across all major data warehouse dialects</td>
+              <td><code>/data:sql-queries</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/data-validation" target="_blank"><strong>data-validation</strong></a></td>
+              <td>QA an analysis before sharing — methodology and accuracy checks</td>
+              <td><code>/data:data-validation</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- TIER 3 -->
+        <div class="tier-label" style="margin-top:14px">Tier 3 — UI &amp; App Development Skills</div>
+        <table class="data-table">
+          <thead><tr><th>Skill</th><th>Description</th><th>Slash command</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/playground" target="_blank"><strong>Playground</strong></a></td>
+              <td>Self-contained HTML playgrounds with live preview and interactive controls — ideal for rapid Dash page prototyping</td>
+              <td><code>/data:playground</code></td>
+            </tr>
+            <tr>
+              <td><a href="https://mcpservers.org/agent-skills/anthropic/frontend-design" target="_blank"><strong>Frontend Design</strong></a></td>
+              <td>Generate distinctive, production-grade frontend interfaces</td>
+              <td><code>/data:frontend-design</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-success" style="margin-top:14px">
+          <strong>Recommended workflow:</strong> Use <code>explore-data</code> → <code>analyze</code> → <code>data-visualization</code> → <code>create-viz</code> → <code>build-dashboard</code> as the standard pipeline for any new data page in the app.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ═══ AREA 3 ═══ -->
+  <section id="boilerplates">
+    <div class="section-header">
+      <span class="section-num">3</span>
+      <h2>Boilerplates &amp; Templates</h2>
+    </div>
+
+    <!-- 3.1 -->
+    <div class="subsection open" id="s3-1">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>3.1 &nbsp;Multi-Page App Templates</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://github.com/plotly/dash-sample-apps" target="_blank">plotly/dash-sample-apps</a> · <a href="https://github.com/plotly/dash-ai-chat-tutorial" target="_blank">plotly/dash-ai-chat-tutorial</a></td></tr>
+          <tr><td>Caveats</td><td>No single "multi-page + 3D + geo + AI" starter — compose from parts</td></tr>
+          <tr><td>Next step</td><td>Use <code>dash-ai-chat-tutorial</code> as AI base; add multi-page structure per Pages API docs</td></tr>
+        </table>
+        <span class="sub-label">Official Plotly repos</span>
+        <table class="data-table">
+          <thead><tr><th>Repo</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td><a href="https://github.com/plotly/dash-sample-apps" target="_blank"><code>plotly/dash-sample-apps</code></a></td><td>100+ Dash app examples; browse <code>/apps/</code> for 3D and geo examples</td></tr>
+            <tr><td><a href="https://github.com/plotly/dash-ai-chat-tutorial" target="_blank"><code>plotly/dash-ai-chat-tutorial</code></a></td><td><span class="badge badge-green">Official</span> Claude + Gemini + ChatGPT in Dash; uses <code>dash-mantine-components</code></td></tr>
+            <tr><td><a href="https://github.com/plotly/dash-component-boilerplate" target="_blank"><code>plotly/dash-component-boilerplate</code></a></td><td>Official template for building custom JS/React Dash components</td></tr>
+          </tbody>
+        </table>
+        <span class="sub-label">Community multi-page templates</span>
+        <table class="data-table">
+          <thead><tr><th>Repo</th><th>Highlights</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><a href="https://github.com/ned2/slapdash" target="_blank"><code>ned2/slapdash</code></a></td><td>Dash Pages + Dash Bootstrap; skeleton layout</td><td><span class="badge badge-blue">Best community option</span></td></tr>
+            <tr><td><a href="https://github.com/toby-coleman/multi-page-dash-template" target="_blank"><code>toby-coleman/multi-page-dash-template</code></a></td><td>One page = one Python package</td><td>Minimal, easy to understand</td></tr>
+            <tr><td><a href="https://github.com/manaruchi/dash-multipage-dashboard-boilerplate" target="_blank"><code>manaruchi/dash-multipage-dashboard-boilerplate</code></a></td><td>Collapsible sidebar, multi-page</td><td>Good sidebar pattern</td></tr>
+            <tr><td><a href="https://github.com/karuna-community/plotly-dash-multipage-template" target="_blank"><code>karuna-community/plotly-dash-multipage-template</code></a></td><td>File structure template</td><td>Lightweight</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3.2 -->
+    <div class="subsection" id="s3-2">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>3.2 &nbsp;3D Visualization Templates</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://plotly.com/python/3d-charts/" target="_blank">plotly.com/python/3d-charts/</a> — official</td></tr>
+          <tr><td>Version</td><td>Plotly.py 6.7.0</td></tr>
+          <tr><td>Caveats</td><td>No dedicated 3D boilerplate repo — official docs provide copy-paste-ready examples</td></tr>
+          <tr><td>Next step</td><td>Copy examples from official docs into a <code>/pages/3d_view.py</code> page file</td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Starting points</span>
+          <ul>
+            <li><a href="https://plotly.com/python/3d-surface-plots/" target="_blank">plotly.com/python/3d-surface-plots/</a> — <code>go.Surface</code></li>
+            <li><a href="https://plotly.com/python/3d-scatter-plots/" target="_blank">plotly.com/python/3d-scatter-plots/</a> — <code>go.Scatter3d</code></li>
+            <li><a href="https://plotly.com/python/3d-mesh/" target="_blank">plotly.com/python/3d-mesh/</a> — <code>go.Mesh3d</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3.3 -->
+    <div class="subsection" id="s3-3">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>3.3 &nbsp;Geo / Map Dashboard Templates</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://plotly.com/python/tile-scatter-maps/" target="_blank">plotly.com/python/tile-scatter-maps/</a> — official</td></tr>
+          <tr><td>Version</td><td>Plotly.py 5.24.0+ (new map types); current: 6.7.0</td></tr>
+          <tr><td>Caveats</td><td>No standalone geo boilerplate — avoid <code>*mapbox</code> examples online (deprecated API)</td></tr>
+          <tr><td>Next step</td><td>Use <code>px.scatter_map</code> / <code>go.Scattermap</code> from official docs; no API key needed</td></tr>
+        </table>
+        <div class="callout callout-info" style="margin-top:12px">
+          Any tutorial using <code>scatter_mapbox</code> or <code>choropleth_mapbox</code> is outdated. Use the <code>*map</code> equivalents — no Mapbox API key required.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ═══ AREA 4 ═══ -->
+  <section id="tooling">
+    <div class="section-header">
+      <span class="section-num">4</span>
+      <h2>Dev Tooling</h2>
+    </div>
+
+    <!-- 4.1 -->
+    <div class="subsection open" id="s4-1">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>4.1 &nbsp;Local Development</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com" target="_blank">dash.plotly.com</a> · <a href="https://plotly.com/blog/uv-python-package-manager-quirks/" target="_blank">Plotly blog: uv</a></td></tr>
+          <tr><td>Version</td><td>Dash 4.1.0 (2026-03-23); uv adopted by Plotly engineering in 2025</td></tr>
+          <tr><td>Caveats</td><td>uv's <code>--extra-index-url</code> behavior differs from pip; use <code>pyproject.toml</code> for index config</td></tr>
+          <tr><td>Next step</td><td><code>uv init</code> · <code>uv add dash plotly anthropic</code> · <code>uv run python app.py</code></td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Key findings</span>
+          <ul>
+            <li>Dash dev server: <code>python app.py</code> with <code>debug=True</code> — enables hot reload + Dash DevTools</li>
+            <li>Dash DevTools: built-in callback inspector, graph topology, component layout</li>
+            <li><strong>uv</strong> recommended: 10–100x faster than pip; adopted by Plotly engineering in 2025</li>
+            <li>Near-perfect pip backwards compatibility; use <code>pyproject.toml</code> for index configuration</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.2 -->
+    <div class="subsection" id="s4-2">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>4.2 &nbsp;Testing</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com/testing" target="_blank">dash.plotly.com/testing</a> — official</td></tr>
+          <tr><td>Version</td><td><code>dash[testing]</code>; unit tests since Dash 2.6</td></tr>
+          <tr><td>Caveats</td><td>Uses <strong>Selenium</strong> (not Playwright); requires ChromeDriver or geckodriver installed</td></tr>
+          <tr><td>Next step</td><td>Write unit tests for all callbacks; add integration tests for critical flows</td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Key findings</span>
+          <ul>
+            <li>Install: <code>uv add --dev "dash[testing]"</code></li>
+            <li><strong>Unit tests</strong> (Dash 2.6+): import callback function directly; call with test inputs — no browser needed</li>
+            <li>Mock <code>callback_context</code> using <code>contextvars.copy_context()</code> + <code>AttributeDict</code></li>
+            <li><strong>Integration tests</strong>: <code>dash_duo</code> pytest fixture; <code>start_server(app)</code>; Selenium WebDriver</li>
+            <li>Helpers: <code>wait_for_element</code>, <code>wait_for_text_to_equal</code>, <code>find_element</code>, <code>multiple_click</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.3 -->
+    <div class="subsection" id="s4-3">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>4.3 &nbsp;Linting &amp; Formatting</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Version</td><td>Standard Python ecosystem, current as of 2026</td></tr>
+          <tr><td>Caveats</td><td>None — no Dash-specific linter needed</td></tr>
+          <tr><td>Next step</td><td>Add <code>ruff</code>; configure in <code>pyproject.toml</code></td></tr>
+        </table>
+        <div class="findings" style="margin-top:12px">
+          <span class="findings-label">Recommended toolchain</span>
+          <ul>
+            <li><code>ruff</code> — linting + formatting (replaces <code>flake8</code> + <code>black</code>; Rust-based, fast)</li>
+            <li><code>mypy</code> — optional static type checking</li>
+            <li>Config: <code>pyproject.toml</code> with <code>[tool.ruff]</code> section</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.4 -->
+    <div class="subsection open" id="s4-4">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>4.4 &nbsp;Deployment</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://dash.plotly.com/deployment" target="_blank">dash.plotly.com/deployment</a> — official</td></tr>
+          <tr><td>Caveats</td><td>Plotly Cloud has 200 MiB limit; self-hosting requires manual infra setup</td></tr>
+          <tr><td>Next step</td><td>Use Plotly Cloud free tier for demos; plan Docker + gunicorn for production</td></tr>
+        </table>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Option</th><th>Cost</th><th>Setup</th><th>Best for</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Plotly Cloud</strong></td><td><span class="badge badge-green">Free tier</span></td><td><code>pip install "dash[cloud]"</code> → publish via DevTools UI</td><td>Demos, prototypes, sharing</td></tr>
+            <tr><td><strong>Dash Enterprise</strong></td><td>Paid</td><td>Managed install</td><td>Auth, job queues, embedding</td></tr>
+            <tr><td><strong>Docker + gunicorn</strong></td><td>Infra cost</td><td>Dockerfile + nginx</td><td>Production, full control</td></tr>
+          </tbody>
+        </table>
+        <span class="sub-label">Self-hosted Dockerfile</span>
+        <div class="code-wrap">
+          <pre><code class="language-dockerfile">FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install uv && uv sync
+CMD ["gunicorn", "-b", "0.0.0.0:8050", "app:server"]</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.5 -->
+    <div class="subsection" id="s4-5">
+      <div class="subsection-toggle" onclick="toggleSection(this)">
+        <h3>4.5 &nbsp;Anthropic SDK &amp; Cross-cutting Tools</h3>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="subsection-body">
+        <table class="info-table">
+          <tr><td>Source</td><td><a href="https://pypi.org/project/anthropic/" target="_blank">pypi.org/project/anthropic/</a> — official</td></tr>
+          <tr><td>Version</td><td><code>anthropic</code> <strong>0.104.1</strong> (2026-05-22); Python ≥3.9; MIT</td></tr>
+          <tr><td>Next step</td><td><code>uv add anthropic</code>; store API key in <code>.env</code> (not in code)</td></tr>
+        </table>
+        <table class="data-table" style="margin-top:12px">
+          <thead><tr><th>Tool</th><th>Purpose</th><th>Install</th></tr></thead>
+          <tbody>
+            <tr><td><code>anthropic</code> 0.104.1</td><td>Anthropic SDK for Claude API</td><td><code>uv add anthropic</code></td></tr>
+            <tr><td><code>uv</code></td><td>Package manager (10–100x faster than pip)</td><td><code>pip install uv</code> (one-time)</td></tr>
+            <tr><td><code>ruff</code></td><td>Linting + formatting</td><td><code>uv add --dev ruff</code></td></tr>
+            <tr><td><code>dash[testing]</code></td><td>Selenium-based Dash test fixtures</td><td><code>uv add --dev "dash[testing]"</code></td></tr>
+            <tr><td>Claude Code (CLI)</td><td>AI-assisted development</td><td>Pre-installed</td></tr>
+            <tr><td>Git + GitHub Actions</td><td>Version control + CI</td><td>Standard</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ═══ SUMMARY ═══ -->
+  <section id="summary">
+    <div class="section-header">
+      <span class="section-num" style="background:var(--text);font-size:11px">★</span>
+      <h2>Summary &amp; Recommendations</h2>
+    </div>
+    <span class="sub-label">Recommended stack</span>
+    <div class="stack-grid">
+      <div class="stack-card"><div class="card-label">App framework</div><div class="card-value">Dash 4.1.0</div><div class="card-note">Multi-page via Pages API</div></div>
+      <div class="stack-card"><div class="card-label">3D charting</div><div class="card-value">Plotly.py 6.7.0</div><div class="card-note">go.Surface · Scatter3d · Mesh3d</div></div>
+      <div class="stack-card"><div class="card-label">Geo / tile maps</div><div class="card-value">go.Scattermap</div><div class="card-note">NOT *mapbox — deprecated</div></div>
+      <div class="stack-card"><div class="card-label">AI integration</div><div class="card-value">anthropic 0.104.1</div><div class="card-note">Wired into Dash callbacks</div></div>
+      <div class="stack-card"><div class="card-label">Package manager</div><div class="card-value">uv</div><div class="card-note">Adopted by Plotly in 2025</div></div>
+      <div class="stack-card"><div class="card-label">Linting</div><div class="card-value">ruff</div><div class="card-note">Replaces flake8 + black</div></div>
+      <div class="stack-card"><div class="card-label">Testing</div><div class="card-value">dash[testing]</div><div class="card-note">Selenium unit + integration</div></div>
+      <div class="stack-card"><div class="card-label">Deployment</div><div class="card-value">Plotly Cloud → Docker</div><div class="card-note">Prototype → production</div></div>
+      <div class="stack-card"><div class="card-label">Dev assistance</div><div class="card-value">Claude Code + MCP</div><div class="card-note">Filesystem + DuckDB + Agent Skills</div></div>
+    </div>
+
+    <span class="sub-label" style="margin-top:20px">Top boilerplate starting point</span>
+    <div class="findings">
+      <ul>
+        <li><strong>Scaffold structure</strong>: Dash Pages API docs + <a href="https://github.com/ned2/slapdash" target="_blank"><code>ned2/slapdash</code></a> as structural reference</li>
+        <li><strong>AI chat integration</strong>: copy from <a href="https://github.com/plotly/dash-ai-chat-tutorial" target="_blank"><code>plotly/dash-ai-chat-tutorial</code></a> (official, Claude-ready)</li>
+        <li><strong>3D + geo pages</strong>: compose from official Plotly docs — no single combined boilerplate exists</li>
+        <li><strong>Agent skill workflow</strong>: <code>explore-data</code> → <code>analyze</code> → <code>data-visualization</code> → <code>create-viz</code> → <code>build-dashboard</code></li>
+      </ul>
+    </div>
+
+    <div class="callout callout-danger" style="margin-top:20px">
+      <strong>Key watch-out — Geo map deprecation:</strong> Any tutorial using <code>Scattermapbox</code>, <code>Choroplethmapbox</code>, <code>scatter_mapbox</code>, or <code>choropleth_mapbox</code> is outdated. Use the <code>*map</code> equivalents from Plotly.py 5.24.0+. No Mapbox API key needed.
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ═══ SOURCES ═══ -->
+  <section id="sources">
+    <div class="section-header">
+      <span class="section-num" style="background:var(--text-muted);font-size:10px">src</span>
+      <h2>Sources</h2>
+    </div>
+    <div class="sources-grid">
+      <a href="https://dash.plotly.com/urls" target="_blank">Dash multi-page docs (Pages API)</a>
+      <a href="https://plotly.com/python/3d-charts/" target="_blank">Plotly 3D charts overview</a>
+      <a href="https://plotly.com/python/3d-surface-plots/" target="_blank">Plotly 3D surface plots</a>
+      <a href="https://plotly.com/python/3d-scatter-plots/" target="_blank">Plotly 3D scatter plots</a>
+      <a href="https://plotly.com/python/3d-mesh/" target="_blank">Plotly 3D mesh plots</a>
+      <a href="https://plotly.com/python/mapbox-to-maplibre/" target="_blank">Plotly MapLibre migration guide</a>
+      <a href="https://plotly.com/python/tile-scatter-maps/" target="_blank">Plotly tile scatter maps</a>
+      <a href="https://plotly.com/python/map-configuration/" target="_blank">Plotly map configuration</a>
+      <a href="https://dash.plotly.com/basic-callbacks" target="_blank">Dash callbacks docs</a>
+      <a href="https://dash.plotly.com/clientside-callbacks" target="_blank">Dash clientside callbacks</a>
+      <a href="https://dash.plotly.com/plugins" target="_blank">Dash custom components / plugins</a>
+      <a href="https://dash.plotly.com/dash-3-for-component-developers" target="_blank">Dash 3 for component developers</a>
+      <a href="https://dash.plotly.com/testing" target="_blank">Dash testing docs</a>
+      <a href="https://dash.plotly.com/deployment" target="_blank">Dash deployment docs</a>
+      <a href="https://dash.plotly.com/whats-new-in-dash-4" target="_blank">Dash 4 what's new</a>
+      <a href="https://pypi.org/project/dash/" target="_blank">Dash PyPI (v4.1.0)</a>
+      <a href="https://pypi.org/project/plotly/" target="_blank">Plotly.py PyPI (v6.7.0)</a>
+      <a href="https://pypi.org/project/anthropic/" target="_blank">Anthropic SDK PyPI (v0.104.1)</a>
+      <a href="https://github.com/anthropics/anthropic-sdk-python" target="_blank">Anthropic SDK GitHub</a>
+      <a href="https://code.claude.com/docs/en/mcp" target="_blank">Claude Code MCP docs (official)</a>
+      <a href="https://github.com/modelcontextprotocol/servers" target="_blank">MCP reference servers (official)</a>
+      <a href="https://mcpservers.org/agent-skills/author/anthropic" target="_blank">Anthropic agent skills directory</a>
+      <a href="https://github.com/anthropics/knowledge-work-plugins" target="_blank">anthropics/knowledge-work-plugins</a>
+      <a href="https://github.com/plotly/dash-ai-chat-tutorial" target="_blank">plotly/dash-ai-chat-tutorial (official)</a>
+      <a href="https://github.com/plotly/dash-sample-apps" target="_blank">plotly/dash-sample-apps (official)</a>
+      <a href="https://github.com/plotly/dash-component-boilerplate" target="_blank">plotly/dash-component-boilerplate</a>
+      <a href="https://plotly.com/blog/uv-python-package-manager-quirks/" target="_blank">uv + Plotly/Dash compatibility</a>
+      <a href="https://github.com/xoniks/mcp-visualization-duckdb" target="_blank">xoniks/mcp-visualization-duckdb</a>
+      <a href="https://github.com/motherduckdb/mcp-server-motherduck" target="_blank">motherduckdb/mcp-server-motherduck</a>
+      <a href="https://github.com/ned2/slapdash" target="_blank">ned2/slapdash (community)</a>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── THEME
+const hljsLight = document.getElementById('hljs-light');
+const hljsDark  = document.getElementById('hljs-dark');
+
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  hljsLight.disabled = dark;
+  hljsDark.disabled  = !dark;
+  document.getElementById('themeIcon').textContent  = dark ? '☀' : '☽';
+  document.getElementById('themeLabel').textContent = dark ? 'Light' : 'Dark';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+}
+const saved = localStorage.getItem('theme');
+applyTheme(saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+// ── SYNTAX HIGHLIGHT
+hljs.highlightAll();
+
+// ── SUBSECTION COLLAPSE
+function toggleSection(el) { el.closest('.subsection').classList.toggle('open'); }
+
+// ── SIDEBAR ACCORDION VERTICAL COLLAPSE
+function toggleNavGroup(el) {
+  el.closest('.nav-group').classList.toggle('open');
+}
+
+// ── SIDEBAR GLOBAL ACCORDION TOGGLE
+const globalToggleBtn = document.getElementById('globalToggleBtn');
+if (globalToggleBtn) {
+  globalToggleBtn.addEventListener('click', () => {
+    const groups = document.querySelectorAll('.sidebar .nav-group');
+    const anyOpen = Array.from(groups).some(g => g.classList.contains('open'));
+    groups.forEach(g => {
+      if (anyOpen) {
+        g.classList.remove('open');
+      } else {
+        g.classList.add('open');
+      }
+    });
+  });
+}
+
+// ── SIDEBAR HORIZONTAL MINIMIZE
+const minimizeBtn = document.getElementById('minimizeBtn');
+const restoreTab = document.getElementById('restoreTab');
+
+function setSidebarCollapsed(collapsed) {
+  if (collapsed) {
+    document.body.classList.add('sidebar-collapsed');
+    localStorage.setItem('sidebar_collapsed', 'true');
+  } else {
+    document.body.classList.remove('sidebar-collapsed');
+    localStorage.setItem('sidebar_collapsed', 'false');
+  }
+}
+
+if (minimizeBtn) {
+  minimizeBtn.addEventListener('click', () => {
+    setSidebarCollapsed(true);
+  });
+}
+if (restoreTab) {
+  restoreTab.addEventListener('click', () => {
+    setSidebarCollapsed(false);
+  });
+}
+
+// Restore sidebar minimize preference on load
+const sidebarState = localStorage.getItem('sidebar_collapsed');
+if (sidebarState === 'true') {
+  document.body.classList.add('sidebar-collapsed');
+}
+
+// ── MOBILE SIDEBAR DRAWER
+const hamburgerMenuBtn = document.getElementById('hamburgerMenuBtn');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+if (hamburgerMenuBtn) {
+  hamburgerMenuBtn.addEventListener('click', () => {
+    document.body.classList.toggle('mobile-sidebar-open');
+  });
+}
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener('click', () => {
+    document.body.classList.remove('mobile-sidebar-open');
+  });
+}
+
+// Auto-close drawer on mobile when clicking nav links
+const sidebarLinks = document.querySelectorAll('.sidebar .nav-link');
+sidebarLinks.forEach(link => {
+  link.addEventListener('click', () => {
+    document.body.classList.remove('mobile-sidebar-open');
+  });
+});
+
+// ── COPY CODE
+function copyCode(btn) {
+  const code = btn.previousElementSibling.querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+// ── SCROLL PROGRESS
+const progressFill = document.getElementById('progressFill');
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight) * 100;
+  progressFill.style.width = pct + '%';
+}, { passive: true });
+
+// ── ACTIVE NAV
+const navLinks = document.querySelectorAll('.nav-link[data-target]');
+const anchors  = [];
+navLinks.forEach(link => {
+  const el = document.getElementById(link.dataset.target);
+  if (el) anchors.push({ el, link });
+  link.addEventListener('click', () => {
+    document.getElementById(link.dataset.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      anchors.find(a => a.el === e.target)?.link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-52px 0px -70% 0px', threshold: 0 });
+anchors.forEach(a => obs.observe(a.el));
+</script>
+</body>
+</html>

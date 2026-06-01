@@ -27,13 +27,19 @@ export const meta = {
 // ── CONFIG: the /enrich-pages command rewrites these two lines each run ──────
 const DIR = 'C:\\Users\\hopez\\Downloads\\dev\\oat_garden_v01\\public\\pages'
 const FILES = [
-  'Claude Context Switcher (Refined).html',
-  'Claude Context Switcher (Refined) Marathon style.html',
-  'claude-code-dynamic-workflows_v02.html',
-  'static-site-hosting-guide_v02.html',
-  'claude-prompting-guide_v2_v02.html',
+  'vibe_coding_workflow.html',
+  'marathon_website_style_study.html',
+  'claude-code-sessions-v3.html',
+  'git-worktree.html',
+  'research_data_viz_app_dev.html',
+  'research_3D_web_app_dev.html',
+  'claude-files-in-3d-web-app.html',
+  'hosting-htmls-on-static-site.html',
   'claude-projects-vs-notebooklm_v02.html',
-  'claude-code-3d-web-field-manual_v04_v02.html',
+  'claude-prompting-guide_v2_v02.html',
+  'claude-code-dynamic-workflows_v02.html',
+  'Claude Context Switcher - Marathon style.html',
+  'what-is-projects-in-claude.html',
 ]
 // ────────────────────────────────────────────────────────────────────────────
 

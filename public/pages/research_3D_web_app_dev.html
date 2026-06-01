@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimal Structure for a Multi-Page Interactive 3D Web App</title>
+<meta name="description" content="Architecture guide for multi-page 3D web apps using Next.js, React Three Fiber, and a single persistent WebGL canvas, with state, performance, and Plotly tips.">
+<meta name="keywords" content="three-js, react-three-fiber, next-js, webgl, performance">
+<meta name="date" content="2026-05-31">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#30363d;
+    --text:#e6edf3; --muted:#9da7b3; --accent:#58a6ff; --accent2:#7ee787;
+    --hi:#3fb950; --med:#d29922; --lo:#f85149; --code:#0b0f14;
+    --maxw:920px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{display:grid;grid-template-columns:280px 1fr;max-width:1240px;margin:0 auto;}
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    padding:28px 18px;border-right:1px solid var(--border);background:var(--panel);}
+  nav h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px}
+  nav ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav li{counter-increment:s;margin:2px 0}
+  nav a{display:block;padding:6px 10px;border-radius:7px;color:var(--muted);font-size:14px}
+  nav a::before{content:counter(s) ". ";color:var(--accent);font-variant-numeric:tabular-nums}
+  nav a:hover{background:var(--panel2);color:var(--text);text-decoration:none}
+  main{padding:48px 56px;max-width:var(--maxw);min-width:0}
+  header.hero{margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+  header.hero h1{font-size:30px;line-height:1.2;margin:0 0 12px;
+    background:linear-gradient(90deg,#58a6ff,#7ee787);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .meta{color:var(--muted);font-size:13px}
+  .meta code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:var(--accent2)}
+  section{margin:0 0 44px;scroll-margin-top:20px}
+  section h2{font-size:22px;margin:0 0 16px;padding-top:14px;border-top:1px solid var(--border)}
+  section h3{font-size:17px;margin:24px 0 10px;color:var(--accent2)}
+  p{margin:0 0 14px}
+  ul,ol{padding-left:22px}
+  li{margin:5px 0}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:13.5px}
+  p code,li code,td code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:#ffa657}
+  pre{background:var(--code);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;overflow-x:auto;font-size:13px;line-height:1.5}
+  pre code{color:#c9d1d9}
+  table{border-collapse:collapse;width:100%;margin:12px 0 18px;font-size:14px}
+  th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--text);font-weight:600}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+  blockquote{margin:14px 0;padding:12px 18px;border-left:3px solid var(--accent);
+    background:var(--panel);border-radius:0 8px 8px 0;color:var(--text)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;vertical-align:middle}
+  .hi{background:rgba(63,185,80,.16);color:var(--hi);border:1px solid rgba(63,185,80,.4)}
+  .med{background:rgba(210,153,34,.16);color:var(--med);border:1px solid rgba(210,153,34,.4)}
+  .lo{background:rgba(248,81,73,.16);color:var(--lo);border:1px solid rgba(248,81,73,.4)}
+  .callout{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--accent2);
+    border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0}
+  .layers{background:var(--code);border:1px solid var(--border);border-radius:10px;padding:16px;
+    font-family:"SF Mono",Consolas,monospace;font-size:12.5px;white-space:pre;overflow-x:auto;color:#c9d1d9}
+  .ok{color:var(--hi);font-weight:700}
+  .no{color:var(--lo);font-weight:700}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+  @media(max-width:880px){.wrap{grid-template-columns:1fr}nav{display:none}main{padding:28px 20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1">Executive Summary</a></li>
+    <li><a href="#s2">Tech Stack Analysis</a></li>
+    <li><a href="#s3">Recommended Architecture</a></li>
+    <li><a href="#s4">Folder Structure</a></li>
+    <li><a href="#s5">Routing &amp; Navigation</a></li>
+    <li><a href="#s6">State Management</a></li>
+    <li><a href="#s7">Performance Guide</a></li>
+    <li><a href="#s8">Data Viz Integration</a></li>
+    <li><a href="#s9">Patterns &amp; Anti-Patterns</a></li>
+    <li><a href="#s10">Appendices</a></li>
+  </ol>
+  <h2 style="margin-top:22px">Confidence</h2>
+  <p style="font-size:12px;color:var(--muted);line-height:1.8">
+    <span class="badge hi">HIGH</span> strong consensus<br>
+    <span class="badge med">MED</span> depends on specifics<br>
+    <span class="badge lo">LOW</span> tentative</p>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>Optimal Structure for a Multi-Page Interactive 3D Web Application</h1>
+  <p class="meta">Research synthesis · compiled by the orchestrator from 8 sub-agent deliverables · 2026-05-31<br>
+  Stack: <code>Bun</code> <code>Next.js</code> <code>Vite</code> <code>Three.js</code> <code>R3F</code> <code>Drei</code> <code>Plotly.js</code> <code>Tailwind</code></p>
+</header>
+
+<section id="s1">
+  <h2>1. Executive Summary</h2>
+  <p>Building a multi-page, interactive, GPU-rich 3D web app comes down to <strong>one decision that cascades into everything else: use a single, persistent WebGL canvas that lives above the router and never unmounts</strong> <span class="badge hi">HIGH</span>. Every production reference for this stack — led by the official <a href="https://github.com/pmndrs/react-three-next">pmndrs/react-three-next</a> starter — is built around it, because browsers cap live WebGL contexts at ~8–16 and tearing one down on every navigation is slow and visually broken (<a href="http://drei.docs.pmnd.rs/portals/view">Drei View docs</a>).</p>
+  <ol>
+    <li><strong>Shell:</strong> Next.js App Router is the single shell. Vite is redundant for a multi-page app. <span class="badge hi">HIGH</span></li>
+    <li><strong>Runtime:</strong> Bun for installs/scripts (10–15× faster); serve via Node/Vercel until Bun-as-runtime is validated. <span class="badge hi">HIGH</span></li>
+    <li><strong>Canvas:</strong> One persistent <code>&lt;Canvas&gt;</code> in the root layout; pages portal 3D in via Drei <code>&lt;View&gt;</code> + <code>gl.scissor</code>. <span class="badge hi">HIGH</span></li>
+    <li><strong>Organization:</strong> Split by renderer target (<code>canvas/</code> vs <code>dom/</code>) first, then by feature. <span class="badge hi">HIGH</span></li>
+    <li><strong>State:</strong> React/Zustand for discrete UI; refs + <code>useFrame</code> for per-frame. Never <code>setState</code> in the loop. <span class="badge hi">HIGH</span></li>
+    <li><strong>Performance:</strong> Draco (~10× geometry), KTX2 (~10× VRAM), on-demand render, instancing, DPR clamp. <span class="badge hi">HIGH</span></li>
+    <li><strong>Data viz:</strong> Plotly as DOM overlay panels in SVG mode — not inside the 3D scene. <span class="badge hi">HIGH</span></li>
+  </ol>
+  <div class="callout"><strong>The through-line:</strong> one canvas, one render loop, one WebGL context; DOM owns layout, the 3D layer tracks it; a thin store seam connects them.</div>
+</section>
+
+<section id="s2">
+  <h2>2. Tech Stack Analysis</h2>
+  <h3>Role of each tool</h3>
+  <table>
+    <tr><th>Tool</th><th>Role</th><th>Verdict</th></tr>
+    <tr><td>Bun</td><td>Package manager + dev tooling</td><td>✅ install/scripts</td></tr>
+    <tr><td>Next.js (App Router)</td><td>Application shell: routing, RSC, image/font opt</td><td>✅ primary shell</td></tr>
+    <tr><td>Vite</td><td>SPA bundler</td><td>🔀 redundant; optional shader sandbox</td></tr>
+    <tr><td>Three.js</td><td>WebGL engine</td><td>✅ core (client-only)</td></tr>
+    <tr><td>React Three Fiber</td><td>React renderer for Three.js</td><td>✅ core (client-only)</td></tr>
+    <tr><td>Drei</td><td>R3F helpers (View, loaders, controls)</td><td>✅ companion</td></tr>
+    <tr><td>Plotly.js</td><td>2D/3D statistical charts</td><td>✅ analytics panels (DOM, SVG)</td></tr>
+    <tr><td>Tailwind</td><td>DOM styling (overlays/HUD)</td><td>✅ DOM, not 3D objects</td></tr>
+  </table>
+  <h3>Compatibility matrix</h3>
+  <table>
+    <tr><th>Pair / Concern</th><th></th><th>Note</th></tr>
+    <tr><td>Bun (pkg) ↔ Next.js</td><td><span class="badge hi">HIGH</span> ✅</td><td>~10–15× faster installs</td></tr>
+    <tr><td>Bun (runtime) ↔ Next.js</td><td><span class="badge med">MED</span> ⚠️</td><td>Use Node/Vercel runtime until validated</td></tr>
+    <tr><td>Next.js ↔ Vite</td><td><span class="badge hi">HIGH</span> 🔀</td><td>Alternatives, not co-dependencies</td></tr>
+    <tr><td>Next.js ↔ Three/R3F</td><td><span class="badge hi">HIGH</span> ✅*</td><td>*client-only: <code>dynamic(...,{ssr:false})</code></td></tr>
+    <tr><td>R3F ↔ Drei</td><td><span class="badge hi">HIGH</span> ✅</td><td>versions in lockstep</td></tr>
+    <tr><td>Plotly ↔ Next.js</td><td><span class="badge hi">HIGH</span> ✅*</td><td>*<code>dynamic(...,{ssr:false})</code></td></tr>
+    <tr><td>Plotly ↔ Three.js</td><td><span class="badge med">MED</span> ⚠️</td><td>both consume WebGL contexts (cap ~8–16)</td></tr>
+    <tr><td>Tailwind ↔ R3F</td><td><span class="badge hi">HIGH</span> ✅</td><td>DOM overlays only (Drei <code>&lt;Html&gt;</code> for in-scene)</td></tr>
+  </table>
+  <blockquote><strong>The one rule that governs the stack:</strong> anything touching WebGL or <code>window</code> (Three.js, R3F, Drei, Plotly) is <strong>client-only</strong> — gate it behind <code>"use client"</code> + <code>next/dynamic({ssr:false})</code>.</blockquote>
+  <p class="meta">Sources: <a href="https://www.alexcloudstar.com/blog/bun-compatibility-2026-npm-nodejs-nextjs/">Bun 2026</a>, <a href="https://bun.com/docs/guides/ecosystem/nextjs">Bun+Next</a>, <a href="https://designrevision.com/blog/vite-vs-nextjs">Vite vs Next</a>, <a href="https://dev.to/composite/how-to-integrate-plotlyjs-on-nextjs-14-with-app-router-1loj">Plotly on Next 14</a>.</p>
+</section>
+
+<section id="s3">
+  <h2>3. Recommended Architecture</h2>
+  <h3>The four-layer model <span class="badge hi">HIGH</span></h3>
+  <div class="layers">LAYER 1 — DOM / UI        Next.js pages, Tailwind, HUD, Plotly panels
+                          OWNS: layout, routing, 2D analytics
+        ▲ tracks rects (View)             │ events / state
+LAYER 2 — Scene           ONE persistent &lt;Canvas&gt;, cameras, lights, &lt;View&gt; routing
+                          OWNS: the single WebGL context + render loop
+        ▲ mounts features                 │ useFrame(dt)
+LAYER 3 — Tile / Feature  self-contained 3D modules (ProductModel, DataScene…)
+                          OWNS: feature geometry graph + per-frame update
+        ▲ uses                            │ assigns
+LAYER 4 — Shader/Material GLSL, custom materials, instanced attributes
+                          OWNS: GPU vertex/pixel computation
+        ◄──── shared seam: Zustand store ────►</div>
+  <h3>Separation-of-concerns rules</h3>
+  <ul>
+    <li><strong>DOM never touches Three objects</strong> — it writes intent (selection, active scene, filters) to the store.</li>
+    <li><strong>Scene layer owns the loop and context</strong> — exactly one <code>&lt;Canvas&gt;</code>, one <code>frameloop</code> policy.</li>
+    <li><strong>Feature modules are leaf "tiles"</strong> exposing a subtree + optional <code>useFrame</code> updater mutating <strong>refs</strong> (never <code>setState</code>).</li>
+    <li><strong>Shaders/materials reused</strong>, never recreated per frame.</li>
+    <li><strong>Cross-layer communication = the store seam</strong>, not prop-drilling across the canvas.</li>
+  </ul>
+  <p><strong>Data flow:</strong> User action → DOM event → Zustand store → (a) UI re-renders via selector, (b) 3D features read store in <code>useFrame</code> via <code>getState()</code> and mutate refs. Discrete in, continuous out.</p>
+</section>
+
+<section id="s4">
+  <h2>4. Folder Structure Template</h2>
+  <p>Hybrid: <strong>renderer-target split at the top, feature grouping within, thin shared seam.</strong> <span class="badge hi">HIGH</span> Copy-paste ready.</p>
+  <pre><code>my-3d-app/
+├── bun.lockb                      # Bun as package manager
+├── next.config.mjs
+├── tailwind.config.ts
+├── public/
+│   ├── models/                    # .glb (Draco/KTX2 optimized)
+│   ├── textures/                  # .ktx2 / .webp
+│   └── draco/                     # decoder files
+└── src/
+    ├── app/                       # LAYER 1: Next.js App Router (DOM)
+    │   ├── layout.tsx             # mounts the ONE persistent &lt;Scene/&gt;
+    │   ├── page.tsx
+    │   ├── globals.css            # Tailwind directives
+    │   ├── products/page.tsx
+    │   └── dashboard/page.tsx     # Plotly panels + &lt;View&gt;
+    ├── components/
+    │   ├── canvas/                # LAYERS 2–4: inside WebGL ("use client")
+    │   │   ├── Scene.tsx          # global &lt;Canvas&gt; + tunnel Out + &lt;View.Port&gt;
+    │   │   ├── View.tsx           # wrapper around drei &lt;View&gt;
+    │   │   ├── rigs/              # camera rigs, controls
+    │   │   └── features/          # LAYER 3: self-contained 3D "tiles"
+    │   │       ├── ProductModel/
+    │   │       │   ├── index.tsx          # subtree + useFrame (refs)
+    │   │       │   ├── ProductModel.tsx
+    │   │       │   └── materials/         # LAYER 4: GLSL / materials
+    │   │       │       └── glow.material.ts
+    │   │       └── DataScene/
+    │   │           ├── index.tsx
+    │   │           └── points.ts
+    │   └── dom/                   # LAYER 1: pure React/DOM, Tailwind
+    │       ├── ui/                # buttons, panels, HUD (NO three imports)
+    │       ├── charts/           # Plotly wrappers (dynamic, ssr:false)
+    │       │   └── Chart.tsx
+    │       └── layout/           # nav, headers
+    ├── stores/                    # SHARED SEAM: Zustand slices
+    │   ├── index.ts
+    │   ├── ui.slice.ts            # selection, active scene, filters
+    │   └── scene.slice.ts         # camera target, transition state
+    ├── hooks/
+    │   ├── useRouteTransition.ts  # camera tween on route change
+    │   └── useGLTFPreload.ts
+    ├── helpers/
+    │   ├── tunnel.ts              # tunnel-rat instance (r3f)
+    │   └── three/                 # loaders, dispose utils, math
+    ├── shaders/                   # shared .glsl chunks
+    └── lib/                       # framework-agnostic utils, types</code></pre>
+  <p><strong>Conventions:</strong> <code>canvas/</code> = anything importing <code>three</code>/<code>@react-three/*</code> (client-only); <code>dom/</code> must <strong>never</strong> import <code>three</code> (enforce via ESLint <code>no-restricted-imports</code>); feature = folder with <code>index.tsx</code>; one store sliced by domain; pre-optimized assets in <code>public/</code>.</p>
+</section>
+
+<section id="s5">
+  <h2>5. Routing &amp; Navigation</h2>
+  <p><strong>One persistent canvas in the root layout; pages portal 3D into it via Drei <code>&lt;View&gt;</code> + <code>gl.scissor</code>.</strong> <span class="badge hi">HIGH</span></p>
+  <pre><code>// app/layout.tsx — canvas mounted once, never unmounts
+export default function RootLayout({ children }) {
+  return (
+    &lt;html lang="en"&gt;&lt;body&gt;
+      {children}
+      &lt;Scene
+        style={{ position:'fixed', inset:0, pointerEvents:'none' }}
+        eventSource={typeof document!=='undefined' ? document.body : undefined}
+        eventPrefix="client" /&gt;
+    &lt;/body&gt;&lt;/html&gt;
+  )
+}</code></pre>
+  <pre><code>// components/canvas/Scene.tsx
+'use client'
+export function Scene(props) {
+  return (
+    &lt;Canvas {...props} frameloop="demand"&gt;
+      &lt;r3f.Out /&gt;
+      &lt;View.Port /&gt;
+      &lt;Preload all /&gt;
+    &lt;/Canvas&gt;
+  )
+}</code></pre>
+  <pre><code>// app/products/page.tsx — map a DOM region to a viewport
+'use client'
+export default function ProductsPage() {
+  return (
+    &lt;main className="grid grid-cols-2 gap-8 p-8"&gt;
+      &lt;section&gt;{/* Tailwind DOM copy/UI */}&lt;/section&gt;
+      &lt;View className="h-[60vh] w-full"&gt;
+        &lt;ProductModel /&gt;
+        &lt;OrbitControls makeDefault /&gt;
+        &lt;ambientLight intensity={0.6} /&gt;
+      &lt;/View&gt;
+    &lt;/main&gt;
+  )
+}</code></pre>
+  <p><strong>Why:</strong> Views use <code>gl.scissor</code> to cut the viewport into segments tied to a tracking div — "the illusion of multiple canvases" on one context. Two portaling mechanisms: Drei <code>&lt;View&gt;</code> (align to a DOM rect) and <code>tunnel-rat</code> (mark any component as 3D); react-three-next uses both. The persistent canvas enables camera transitions across routes.</p>
+  <p class="meta">Sources: <a href="http://drei.docs.pmnd.rs/portals/view">Drei View</a>, <a href="https://github.com/pmndrs/react-three-next">react-three-next</a>, <a href="https://github.com/pmndrs/react-three-scissor">react-three-scissor</a>.</p>
+</section>
+
+<section id="s6">
+  <h2>6. State Management</h2>
+  <p><strong>Two-bucket model.</strong> <span class="badge hi">HIGH</span> Discrete, user-driven → React/Zustand (re-render). Per-frame, continuous → refs + <code>useFrame</code> (no re-render).</p>
+  <blockquote>"If the update needs to happen every frame, use <code>useFrame</code> with refs; if it happens in response to user action, use React state — the two should rarely cross."</blockquote>
+  <table>
+    <tr><th>Lives in store/React</th><th>Lives in refs (useFrame)</th></tr>
+    <tr><td>selected object, active scene, filters, modal state</td><td>interpolated positions, camera smoothing, animation progress</td></tr>
+  </table>
+  <p><strong class="no">Cardinal anti-pattern:</strong> <code>setState</code> inside <code>useFrame</code> — routes a 60 fps update through React's scheduler → render storm.</p>
+  <pre><code>// Transient read: latest store value every frame, no re-render
+useFrame((_, dt) =&gt; {
+  const target = useStore.getState().target          // no subscription
+  ref.current.position.lerp(v.set(...target), 1 - Math.pow(0.001, dt))
+})</code></pre>
+  <table>
+    <tr><th>Library</th><th>Per-frame</th><th>Transient</th><th>Best for</th></tr>
+    <tr><td><strong>Zustand</strong></td><td>★★★★★</td><td>✅</td><td><strong>Default</strong> shared state (pmndrs)</td></tr>
+    <tr><td>Jotai</td><td>★★★★</td><td>⚠️</td><td>fine-grained atoms</td></tr>
+    <tr><td>Valtio</td><td>★★★★</td><td>✅</td><td>mutable-feeling models</td></tr>
+    <tr><td>Plain refs</td><td>★★★★★</td><td>n/a</td><td>local frame state</td></tr>
+    <tr><td>React Context</td><td>★</td><td>❌</td><td>static config — never per-frame</td></tr>
+  </table>
+  <p class="meta">Sources: <a href="https://discourse.threejs.org/t/how-to-use-state-management-with-react-three-fiber-without-performance-issues/61223">three.js forum</a>, <a href="https://r3f.docs.pmnd.rs/advanced/pitfalls">R3F pitfalls</a>, <a href="https://github.com/pmndrs/zustand">zustand</a>.</p>
+</section>
+
+<section id="s7">
+  <h2>7. Performance Guide</h2>
+  <p>Three layers — Load, Runtime, Bundle. <span class="badge hi">HIGH</span></p>
+  <h3>Load</h3>
+  <ul>
+    <li>Code-split all 3D behind <code>dynamic(...,{ssr:false})</code>.</li>
+    <li><strong>Draco</strong> geometry — up to 10× smaller glTF, decodes in a Web Worker.</li>
+    <li><strong>KTX2/Basis</strong> textures — ~10× less VRAM, stay GPU-compressed.</li>
+    <li>Run <strong>gltf-transform</strong> (dedupe/prune/weld + Draco + KTX2).</li>
+    <li>Preload + Suspense: <code>useGLTF.preload()</code>, Drei <code>&lt;Preload all /&gt;</code>.</li>
+    <li>Right-size textures (2048→1024/512, esp. mobile).</li>
+  </ul>
+  <h3>Runtime</h3>
+  <ul>
+    <li><strong>InstancedMesh</strong> → "hundreds of thousands of objects in a single draw call."</li>
+    <li><code>frameloop="demand"</code> + <code>invalidate()</code> (Drei controls auto-call it).</li>
+    <li>Clamp DPR <code>dpr={[1,2]}</code> / Drei <code>&lt;AdaptiveDpr/&gt;</code>.</li>
+    <li>Adaptive quality via Drei <code>&lt;PerformanceMonitor/&gt;</code>; LOD via <code>&lt;Detailed/&gt;</code>.</li>
+    <li>Reuse materials/geometries; no <code>new THREE.*</code> inside <code>useFrame</code>; dispose on unmount.</li>
+  </ul>
+  <h3>Bundle</h3>
+  <ul>
+    <li>Tree-shake Three.js; import Drei members individually.</li>
+    <li>Lazy-load Plotly + partial bundle (<code>plotly.js-basic-dist</code>).</li>
+    <li>Split heavy scenes per route.</li>
+  </ul>
+  <table>
+    <tr><th>Metric</th><th>Target</th></tr>
+    <tr><td>Frame rate</td><td>60 fps (16.6 ms/frame); 30 fps mobile floor</td></tr>
+    <tr><td>Draw calls</td><td>minimize via instancing/merging</td></tr>
+    <tr><td>Texture VRAM</td><td>↓ ~10× via KTX2</td></tr>
+    <tr><td>glTF size</td><td>↓ up to 10× via Draco</td></tr>
+    <tr><td>Initial JS</td><td>keep 3D/Plotly out of first load</td></tr>
+  </table>
+  <p class="meta">Sources: <a href="https://r3f.docs.pmnd.rs/advanced/scaling-performance">R3F scaling-performance</a>, <a href="https://www.axl-devhub.me/en/blog/optimizing-3d-models">Draco</a>, <a href="https://wawasensei.dev/tuto/fix-loading-model-freezes-threejs-react-ktx2">KTX2</a>, <a href="https://tympanus.net/codrops/2025/02/11/building-efficient-three-js-scenes-optimize-performance-while-maintaining-quality/">Codrops</a>.</p>
+</section>
+
+<section id="s8">
+  <h2>8. Data Visualization Integration</h2>
+  <p><strong>Plotly.js and R3F compete for WebGL contexts</strong> (cap ~8–16; Plotly <code>gl</code> traces leak contexts on data update). Exceeding the cap drops the <strong>oldest</strong> context — possibly your Three.js canvas. <span class="badge med">MED</span></p>
+  <p><strong>Recommended architecture</strong> <span class="badge hi">HIGH</span></p>
+  <ol>
+    <li><strong>One Three.js context</strong> (the persistent canvas) — never spawn extra R3F canvases.</li>
+    <li><strong>Prefer Plotly SVG traces</strong> (<code>scatter</code>, <code>bar</code>, <code>line</code>) for ≲ few-thousand points — zero WebGL contexts.</li>
+    <li><strong>Cap simultaneous Plotly <code>gl</code> charts</strong>; <code>Plotly.purge()</code> on unmount; update via <code>Plotly.react</code>.</li>
+    <li><strong>Lazy-load + partial bundle</strong> (full Plotly ≈ 3MB+).</li>
+    <li><strong>Layout, don't embed</strong> — charts are DOM panels beside/over the canvas, never inside the 3D scene.</li>
+  </ol>
+  <pre><code>// components/dom/charts/Chart.tsx
+'use client'
+import dynamic from 'next/dynamic'
+const Plot = dynamic(() =&gt; import('react-plotly.js'), { ssr: false })
+export function Chart({ data, layout }) {
+  return &lt;Plot data={data} layout={{ autosize:true, ...layout }}
+           useResizeHandler className="h-full w-full" /&gt;
+}</code></pre>
+  <p><strong>Plotly 3D vs Three.js:</strong> Plotly gl3d for standard statistical 3D charts (axes/hover free; budget one context each); Three.js/R3F for bespoke high-object-count experiences; Plotly SVG for 2D analytics. Cross-filter through the shared Zustand store. <strong>Don't render the same data in two WebGL contexts.</strong></p>
+  <p class="meta">Sources: <a href="https://community.plotly.com/t/too-many-active-webgl-contexts/16379">Too many WebGL contexts</a>, <a href="https://github.com/plotly/react-plotly.js/issues/191">react-plotly.js #191</a>, <a href="https://plotly.com/javascript/3d-charts/">Plotly 3D</a>.</p>
+</section>
+
+<section id="s9">
+  <h2>9. Patterns &amp; Anti-Patterns</h2>
+  <h3 class="ok">✅ Patterns</h3>
+  <ul>
+    <li>One persistent canvas above the router — warm GPU resources across navigation.</li>
+    <li><code>canvas/</code> vs <code>dom/</code> split — client-only WebGL rule becomes a lint-able boundary.</li>
+    <li>Drei <code>&lt;View&gt;</code> maps DOM rects to viewports — DOM owns layout, 3D tracks it.</li>
+    <li>Two-bucket state — Zustand/React for discrete, refs+<code>useFrame</code> for per-frame.</li>
+    <li>Store as the only cross-layer seam — no prop-drilling across the canvas.</li>
+    <li>Asset compression by default — Draco + KTX2 via gltf-transform, offline.</li>
+    <li>Bun for tooling, Node/Vercel for runtime; Plotly as DOM panels in SVG mode.</li>
+  </ul>
+  <h3 class="no">❌ Anti-Patterns</h3>
+  <ul>
+    <li>A <code>&lt;Canvas&gt;</code> per page — context churn, lost resources, ~8-context cap risk.</li>
+    <li><code>setState</code> inside <code>useFrame</code> — render storm, dropped frames.</li>
+    <li>DOM components importing/mutating Three objects — breaks the layer boundary.</li>
+    <li>Running Vite <em>and</em> Next.js as co-shells — duplicated bundling/routing.</li>
+    <li>Plotly <code>gl</code> charts everywhere / inside the 3D scene — exhausts WebGL contexts.</li>
+    <li>SSR-ing Three.js or Plotly — crashes on <code>window</code>; always <code>ssr:false</code>.</li>
+    <li>Shipping raw/uncompressed assets; creating <code>new THREE.*</code> every frame.</li>
+  </ul>
+</section>
+
+<section id="s10">
+  <h2>10. Appendices</h2>
+  <h3>Open questions for the project owner</h3>
+  <ol>
+    <li><strong>Device floor</strong> (desktop-only vs mobile) — sets DPR/texture/poly budgets.</li>
+    <li><strong>Bun as production runtime</strong> — recommend Node/Vercel runtime initially.</li>
+    <li><strong>Plotly chart count &amp; update frequency</strong> — sets the WebGL context budget.</li>
+    <li><strong>Multiple simultaneous <code>&lt;View&gt;</code>s per page</strong> — affects performance.</li>
+    <li><strong>Any chart that must live inside the 3D scene?</strong> If yes, build it in Three.js, not Plotly.</li>
+  </ol>
+  <h3>Full reference list</h3>
+  <p><strong>Docs:</strong> <a href="https://r3f.docs.pmnd.rs/">R3F</a> · <a href="https://drei.docs.pmnd.rs/">Drei</a> · <a href="http://drei.docs.pmnd.rs/portals/view">Drei View</a> · <a href="https://nextjs.org/docs/app/building-your-application/optimizing">Next.js Optimizing</a> · <a href="https://plotly.com/javascript/3d-charts/">Plotly 3D</a> · <a href="https://bun.com/docs/guides/ecosystem/nextjs">Bun+Next</a> · <a href="https://tailwindcss.com/docs">Tailwind</a></p>
+  <p><strong>Starters/refs:</strong> <a href="https://github.com/pmndrs/react-three-next">react-three-next</a> · <a href="https://github.com/mattdesl/threejs-app">mattdesl/threejs-app</a> · <a href="https://github.com/pmndrs/react-three-scissor">react-three-scissor</a> · <a href="https://github.com/pmndrs/tunnel-rat">tunnel-rat</a> · <a href="https://threejs-journey.com/lessons/code-structuring-for-bigger-projects">Three.js Journey</a></p>
+  <p><strong>Articles:</strong> <a href="https://www.alexcloudstar.com/blog/bun-compatibility-2026-npm-nodejs-nextjs/">Bun 2026</a> · <a href="https://designrevision.com/blog/vite-vs-nextjs">Vite vs Next</a> · <a href="https://www.robinwieruch.de/react-folder-structure/">Wieruch folder structure</a> · <a href="https://pierfrancesco-soffritti.medium.com/how-to-organize-the-structure-of-a-three-js-project-77649f58fa3f">Soffritti</a> · <a href="https://tympanus.net/codrops/2026/02/24/from-flat-to-spatial-creating-a-3d-product-grid-with-react-three-fiber/">Codrops Flat→Spatial</a> · <a href="https://wawasensei.dev/tuto/fix-loading-model-freezes-threejs-react-ktx2">KTX2</a> · <a href="https://www.axl-devhub.me/en/blog/optimizing-3d-models">Draco</a></p>
+</section>
+
+<footer>
+  Compiled by the orchestrator from 8 sub-agent deliverables (<code>_research/sa1…sa8_*.md</code>). All deliverables returned <code>complete</code>. Confidence: <span class="badge hi">HIGH</span> unless marked otherwise.
+</footer>
+</main>
+</div>
+</body>
+</html>

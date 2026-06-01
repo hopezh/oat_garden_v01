@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git Worktree vs Branches — A Practical Guide</title>
+<meta name="description" content="A practical guide explaining how git worktrees let you check out multiple branches into separate directories, with comparisons, examples, and when to use them.">
+<meta name="keywords" content="git, git-worktree, version-control, developer-workflow">
+<meta name="date" content="2026-06-01">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #e9ecef;
+    --text: #1a1a2e;
+    --text-secondary: #495057;
+    --accent: #4361ee;
+    --accent-light: #eef0ff;
+    --border: #dee2e6;
+    --code-bg: #f1f3f5;
+    --code-text: #c7254e;
+    --shadow: rgba(0,0,0,0.08);
+    --nav-bg: #ffffff;
+    --sidebar-bg: #f8f9fa;
+    --table-header: #4361ee;
+    --table-header-text: #fff;
+    --table-stripe: #f8f9fc;
+    --tag-bg: #eef0ff;
+    --tag-text: #4361ee;
+    --success: #2d9c5a;
+    --warning: #e8590c;
+    --danger: #e03131;
+    --transition: 0.3s ease;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0f0f1a;
+    --bg-secondary: #1a1a2e;
+    --bg-tertiary: #252540;
+    --text: #e0e0e8;
+    --text-secondary: #a0a0b8;
+    --accent: #7b8cff;
+    --accent-light: #1e2248;
+    --border: #2a2a45;
+    --code-bg: #1e1e32;
+    --code-text: #ff8fa3;
+    --shadow: rgba(0,0,0,0.3);
+    --nav-bg: #12121f;
+    --sidebar-bg: #151528;
+    --table-header: #2a2a50;
+    --table-header-text: #c0c8ff;
+    --table-stripe: #181830;
+    --tag-bg: #1e2248;
+    --tag-text: #7b8cff;
+    --success: #40c972;
+    --warning: #ff922b;
+    --danger: #ff6b6b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  /* ── Top Nav ── */
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    transition: background var(--transition), border var(--transition);
+  }
+  .topnav-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 1.5rem; height: 60px;
+  }
+  .topnav-logo {
+    font-weight: 700; font-size: 1.1rem; color: var(--accent);
+    display: flex; align-items: center; gap: 0.5rem;
+    text-decoration: none;
+  }
+  .topnav-logo svg { width: 22px; height: 22px; }
+  .topnav-links { display: flex; gap: 0.25rem; }
+  .topnav-links a {
+    text-decoration: none; color: var(--text-secondary);
+    padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.88rem;
+    font-weight: 500; transition: all 0.2s;
+  }
+  .topnav-links a:hover, .topnav-links a.active {
+    background: var(--accent-light); color: var(--accent);
+  }
+  .topnav-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+  /* Theme toggle */
+  .theme-toggle {
+    background: var(--bg-tertiary); border: none; border-radius: 50%;
+    width: 38px; height: 38px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s; color: var(--text);
+  }
+  .theme-toggle:hover { background: var(--accent-light); color: var(--accent); }
+  .theme-toggle svg { width: 18px; height: 18px; }
+  [data-theme="dark"] .icon-sun { display: none; }
+  [data-theme="light"] .icon-moon { display: none; }
+
+  /* Sidebar toggle */
+  .sidebar-toggle {
+    display: none; background: var(--bg-tertiary); border: none;
+    border-radius: 8px; width: 38px; height: 38px; cursor: pointer;
+    align-items: center; justify-content: center; color: var(--text);
+    transition: background 0.2s;
+  }
+  .sidebar-toggle:hover { background: var(--accent-light); color: var(--accent); }
+  .sidebar-toggle svg { width: 18px; height: 18px; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed; top: 60px; left: 0; bottom: 0;
+    width: 280px; background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 1.5rem 0;
+    transition: transform var(--transition), background var(--transition);
+    z-index: 90;
+  }
+  .sidebar-section { margin-bottom: 0.5rem; }
+  .sidebar-section-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 1.25rem; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-secondary); cursor: pointer; user-select: none;
+    transition: color 0.2s;
+  }
+  .sidebar-section-title:hover { color: var(--accent); }
+  .sidebar-section-title .chevron {
+    width: 14px; height: 14px; transition: transform 0.2s;
+  }
+  .sidebar-section-title.collapsed .chevron { transform: rotate(-90deg); }
+  .sidebar-links { list-style: none; }
+  .sidebar-section-title.collapsed + .sidebar-links { display: none; }
+  .sidebar-links a {
+    display: block; text-decoration: none; color: var(--text-secondary);
+    padding: 0.35rem 1.25rem 0.35rem 1.75rem; font-size: 0.85rem;
+    border-left: 2px solid transparent; transition: all 0.2s;
+  }
+  .sidebar-links a:hover {
+    color: var(--accent); background: var(--accent-light);
+    border-left-color: var(--accent);
+  }
+  .sidebar-links a.active {
+    color: var(--accent); font-weight: 600;
+    border-left-color: var(--accent);
+  }
+
+  /* Overlay for mobile */
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0; z-index: 85;
+    background: rgba(0,0,0,0.4);
+  }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 280px; margin-top: 60px;
+    max-width: 840px; padding: 2.5rem 3rem 4rem;
+    transition: margin var(--transition);
+  }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center; padding: 3rem 0 2.5rem;
+    border-bottom: 1px solid var(--border); margin-bottom: 3rem;
+  }
+  .hero h1 { font-size: 2.2rem; font-weight: 800; margin-bottom: 0.75rem; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--text-secondary); font-size: 1.05rem; max-width: 520px; margin: 0 auto; }
+  .hero-tags { margin-top: 1.25rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+  .tag {
+    background: var(--tag-bg); color: var(--tag-text);
+    padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+  }
+
+  /* ── Sections ── */
+  section { margin-bottom: 3rem; scroll-margin-top: 80px; }
+  h2 {
+    font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;
+    padding-bottom: 0.5rem; border-bottom: 2px solid var(--accent);
+    display: inline-block;
+  }
+  h3 {
+    font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 0.75rem;
+    color: var(--text);
+  }
+  p { margin-bottom: 1rem; color: var(--text-secondary); }
+  strong { color: var(--text); }
+
+  /* ── Code ── */
+  pre {
+    background: var(--code-bg); border-radius: 10px; padding: 1.25rem 1.5rem;
+    overflow-x: auto; font-size: 0.85rem; line-height: 1.6;
+    margin: 1rem 0 1.5rem; border: 1px solid var(--border);
+    transition: background var(--transition), border var(--transition);
+  }
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  }
+  p code, li code, td code {
+    background: var(--code-bg); padding: 0.15rem 0.45rem;
+    border-radius: 4px; font-size: 0.88em; color: var(--code-text);
+  }
+  .comment { color: #6c757d; }
+  .cmd { color: var(--accent); }
+  .flag { color: var(--success); }
+  .path { color: var(--warning); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  thead th {
+    background: var(--table-header); color: var(--table-header-text);
+    padding: 0.75rem 1rem; text-align: left; font-weight: 600; font-size: 0.85rem;
+  }
+  tbody td { padding: 0.65rem 1rem; border-top: 1px solid var(--border); }
+  tbody tr:nth-child(even) { background: var(--table-stripe); }
+  tbody tr { transition: background 0.15s; }
+  tbody tr:hover { background: var(--accent-light); }
+
+  /* ── Diagram ── */
+  .diagram {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.5rem; margin: 1rem 0 1.5rem;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.85rem; line-height: 1.5; white-space: pre; overflow-x: auto;
+  }
+
+  /* ── Cards ── */
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0 1.5rem; }
+  .card {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem;
+    transition: transform 0.2s, box-shadow 0.2s, background var(--transition);
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--shadow); }
+  .card-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .card h4 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+  .card p { font-size: 0.85rem; margin: 0; }
+
+  /* ── Comparison columns ── */
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin: 1rem 0 1.5rem; }
+  .comp-col {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem; transition: background var(--transition);
+  }
+  .comp-col h4 {
+    font-size: 0.95rem; margin-bottom: 0.75rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .comp-col ul { list-style: none; }
+  .comp-col li {
+    padding: 0.3rem 0; font-size: 0.88rem; color: var(--text-secondary);
+    display: flex; align-items: flex-start; gap: 0.5rem;
+  }
+  .comp-col li::before { flex-shrink: 0; margin-top: 2px; }
+  .pain li::before { content: "✗"; color: var(--danger); font-weight: 700; }
+  .gain li::before { content: "✓"; color: var(--success); font-weight: 700; }
+
+  /* ── Callout ── */
+  .callout {
+    background: var(--accent-light); border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0;
+    font-size: 0.92rem;
+  }
+  .callout strong { color: var(--accent); }
+
+  /* ── Back to top ── */
+  .back-to-top {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 80;
+    background: var(--accent); color: #fff; border: none; border-radius: 50%;
+    width: 44px; height: 44px; cursor: pointer; font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+  }
+  .back-to-top.visible { opacity: 1; transform: translateY(0); }
+  .back-to-top:hover { transform: translateY(-2px); }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open { display: block; }
+    .sidebar-toggle { display: flex; }
+    .main { margin-left: 0; padding: 2rem 2rem 3rem; }
+    .topnav-links { display: none; }
+  }
+  @media (max-width: 640px) {
+    .main { padding: 1.5rem 1.25rem 3rem; }
+    .hero h1 { font-size: 1.6rem; }
+    .hero p { font-size: 0.95rem; }
+    .card-grid, .comparison { grid-template-columns: 1fr; }
+    h2 { font-size: 1.3rem; }
+    pre { padding: 1rem; font-size: 0.8rem; }
+  }
+
+  /* Smooth scroll */
+  html { scroll-behavior: smooth; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<!-- ── Top Nav ── -->
+<nav class="topnav">
+  <div class="topnav-inner">
+    <a href="#top" class="topnav-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/></svg>
+      Git Worktree Guide
+    </a>
+    <div class="topnav-links">
+      <a href="#concepts" data-nav="concepts">Concepts</a>
+      <a href="#comparison" data-nav="comparison">Comparison</a>
+      <a href="#example" data-nav="example">Example</a>
+      <a href="#when-to-use" data-nav="when-to-use">When to Use</a>
+    </div>
+    <div class="topnav-actions">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Sidebar Overlay ── -->
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-section-title" onclick="toggleSection(this)">
+      Concepts
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <ul class="sidebar-links">
+      <li><a href="#what-is-worktree">What Is Git Worktree?</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#disk-layout">Disk Layout</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title" onclick="toggleSection(this)">
+      Comparison
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <ul class="sidebar-links">
+      <li><a href="#key-differences">Key Differences</a></li>
+      <li><a href="#tradeoffs">Tradeoffs at a Glance</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title" onclick="toggleSection(this)">
+      Example
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <ul class="sidebar-links">
+      <li><a href="#scenario">The Scenario</a></li>
+      <li><a href="#branches-only">With Branches Only</a></li>
+      <li><a href="#with-worktrees">With Worktrees</a></li>
+      <li><a href="#side-by-side">Side-by-Side Summary</a></li>
+    </ul>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-section-title" onclick="toggleSection(this)">
+      When to Use
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <ul class="sidebar-links">
+      <li><a href="#use-branches">Use Branches Alone</a></li>
+      <li><a href="#use-worktrees">Use Worktrees</a></li>
+      <li><a href="#takeaway">Key Takeaway</a></li>
+    </ul>
+  </div>
+</aside>
+
+<!-- ── Main Content ── -->
+<main class="main" id="top">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Git <span>Worktree</span> vs Branches</h1>
+    <p>A practical guide to understanding when and why to use git worktrees alongside traditional branching.</p>
+    <div class="hero-tags">
+      <span class="tag">Git</span>
+      <span class="tag">Worktree</span>
+      <span class="tag">Branching</span>
+      <span class="tag">Workflow</span>
+    </div>
+  </div>
+
+  <!-- ── Section: Concepts ── -->
+  <section id="concepts">
+    <h2 id="what-is-worktree">What Is Git Worktree?</h2>
+    <p>A <strong>git worktree</strong> lets you check out multiple branches of the same repository into <strong>separate directories simultaneously</strong>. Instead of one working directory that you switch between branches, you get multiple working directories &mdash; each on a different branch &mdash; all sharing the same <code>.git</code> history.</p>
+
+    <h3 id="how-it-works">How It Works</h3>
+    <p>Every git repository has a <em>main worktree</em> (the directory you cloned into). With <code>git worktree add</code>, you create <em>linked worktrees</em> &mdash; additional directories, each checked out to a different branch, that share the same object database and refs.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">&#128193;</div>
+        <h4>Shared History</h4>
+        <p>All worktrees share the same <code>.git</code> objects &mdash; no duplicated commits, blobs, or tags.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9878;&#65039;</div>
+        <h4>Independent State</h4>
+        <p>Each worktree has its own index, HEAD, and working files. Changes in one don't affect the other.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#128640;</div>
+        <h4>Zero-Cost Switching</h4>
+        <p>Just <code>cd</code> between directories. No stash, no checkout, no rebuild.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#128465;&#65039;</div>
+        <h4>Easy Cleanup</h4>
+        <p>Remove a worktree when done: <code>git worktree remove &lt;path&gt;</code>. That's it.</p>
+      </div>
+    </div>
+
+    <h3 id="disk-layout">Disk Layout</h3>
+    <div class="diagram">~/
+├── myapp/                 ← main branch (main worktree)
+│   ├── src/
+│   ├── package.json
+│   └── .git/              ← the real git database (shared)
+│
+└── myapp-hotfix/          ← hotfix branch (linked worktree)
+    ├── src/
+    └── package.json       ← linked back to myapp/.git</div>
+  </section>
+
+  <!-- ── Section: Comparison ── -->
+  <section id="comparison">
+    <h2 id="key-differences">Key Differences</h2>
+    <p>Branches and worktrees solve different problems. Branches are a <strong>logical</strong> tool for organizing parallel lines of development. Worktrees are a <strong>physical</strong> tool that gives each branch its own directory.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Git Branch</th>
+            <th>Git Worktree</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>What it is</strong></td>
+            <td>A pointer to a commit</td>
+            <td>A separate working directory checked out to a branch</td>
+          </tr>
+          <tr>
+            <td><strong>Switching context</strong></td>
+            <td><code>git checkout</code> &mdash; replaces files in place</td>
+            <td><code>cd ../other-dir</code> &mdash; files stay untouched</td>
+          </tr>
+          <tr>
+            <td><strong>Uncommitted work</strong></td>
+            <td>Must stash or commit before switching</td>
+            <td>Each worktree is independent, no stashing needed</td>
+          </tr>
+          <tr>
+            <td><strong>Disk usage</strong></td>
+            <td>One copy of files</td>
+            <td>One copy per worktree (shared <code>.git</code> objects)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="tradeoffs">Tradeoffs at a Glance</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Branches Only</th>
+            <th>Worktrees</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Your feature files</strong></td><td>Overwritten on switch</td><td>Untouched</td></tr>
+          <tr><td><strong>Dev server</strong></td><td>Killed</td><td>Still running</td></tr>
+          <tr><td><strong>Stashing needed?</strong></td><td>Yes</td><td>No</td></tr>
+          <tr><td><strong>Rebuilds</strong></td><td>2 (switch + return)</td><td>1 (hotfix only)</td></tr>
+          <tr><td><strong>Risk of losing work</strong></td><td>Stash conflicts</td><td>None</td></tr>
+          <tr><td><strong>Mental overhead</strong></td><td>High</td><td>Low</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Section: Example ── -->
+  <section id="example">
+    <h2 id="scenario">Practical Example</h2>
+    <p><strong>Scenario:</strong> You're mid-feature on <code>feature-x</code>, and a critical production bug comes in that needs an immediate fix.</p>
+
+    <h3 id="branches-only">With Branches Only</h3>
+<pre><code><span class="comment"># You're on feature-x, halfway through work</span>
+~/myapp (feature-x) $
+
+<span class="comment"># URGENT BUG! Save unfinished work</span>
+<span class="cmd">git stash</span>
+
+<span class="comment"># Switch branch (all files change in place)</span>
+<span class="cmd">git checkout</span> main
+<span class="cmd">git checkout</span> <span class="flag">-b</span> hotfix-bug
+
+<span class="comment"># Fix the bug, commit, push</span>
+<span class="cmd">git push</span>
+
+<span class="comment"># Go back to your feature</span>
+<span class="cmd">git checkout</span> feature-x
+<span class="cmd">git stash pop</span>          <span class="comment"># pray there are no conflicts</span>
+
+<span class="comment"># Wait for rebuild...</span></code></pre>
+
+    <div class="comparison">
+      <div class="comp-col pain">
+        <h4>Pain Points</h4>
+        <ul>
+          <li>Must stash uncommitted work</li>
+          <li>All files are replaced on each switch</li>
+          <li>Full rebuild required twice</li>
+          <li>Stash pop can cause conflicts</li>
+          <li>Dev server must be restarted</li>
+        </ul>
+      </div>
+      <div class="comp-col" style="opacity: 0.4;">
+        <h4>&nbsp;</h4>
+        <p style="text-align:center; padding-top: 2rem; color: var(--text-secondary); font-size: 0.85rem;">Compare with the worktree approach below &darr;</p>
+      </div>
+    </div>
+
+    <h3 id="with-worktrees">With Worktrees</h3>
+<pre><code><span class="comment"># You're on feature-x, halfway through work</span>
+~/myapp (feature-x) $
+
+<span class="comment"># URGENT BUG! No need to touch anything here.</span>
+
+<span class="comment"># Create a worktree in a separate folder</span>
+<span class="cmd">git worktree add</span> <span class="path">../myapp-hotfix</span> <span class="flag">-b</span> hotfix-bug main
+
+<span class="comment"># Walk over to it (feature-x files untouched)</span>
+<span class="cmd">cd</span> <span class="path">../myapp-hotfix</span>
+
+<span class="comment"># Fix the bug, commit, push</span>
+<span class="cmd">git push</span>
+
+<span class="comment"># Go back — everything is exactly as you left it</span>
+<span class="cmd">cd</span> <span class="path">../myapp</span>
+
+<span class="comment"># Clean up when done</span>
+<span class="cmd">git worktree remove</span> <span class="path">../myapp-hotfix</span></code></pre>
+
+    <div class="comparison">
+      <div class="comp-col" style="opacity: 0.4;">
+        <h4>&nbsp;</h4>
+        <p style="text-align:center; padding-top: 2rem; color: var(--text-secondary); font-size: 0.85rem;">Compare with the branch-only approach above &uarr;</p>
+      </div>
+      <div class="comp-col gain">
+        <h4>Advantages</h4>
+        <ul>
+          <li>No stashing required</li>
+          <li>Feature files completely untouched</li>
+          <li>Dev server keeps running</li>
+          <li>Only one build (the hotfix)</li>
+          <li>Zero risk of stash conflicts</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 id="side-by-side">Side-by-Side Summary</h3>
+    <div class="callout">
+      <strong>Key insight:</strong> Branches are free, but switching between them is not. Worktrees eliminate the cost of switching by giving each branch its own folder.
+    </div>
+  </section>
+
+  <!-- ── Section: When to Use ── -->
+  <section id="when-to-use">
+    <h2>When to Use Each</h2>
+
+    <h3 id="use-branches">Use Branches Alone When&hellip;</h3>
+    <div class="card-grid">
+      <div class="card">
+        <h4>One thing at a time</h4>
+        <p>You focus on a single task and context-switching is rare.</p>
+      </div>
+      <div class="card">
+        <h4>Switching is cheap</h4>
+        <p>Small repo, fast builds &mdash; checkout takes seconds, not minutes.</p>
+      </div>
+      <div class="card">
+        <h4>Comfortable with stash</h4>
+        <p>You're used to <code>git stash</code> and it fits your workflow.</p>
+      </div>
+      <div class="card">
+        <h4>Disk space matters</h4>
+        <p>Each worktree duplicates the working files (though not <code>.git</code> objects).</p>
+      </div>
+    </div>
+
+    <h3 id="use-worktrees">Use Worktrees When&hellip;</h3>
+    <div class="card-grid">
+      <div class="card">
+        <h4>Parallel branches</h4>
+        <p>You need two branches open simultaneously &mdash; e.g., comparing behavior side-by-side.</p>
+      </div>
+      <div class="card">
+        <h4>Expensive rebuilds</h4>
+        <p>Large repos where checkout + rebuild takes minutes. Keep both branches built.</p>
+      </div>
+      <div class="card">
+        <h4>Urgent interruptions</h4>
+        <p>A hotfix lands mid-feature. Spin up a worktree, fix, push, resume with zero disruption.</p>
+      </div>
+      <div class="card">
+        <h4>Code review</h4>
+        <p>Check out a PR in a worktree to test it without disturbing your current work.</p>
+      </div>
+    </div>
+
+    <div id="takeaway" class="callout" style="margin-top: 2rem;">
+      <strong>TL;DR &mdash;</strong> Branches organize your work <em>logically</em>. Worktrees let you have multiple branches physically checked out at once so you never have to stash, switch, and rebuild.
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Back to Top ── -->
+<button class="back-to-top" onclick="window.scrollTo({top:0})" aria-label="Back to top">&#8593;</button>
+
+<script>
+  // Theme
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  }
+  (function() {
+    const saved = localStorage.getItem('theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+      document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+
+  // Sidebar
+  function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    document.querySelector('.sidebar-overlay').classList.toggle('open');
+  }
+  function toggleSection(el) {
+    el.classList.toggle('collapsed');
+  }
+
+  // Close sidebar on link click (mobile)
+  document.querySelectorAll('.sidebar-links a').forEach(a => {
+    a.addEventListener('click', () => {
+      if (window.innerWidth <= 1024) toggleSidebar();
+    });
+  });
+
+  // Active nav highlighting
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.topnav-links a');
+  const sideLinks = document.querySelectorAll('.sidebar-links a');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('data-nav') === current);
+    });
+    sideLinks.forEach(a => {
+      const href = a.getAttribute('href').slice(1);
+      const section = document.getElementById(href);
+      if (section) {
+        const top = section.offsetTop - 120;
+        const bottom = top + section.offsetHeight;
+        a.classList.toggle('active', window.scrollY >= top && window.scrollY < bottom);
+      }
+    });
+
+    // Back to top
+    document.querySelector('.back-to-top')
+      .classList.toggle('visible', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+</script>
+</body>
+</html>
