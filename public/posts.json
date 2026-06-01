@@ -1,0 +1,68 @@
+[
+  {
+    "file": "claude-prompting-guide_v2_v02.html",
+    "title": "The Claude Prompting Guide",
+    "description": "A field guide to prompting Claude well, covering six core principles, task-specific playbooks, reliability safeguards, and two fully worked examples.",
+    "tags": [
+      "claude",
+      "prompt-engineering",
+      "field-guide",
+      "ai-tools",
+      "best-practices"
+    ],
+    "date": "2026-06-01"
+  },
+  {
+    "file": "claude-projects-vs-notebooklm_v02.html",
+    "title": "NotebookLM's Equivalent in the Claude Ecosystem",
+    "description": "Explains how Claude Projects maps to Google NotebookLM as a source-grounded workspace, covering shared concepts, key differences, file limits, and setup.",
+    "tags": [
+      "claude-projects",
+      "notebooklm",
+      "knowledge-base",
+      "ai-tools",
+      "rag"
+    ],
+    "date": "2026-06-01"
+  },
+  {
+    "file": "static-site-hosting-guide_v02.html",
+    "title": "Hosting a Growing HTML Collection · A Static-Site Guide",
+    "description": "A guide to hosting a growing set of standalone HTML files as one searchable, filterable static site on GitHub Pages using a JSON manifest.",
+    "tags": [
+      "static-site",
+      "github-pages",
+      "html",
+      "field-guide",
+      "fuse-js"
+    ],
+    "date": "2026-06-01"
+  },
+  {
+    "file": "claude-code-3d-web-field-manual_v04_v02.html",
+    "title": "Field Manual · Claude Code in a 3D Web App",
+    "description": "A reference guide for organizing Claude Code config, memory, skills, and subagents in a Bun + Vite + Next.js + React Three Fiber 3D web project.",
+    "tags": [
+      "claude-code",
+      "react-three-fiber",
+      "three-js",
+      "next-js",
+      "vite",
+      "project-structure"
+    ],
+    "date": "2026-06-01"
+  },
+  {
+    "file": "claude-code-dynamic-workflows_v02.html",
+    "title": "Dynamic Workflows in Claude Code — A Field Guide",
+    "description": "A field guide to Claude Code dynamic workflows: how Claude writes orchestration scripts that fan out across parallel subagents, and when to use them.",
+    "tags": [
+      "claude-code",
+      "dynamic-workflows",
+      "subagents",
+      "orchestration",
+      "ai-agents"
+    ],
+    "date": "2026-05-28"
+  }
+]

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic Workflows in Claude Code — A Field Guide</title>
+<meta name="description" content="A field guide to Claude Code dynamic workflows: how Claude writes orchestration scripts that fan out across parallel subagents, and when to use them.">
+<meta name="keywords" content="claude-code, dynamic-workflows, subagents, orchestration, ai-agents">
+<meta name="date" content="2026-05-28">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Spline+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Theme tokens ---------- */
+  :root[data-theme="light"]{
+    --bg:#F6F2EB; --bg-grad:#EFEAE0; --elev:#FFFFFF; --surface:#FCFAF5;
+    --text:#211D18; --text-soft:#5C544A; --text-faint:#8A8175;
+    --border:#E5DDD0; --border-strong:#D7CDBC;
+    --accent:#C0563A; --accent-2:#A8492F; --accent-soft:rgba(192,86,58,.10);
+    --code-bg:#262019; --code-text:#EDE6D9; --code-line:#3a3127;
+    --shadow:0 1px 2px rgba(33,29,24,.05),0 12px 30px -18px rgba(33,29,24,.28);
+    --rail:rgba(33,29,24,.04);
+  }
+  :root[data-theme="dark"]{
+    --bg:#141109; --bg-grad:#1b160d; --elev:#1E1810; --surface:#221B12;
+    --text:#F0E9DC; --text-soft:#ADA28E; --text-faint:#7C7261;
+    --border:#332A1D; --border-strong:#43392A;
+    --accent:#E07A57; --accent-2:#EC8B6A; --accent-soft:rgba(224,122,87,.14);
+    --code-bg:#0E0B06; --code-text:#E6DECF; --code-line:#241d12;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 18px 40px -22px rgba(0,0,0,.7);
+    --rail:rgba(255,255,255,.03);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, var(--accent-soft), transparent 60%),
+      linear-gradient(180deg,var(--bg),var(--bg-grad));
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:'Spline Sans',system-ui,sans-serif;
+    line-height:1.65; font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    transition:background .4s ease,color .4s ease;
+  }
+  a{color:inherit;text-decoration:none}
+
+  /* ---------- Top nav ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:60;
+    backdrop-filter:saturate(140%) blur(12px);
+    background:color-mix(in srgb,var(--bg) 82%,transparent);
+    border-bottom:1px solid var(--border);
+    transition:background .4s ease,border-color .4s ease;
+  }
+  .topbar::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;
+    background:linear-gradient(90deg,var(--accent),transparent 70%)}
+  .topbar-inner{display:flex;align-items:center;gap:22px;
+    max-width:1320px;margin:0 auto;padding:0 22px;height:62px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:'Fraunces',serif;
+    font-weight:600;font-size:1.12rem;letter-spacing:-.01em;white-space:nowrap}
+  .brand .glyph{width:26px;height:26px;border-radius:7px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;color:#fff;font-family:'JetBrains Mono',monospace;
+    font-size:.74rem;font-weight:600;box-shadow:0 4px 14px -4px var(--accent)}
+  .top-links{display:flex;gap:4px;margin-left:auto}
+  .top-links a{font-size:.82rem;font-weight:500;color:var(--text-soft);
+    padding:8px 13px;border-radius:9px;transition:.18s;white-space:nowrap}
+  .top-links a:hover{color:var(--text);background:var(--rail)}
+  .top-links a.active{color:var(--accent);background:var(--accent-soft)}
+  .top-tools{display:flex;align-items:center;gap:8px;margin-left:14px}
+  .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border);
+    background:var(--elev);color:var(--text-soft);cursor:pointer;display:grid;
+    place-items:center;transition:.18s}
+  .icon-btn:hover{color:var(--accent);border-color:var(--border-strong)}
+  .icon-btn svg{width:18px;height:18px}
+  #menuBtn{display:none}
+  .theme-knob .moon{display:none}
+  :root[data-theme="dark"] .theme-knob .sun{display:none}
+  :root[data-theme="dark"] .theme-knob .moon{display:block}
+
+  /* ---------- Layout ---------- */
+  .shell{max-width:1320px;margin:0 auto;display:flex;gap:0}
+  .sidebar{
+    position:sticky;top:62px;align-self:flex-start;
+    width:286px;flex:none;height:calc(100vh - 62px);overflow-y:auto;
+    padding:26px 14px 60px 22px;
+    border-right:1px solid var(--border);
+    transition:width .32s cubic-bezier(.4,0,.2,1),padding .32s ease,transform .32s ease;
+  }
+  .sidebar::-webkit-scrollbar{width:8px}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px}
+  .side-head{display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:18px;padding-left:6px}
+  .side-head .eyebrow{font-family:'JetBrains Mono',monospace;font-size:.64rem;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--text-faint)}
+  .collapse-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);
+    background:transparent;color:var(--text-faint);cursor:pointer;display:grid;
+    place-items:center;transition:.18s;flex:none}
+  .collapse-btn:hover{color:var(--accent);border-color:var(--border-strong)}
+  .collapse-btn svg{width:15px;height:15px;transition:transform .32s ease}
+
+  .nav-group{margin-bottom:6px}
+  .group-head{display:flex;align-items:center;gap:9px;width:100%;
+    background:transparent;border:none;cursor:pointer;color:var(--text);
+    font:inherit;font-weight:600;font-size:.86rem;text-align:left;
+    padding:9px 10px;border-radius:9px;transition:.16s}
+  .group-head:hover{background:var(--rail)}
+  .group-head .num{font-family:'JetBrains Mono',monospace;font-size:.7rem;
+    color:var(--accent);width:18px;flex:none}
+  .group-head .chev{margin-left:auto;width:14px;height:14px;color:var(--text-faint);
+    transition:transform .28s ease;flex:none}
+  .nav-group.collapsed .chev{transform:rotate(-90deg)}
+  .group-body{overflow:hidden;max-height:300px;transition:max-height .3s ease,opacity .25s ease}
+  .nav-group.collapsed .group-body{max-height:0;opacity:0}
+  .group-body a{display:block;font-size:.81rem;color:var(--text-soft);
+    padding:6px 10px 6px 38px;border-radius:8px;transition:.15s;position:relative}
+  .group-body a::before{content:"";position:absolute;left:22px;top:50%;
+    width:5px;height:5px;border-radius:50%;background:var(--border-strong);
+    transform:translateY(-50%);transition:.15s}
+  .group-body a:hover{color:var(--text);background:var(--rail)}
+  .group-body a.active{color:var(--accent);font-weight:500}
+  .group-body a.active::before{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+  /* Horizontal collapse (rail) */
+  .sidebar.rail{width:0;padding-left:0;padding-right:0;border-right-color:transparent;
+    overflow:hidden}
+  .sidebar.rail .side-head,.sidebar.rail .nav-group{opacity:0}
+  .floating-open{position:fixed;left:14px;top:74px;z-index:55;display:none}
+  body.rail-mode .floating-open{display:grid}
+
+  /* ---------- Content ---------- */
+  .content{flex:1;min-width:0;padding:40px 40px 120px;max-width:880px}
+  .hero{margin-bottom:46px}
+  .hero .eyebrow{display:inline-flex;align-items:center;gap:8px;
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--accent);
+    background:var(--accent-soft);padding:6px 12px;border-radius:100px;margin-bottom:20px}
+  .hero .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);
+    animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(2.1rem,5vw,3.3rem);
+    line-height:1.05;letter-spacing:-.02em;margin-bottom:18px}
+  h1 em{font-style:italic;color:var(--accent)}
+  .lede{font-size:1.12rem;color:var(--text-soft);max-width:62ch}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-soft);
+    border:1px solid var(--border);background:var(--surface);
+    padding:6px 11px;border-radius:8px}
+  .chip b{color:var(--accent);font-weight:500}
+
+  section{padding-top:30px;scroll-margin-top:80px}
+  .sec-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:block}
+  h2{font-family:'Fraunces',serif;font-weight:600;font-size:1.9rem;letter-spacing:-.015em;
+    line-height:1.15;margin-bottom:8px}
+  h3{font-family:'Fraunces',serif;font-weight:600;font-size:1.18rem;margin:30px 0 10px;
+    letter-spacing:-.01em}
+  .divider{height:1px;background:linear-gradient(90deg,var(--border-strong),transparent);
+    margin:46px 0 4px}
+  p{margin-bottom:14px;color:var(--text-soft)}
+  p strong,li strong{color:var(--text);font-weight:600}
+  .content ul{margin:6px 0 18px;padding-left:0;list-style:none}
+  .content ul li{position:relative;padding-left:24px;margin-bottom:9px;color:var(--text-soft)}
+  .content ul li::before{content:"";position:absolute;left:4px;top:11px;width:7px;height:2px;
+    background:var(--accent);border-radius:2px}
+  code{font-family:'JetBrains Mono',monospace;font-size:.85em;
+    background:var(--accent-soft);color:var(--accent-2);padding:2px 6px;border-radius:5px}
+
+  /* Cards */
+  .card{background:var(--elev);border:1px solid var(--border);border-radius:16px;
+    padding:22px 24px;box-shadow:var(--shadow);margin:18px 0;transition:.25s}
+  .card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .pro h3,.con h3{display:flex;align-items:center;gap:9px;margin-top:0;font-size:1.05rem}
+  .pill{font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:600;
+    padding:3px 9px;border-radius:100px;letter-spacing:.05em}
+  .pill.good{background:rgba(76,150,90,.14);color:#4c965a}
+  .pill.bad{background:var(--accent-soft);color:var(--accent)}
+  :root[data-theme="dark"] .pill.good{color:#79c98a}
+
+  /* Comparison table */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;
+    margin:18px 0;background:var(--elev)}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:.86rem}
+  th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);
+    vertical-align:top}
+  thead th{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text-faint);background:var(--surface)}
+  tbody tr:last-child td{border-bottom:none}
+  td:first-child{font-weight:600;color:var(--text)}
+  td.hi{color:var(--accent-2);font-weight:500}
+  th.hi{color:var(--accent)}
+
+  /* Code blocks / terminal */
+  .term{background:var(--code-bg);border-radius:13px;overflow:hidden;margin:14px 0;
+    border:1px solid var(--code-line);box-shadow:var(--shadow)}
+  .term-bar{display:flex;align-items:center;gap:7px;padding:11px 15px;
+    border-bottom:1px solid var(--code-line)}
+  .term-bar .d{width:11px;height:11px;border-radius:50%;background:#43392a}
+  .term-bar .d:nth-child(1){background:#C0563A}
+  .term-bar .d:nth-child(2){background:#caa24a}
+  .term-bar .d:nth-child(3){background:#5a8c54}
+  .term-bar span{margin-left:8px;font-family:'JetBrains Mono',monospace;
+    font-size:.66rem;color:#8a8175}
+  .term pre{padding:16px 18px;overflow-x:auto;line-height:1.7}
+  .term code{background:none;padding:0;color:var(--code-text);font-size:.82rem}
+  .term .prompt{color:var(--accent-2)}
+  .term .kw{color:#e0a45f}
+  .term .cmt{color:#7a7060;font-style:italic}
+
+  /* Phase steps */
+  .phases{counter-reset:ph;margin:16px 0}
+  .phase{position:relative;padding:0 0 22px 46px;counter-increment:ph}
+  .phase::before{content:counter(ph);position:absolute;left:0;top:0;
+    width:30px;height:30px;border-radius:9px;background:var(--accent-soft);
+    color:var(--accent);font-family:'JetBrains Mono',monospace;font-weight:600;
+    font-size:.82rem;display:grid;place-items:center}
+  .phase::after{content:"";position:absolute;left:14px;top:34px;bottom:2px;width:2px;
+    background:var(--border)}
+  .phase:last-child::after{display:none}
+  .phase h4{font-size:.96rem;margin-bottom:3px;font-weight:600;color:var(--text)}
+  .phase p{margin:0;font-size:.9rem}
+
+  .callout{display:flex;gap:13px;background:var(--accent-soft);
+    border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);
+    border-radius:13px;padding:15px 18px;margin:18px 0}
+  .callout svg{width:19px;height:19px;color:var(--accent);flex:none;margin-top:2px}
+  .callout p{margin:0;font-size:.9rem;color:var(--text)}
+  .callout b{color:var(--accent-2)}
+
+  footer{max-width:880px;margin:0 0 0;padding:30px 40px 60px;
+    border-top:1px solid var(--border);font-size:.8rem;color:var(--text-faint)}
+  footer a{color:var(--accent);font-weight:500}
+  .scrim{display:none}
+
+  /* ---------- Responsive ---------- */
+  @media(max-width:1080px){
+    .content{padding:36px 28px 100px}
+  }
+  @media(max-width:880px){
+    .top-links{display:none}
+    #menuBtn{display:grid}
+    .sidebar{position:fixed;top:62px;left:0;z-index:50;
+      width:300px;transform:translateX(-105%);
+      background:var(--bg);box-shadow:var(--shadow)}
+    .sidebar.open{transform:translateX(0)}
+    .sidebar.rail{transform:translateX(-105%)}
+    body.rail-mode .floating-open{display:none}
+    .content{padding:30px 22px 90px;max-width:none}
+    .grid2{grid-template-columns:1fr}
+    .scrim.show{display:block;position:fixed;inset:62px 0 0;z-index:40;
+      background:rgba(0,0,0,.4);backdrop-filter:blur(2px)}
+    footer{padding:30px 22px 60px}
+  }
+  @media(max-width:520px){
+    .topbar-inner{padding:0 14px;gap:12px}
+    .brand{font-size:1rem}
+    h1{font-size:2rem}
+    .content{padding:26px 16px 80px}
+    .card{padding:18px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TOP NAV ============ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <button class="icon-btn" id="menuBtn" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <a class="brand" href="#top"><span class="glyph">&lt;/&gt;</span> Dynamic Workflows</a>
+    <nav class="top-links" id="topLinks">
+      <a href="#concepts">Concepts</a>
+      <a href="#difference">vs. Subagents</a>
+      <a href="#scenarios">When to use</a>
+      <a href="#proscons">Pros &amp; Cons</a>
+      <a href="#examples">Examples</a>
+    </nav>
+    <div class="top-tools">
+      <button class="icon-btn theme-knob" id="themeBtn" aria-label="Toggle theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<button class="icon-btn floating-open" id="floatOpen" aria-label="Show sidebar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+</button>
+
+<div class="shell">
+  <!-- ============ SIDE NAV ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <span class="eyebrow">Contents</span>
+      <button class="collapse-btn" id="railBtn" aria-label="Collapse sidebar" title="Collapse to side">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="nav-group" data-grp>
+      <button class="group-head"><span class="num">01</span> Basic concepts
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="group-body">
+        <a href="#concepts">What it is</a>
+        <a href="#how-runs">How a run works</a>
+        <a href="#trigger">Triggering &amp; ultracode</a>
+        <a href="#availability">Availability &amp; limits</a>
+      </div>
+    </div>
+
+    <div class="nav-group" data-grp>
+      <button class="group-head"><span class="num">02</span> vs. Orchestrator
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="group-body">
+        <a href="#difference">Who holds the plan</a>
+        <a href="#compare-table">Side-by-side table</a>
+        <a href="#why-matters">Why it matters</a>
+      </div>
+    </div>
+
+    <div class="nav-group" data-grp>
+      <button class="group-head"><span class="num">03</span> When to use
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="group-body">
+        <a href="#scenarios">Good fits</a>
+        <a href="#not-fits">Poor fits</a>
+      </div>
+    </div>
+
+    <div class="nav-group" data-grp>
+      <button class="group-head"><span class="num">04</span> Pros &amp; cons
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="group-body">
+        <a href="#proscons">Advantages</a>
+        <a href="#proscons">Trade-offs</a>
+      </div>
+    </div>
+
+    <div class="nav-group" data-grp>
+      <button class="group-head"><span class="num">05</span> Examples
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="group-body">
+        <a href="#ex1">1 — Security audit</a>
+        <a href="#ex2">2 — pandas → polars</a>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ============ CONTENT ============ -->
+  <main class="content" id="top">
+    <div class="hero">
+      <!-- ===== FEATURED / COVER IMAGE (theme-responsive, axonometric) ===== -->
+      <style>
+      .cover{position:relative;margin:0 0 34px;border-radius:18px;overflow:hidden;
+        border:1px solid var(--border);
+        background:
+          radial-gradient(130% 150% at 82% -30%, var(--accent-soft), transparent 58%),
+          linear-gradient(165deg, var(--surface), var(--elev));
+        box-shadow:var(--shadow);
+        --edge:color-mix(in srgb, var(--text) 24%, transparent);
+        --neutral:var(--elev);}
+      .cover svg{display:block;width:100%;height:auto}
+      .cover .neu{color:var(--neutral)} .cover .acc{color:var(--accent)}
+      .cover .lbl{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;
+        letter-spacing:.16em;text-transform:uppercase;fill:var(--text-faint)}
+      </style>
+      <figure class="cover">
+        <svg viewBox="0 0 1200 340" role="img" aria-label="Axonometric fan-out — one source block branching into a row of parallel agent blocks.">
+          <defs>
+            <g id="cube">
+              <polygon fill="currentColor" points="0,0 86.6,50 0,100 -86.6,50"/>
+              <polygon fill="currentColor" points="0,100 -86.6,50 -86.6,150 0,200"/>
+              <polygon fill="currentColor" points="0,100 86.6,50 86.6,150 0,200"/>
+              <polygon fill="#000" opacity=".12" points="0,100 -86.6,50 -86.6,150 0,200"/>
+              <polygon fill="#000" opacity=".26" points="0,100 86.6,50 86.6,150 0,200"/>
+              <g fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round">
+                <polygon points="0,0 86.6,50 0,100 -86.6,50"/>
+                <polygon points="0,100 -86.6,50 -86.6,150 0,200"/>
+                <polygon points="0,100 86.6,50 86.6,150 0,200"/>
+              </g>
+            </g>
+          </defs>
+          <!-- fan-out connectors -->
+          <g stroke="var(--accent)" stroke-width="1.8" fill="none" opacity=".6">
+            <path d="M600,170 C600,196 320,184 320,210"/>
+            <path d="M600,170 C600,196 460,188 460,210"/>
+            <path d="M600,170 L600,210"/>
+            <path d="M600,170 C600,196 740,188 740,210"/>
+            <path d="M600,170 C600,196 880,184 880,210"/>
+          </g>
+          <!-- parallel agents -->
+          <use href="#cube" class="neu" transform="translate(320,210) scale(.5)"/>
+          <use href="#cube" class="neu" transform="translate(460,210) scale(.5)"/>
+          <use href="#cube" class="acc" transform="translate(600,210) scale(.5)"/>
+          <use href="#cube" class="neu" transform="translate(740,210) scale(.5)"/>
+          <use href="#cube" class="neu" transform="translate(880,210) scale(.5)"/>
+          <!-- source request -->
+          <use href="#cube" class="acc" transform="translate(600,38) scale(.66)"/>
+          <circle cx="600" cy="170" r="5" fill="var(--accent)"/>
+          <text class="lbl" x="24" y="316">One request &#183; many agents</text>
+        </svg>
+      </figure>
+      <span class="eyebrow"><span class="dot"></span> Research preview · Claude Code · May 28 2026</span>
+      <h1>Claude Code <em>Dynamic Workflows</em>, explained</h1>
+      <p class="lede">Claude writes a JavaScript orchestration script on the fly, a runtime fans it out across tens to hundreds of parallel subagents in the background, and you get back a single, verified answer instead of a turn-by-turn transcript.</p>
+      <div class="meta-row">
+        <span class="chip">Up to <b>1,000</b> agents / run</span>
+        <span class="chip"><b>16</b> concurrent locally</span>
+        <span class="chip">v<b>2.1.154</b>+</span>
+        <span class="chip">CLI · Desktop · IDE · API</span>
+      </div>
+    </div>
+
+    <!-- 01 -->
+    <section id="concepts">
+      <span class="sec-label">01 — Basic concepts</span>
+      <h2>What a dynamic workflow actually is</h2>
+      <p>A dynamic workflow is a <strong>JavaScript orchestration script that Claude writes from your plain-language request</strong>. A separate runtime executes that script in the background while your chat session stays free to keep working. The script — not the conversation — holds the loops, the branching, and the intermediate state.</p>
+      <p>Where a normal session works through a problem turn by turn, a workflow <strong>fans the work out across many subagents running in parallel</strong>, checks the results before folding them in, and returns one coordinated answer. Independent agents attack the problem from different angles, other agents try to refute their findings, and the run keeps iterating until the answers converge.</p>
+
+      <h3 id="how-runs">How a run works</h3>
+      <div class="phases">
+        <div class="phase"><h4>Plan</h4><p>Claude reads your prompt and writes a script that breaks the job into subtasks.</p></div>
+        <div class="phase"><h4>Fan out</h4><p>The runtime spawns subagents in parallel; intermediate results live in <em>script variables</em>, not Claude's context.</p></div>
+        <div class="phase"><h4>Verify</h4><p>Findings are independently re-checked / adversarially reviewed before they count.</p></div>
+        <div class="phase"><h4>Converge &amp; report</h4><p>The run iterates until results stabilise, then returns one cited, coordinated answer.</p></div>
+      </div>
+
+      <h3 id="trigger">Two ways to trigger one</h3>
+      <ul>
+        <li>Put the word <code>workflow</code> anywhere in a prompt — Claude Code highlights it and writes a script for that one task. <em>(You decide to fan out.)</em></li>
+        <li>Run <code>/effort ultracode</code> — combines <code>xhigh</code> reasoning effort with automatic orchestration, so Claude itself decides when each task warrants a workflow for the whole session. <em>(Claude decides.)</em></li>
+      </ul>
+      <p>There's also a bundled workflow, <code>/deep-research</code>, and once a run does what you wanted you can press <code>s</code> in <code>/workflows</code> to <strong>save its script as your own reusable <code>/command</code></strong>.</p>
+
+      <h3 id="availability">Availability &amp; hard limits</h3>
+      <ul>
+        <li>Research preview on all paid plans (on by default for Max/Team and the API; Enterprise admin-gated), plus Bedrock, Vertex AI, and Microsoft Foundry.</li>
+        <li>Up to <strong>16 concurrent agents</strong> locally, <strong>1,000 agents total per run</strong> (a guard against runaway loops).</li>
+        <li><strong>No mid-run user input</strong> — only permission prompts can pause a run. Runs are resumable, but only within the same session.</li>
+      </ul>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- 02 -->
+    <section id="difference">
+      <span class="sec-label">02 — The key difference</span>
+      <h2>vs. the conventional “orchestrator + subagents”</h2>
+      <p id="why-matters">Subagents, skills, and workflows can all run a multi-step task. The decisive difference is one thing: <strong>who holds the plan.</strong></p>
+      <p>With ordinary <strong>subagents and skills, Claude <em>is</em> the orchestrator</strong>. It decides turn by turn what to spawn next, and every intermediate result lands back in its context window. That works well for a handful of delegated tasks — but the context fills up as the job grows, and an interruption restarts the whole turn.</p>
+      <p>A dynamic workflow <strong>moves the plan into code</strong>. The script owns the loop, the branching, and the intermediate results, so Claude's context only ever holds the final answer. That single shift is what lets a run scale to hundreds of agents, stay on track no matter how big the task gets, and be saved and re-run exactly.</p>
+
+      <div class="table-wrap" id="compare-table">
+        <table>
+          <thead><tr><th></th><th>Subagents</th><th>Skills</th><th class="hi">Workflows</th></tr></thead>
+          <tbody>
+            <tr><td>What it is</td><td>A worker Claude spawns</td><td>Instructions Claude follows</td><td class="hi">A script the runtime executes</td></tr>
+            <tr><td>Who decides next step</td><td>Claude, turn by turn</td><td>Claude, per the prompt</td><td class="hi">The script</td></tr>
+            <tr><td>Intermediate results live in</td><td>Claude's context</td><td>Claude's context</td><td class="hi">Script variables</td></tr>
+            <tr><td>What's repeatable</td><td>The worker definition</td><td>The instructions</td><td class="hi">The orchestration itself</td></tr>
+            <tr><td>Scale</td><td>A few tasks / turn</td><td>Same as subagents</td><td class="hi">Dozens–hundreds / run</td></tr>
+            <tr><td>Interruption</td><td>Restarts the turn</td><td>Restarts the turn</td><td class="hi">Resumable in session</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <p>One vendor summed up the niche neatly: a workflow <b>fills the gap between firing off a single subagent and standing up a full agent team</b> — planning flows into implementation without losing visibility.</p>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- 03 -->
+    <section id="scenarios">
+      <span class="sec-label">03 — Fit</span>
+      <h2>The most suitable scenarios</h2>
+      <p>Reach for a workflow when a task <strong>needs more agents than one conversation can coordinate</strong>, or when you want the orchestration codified as a script you can read and re-run.</p>
+      <div class="card">
+        <h3 style="margin-top:0">Where it shines</h3>
+        <ul>
+          <li><strong>Codebase-wide audits</strong> — bug hunts, security/auth sweeps, input-validation and unsafe-pattern passes, profiler-guided optimisation. Parallel search, then independent verification of every finding so the report surfaces real issues.</li>
+          <li><strong>Large migrations &amp; modernisation</strong> — framework swaps, API deprecations, language ports spanning hundreds to thousands of files, end-to-end.</li>
+          <li><strong>High-stakes work you need checked twice</strong> — independent attempts at the same problem plus adversarial agents trying to break the result before you see it.</li>
+          <li><strong>Cross-checked research</strong> — many sources fetched in parallel and weighed against each other, with claims that fail verification filtered out.</li>
+          <li><strong>Stress-testing a plan</strong> — drafting it from several independent angles before you commit to one.</li>
+        </ul>
+      </div>
+      <h3 id="not-fits">Where it's the wrong tool</h3>
+      <ul>
+        <li>Quick, routine, or exploratory tasks — the token cost and setup outweigh the benefit.</li>
+        <li>Anything needing <strong>human sign-off mid-run</strong>; there's no mid-run input, so split staged approvals into separate workflows.</li>
+        <li>Cost-sensitive contexts where an order-of-magnitude token jump isn't acceptable.</li>
+      </ul>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- 04 -->
+    <section id="proscons">
+      <span class="sec-label">04 — Trade-offs</span>
+      <h2>Pros &amp; cons</h2>
+      <div class="grid2">
+        <div class="card pro">
+          <h3><span class="pill good">PROS</span> What you gain</h3>
+          <ul>
+            <li><strong>Scale:</strong> tens–hundreds (up to 1,000) of agents coordinated in one session.</li>
+            <li><strong>Clean context:</strong> plan &amp; state live in the script, so big tasks don't bloat the conversation.</li>
+            <li><strong>Built-in verification:</strong> adversarial review yields results a single pass can't reach.</li>
+            <li><strong>Long-running &amp; resumable:</strong> progress is saved; an interrupted run picks up where it left off.</li>
+            <li><strong>Repeatable:</strong> save the script as a <code>/command</code> and re-run the exact orchestration.</li>
+            <li><strong>Background:</strong> the session stays responsive while agents work.</li>
+          </ul>
+        </div>
+        <div class="card con">
+          <h3><span class="pill bad">CONS</span> What it costs</h3>
+          <ul>
+            <li><strong>Token usage:</strong> meaningfully higher — a large run can shift the bill by an order of magnitude.</li>
+            <li><strong>Research preview:</strong> still maturing; behaviour may change.</li>
+            <li><strong>No mid-run input:</strong> only permission prompts pause it; staged sign-off needs separate runs.</li>
+            <li><strong>Resume is session-bound:</strong> exit Claude Code and the run starts fresh.</li>
+            <li><strong>Auto-approved edits:</strong> spawned agents run in <code>acceptEdits</code> mode — manage your tool allowlist.</li>
+            <li><strong>Model cost:</strong> every agent uses your session model unless the script routes a stage elsewhere.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        <p><b>Cost tip:</b> check <code>/model</code> before a big run and ask Claude to route mechanical stages to a smaller model. Start on a <b>scoped task</b> to feel out usage.</p>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- 05 -->
+    <section id="examples">
+      <span class="sec-label">05 — In practice</span>
+      <h2>Two worked examples</h2>
+
+      <h3 id="ex1">Example 1 — Codebase-wide auth/security audit</h3>
+      <p>A <em>discovery + verification</em> pattern: too many files for one context, and you want every finding double-checked before it reaches you.</p>
+      <div class="term">
+        <div class="term-bar"><i class="d"></i><i class="d"></i><i class="d"></i><span>claude code — cli</span></div>
+        <pre><code><span class="prompt">&gt;</span> Run a <span class="kw">workflow</span> to audit every API endpoint under
+  <span class="kw">src/routes/</span> for missing auth checks, then verify
+  each finding before reporting.</code></pre>
+      </div>
+      <div class="phases">
+        <div class="phase"><h4>Scan in parallel</h4><p>Agents each take a slice of <code>src/routes/</code>, flagging missing or weak auth, input-validation gaps and unsafe patterns. Candidates accumulate in script variables.</p></div>
+        <div class="phase"><h4>Independent verification</h4><p>A fresh agent adversarially re-checks each candidate; false positives are filtered out so only real issues survive.</p></div>
+        <div class="phase"><h4>Single report</h4><p>You come back to one report of confirmed issues with file locations — not a noisy turn-by-turn transcript.</p></div>
+        <div class="phase"><h4>Save &amp; re-run</h4><p>Open <code>/workflows</code>, press <code>s</code>, and save it as <code>/auth-audit</code> to run the same sweep on every branch.</p></div>
+      </div>
+
+      <h3 id="ex2">Example 2 — Migrate a data pipeline from pandas to polars</h3>
+      <p>A <em>large migration</em> across many modules — the same shape Anthropic showcased with the 750k-line Bun port (Zig→Rust), scaled to a data-engineering codebase. Keep behaviour identical and the test suite green.</p>
+      <div class="term">
+        <div class="term-bar"><i class="d"></i><i class="d"></i><i class="d"></i><span>claude code — cli</span></div>
+        <pre><code><span class="prompt">&gt;</span> /effort ultracode
+<span class="cmt"># then:</span>
+<span class="prompt">&gt;</span> Create a <span class="kw">workflow</span> to migrate every module under
+  <span class="kw">src/pipeline/</span> from pandas to polars, keeping behaviour
+  identical and pytest green. Use a smaller model for the
+  mechanical port stages.</code></pre>
+      </div>
+      <div class="phases">
+        <div class="phase"><h4>Map</h4><p>Agents catalogue the pandas APIs each module uses and their polars equivalents, flagging tricky spots (index semantics, dtypes, <code>apply</code> vs expressions).</p></div>
+        <div class="phase"><h4>Port in parallel</h4><p>Many agents each rewrite one module as a behaviour-identical polars version, with reviewer agents per file checking correctness.</p></div>
+        <div class="phase"><h4>Fix loop</h4><p>The run drives the build and <code>pytest</code> until both pass clean, agents iterating on failures until results converge.</p></div>
+        <div class="phase"><h4>Optimise (optional)</h4><p>An overnight pass tackles unnecessary copies / eager frames and opens a PR per change for your final review.</p></div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+        <p>Watch either run live with <code>/workflows</code> — each phase shows its agent count, token total and elapsed time, and you can drill into any single agent's prompt and result.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  Compiled from Anthropic's official sources — the
+  <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code" target="_blank" rel="noopener">dynamic workflows announcement</a>
+  and the <a href="https://code.claude.com/docs/en/workflows" target="_blank" rel="noopener">Claude Code documentation</a> (research preview, May 2026).
+  Figures and limits reflect the preview and may change.
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  // theme: init from system preference (no storage in artifacts)
+  try{ if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){ root.setAttribute('data-theme','dark'); } }catch(e){}
+  document.getElementById('themeBtn').addEventListener('click',function(){
+    root.setAttribute('data-theme', root.getAttribute('data-theme')==='dark'?'light':'dark');
+  });
+
+  var sidebar=document.getElementById('sidebar');
+  var scrim=document.getElementById('scrim');
+
+  // vertical collapse of nav groups
+  document.querySelectorAll('[data-grp] .group-head').forEach(function(h){
+    h.addEventListener('click',function(){ h.parentElement.classList.toggle('collapsed'); });
+  });
+
+  // horizontal collapse (rail) — desktop
+  document.getElementById('railBtn').addEventListener('click',function(){
+    sidebar.classList.add('rail'); document.body.classList.add('rail-mode');
+  });
+  document.getElementById('floatOpen').addEventListener('click',function(){
+    sidebar.classList.remove('rail'); document.body.classList.remove('rail-mode');
+  });
+
+  // mobile drawer
+  function openDrawer(){ sidebar.classList.add('open'); sidebar.classList.remove('rail');
+    document.body.classList.remove('rail-mode'); scrim.classList.add('show'); }
+  function closeDrawer(){ sidebar.classList.remove('open'); scrim.classList.remove('show'); }
+  document.getElementById('menuBtn').addEventListener('click',openDrawer);
+  scrim.addEventListener('click',closeDrawer);
+
+  // smooth nav + close drawer on mobile
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click',function(){ if(window.innerWidth<=880) closeDrawer(); });
+  });
+
+  // scroll-spy
+  var sections=[].slice.call(document.querySelectorAll('main section, #top'));
+  var topLinks=[].slice.call(document.querySelectorAll('#topLinks a'));
+  var sideLinks=[].slice.call(document.querySelectorAll('.group-body a'));
+  var topMap={concepts:'#concepts',difference:'#difference',scenarios:'#scenarios',proscons:'#proscons',examples:'#examples'};
+
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        var id=en.target.id;
+        // top bar (map detailed ids to the 5 mains)
+        var mainId=id;
+        if(['concepts','how-runs','trigger','availability'].indexOf(id)>-1) mainId='concepts';
+        topLinks.forEach(function(l){ l.classList.toggle('active', l.getAttribute('href')==='#'+mainId); });
+        // side bar
+        sideLinks.forEach(function(l){ l.classList.toggle('active', l.getAttribute('href')==='#'+id); });
+      }
+    });
+  },{rootMargin:'-25% 0px -60% 0px',threshold:0});
+
+  // observe both top-level sections and inner anchored headings
+  document.querySelectorAll('section[id], h3[id], h2[id]').forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>

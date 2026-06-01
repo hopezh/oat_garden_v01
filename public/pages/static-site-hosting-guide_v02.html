@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hosting a Growing HTML Collection · A Static-Site Guide</title>
+<meta name="description" content="A guide to hosting a growing set of standalone HTML files as one searchable, filterable static site on GitHub Pages using a JSON manifest.">
+<meta name="keywords" content="static-site, github-pages, html, field-guide, fuse-js">
+<meta name="date" content="2026-06-01">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sidebar-w: 296px;
+    --topbar-h: 66px;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --maxw: 760px;
+    --r: 14px;
+    --ease: cubic-bezier(.16,.84,.44,1);
+  }
+
+  html[data-theme="light"] {
+    --bg: #faf8f3;
+    --bg-grain: #f2eee3;
+    --elev: #ffffff;
+    --surface: #f4f1e9;
+    --surface-2: #efeadd;
+    --text: #1b1a17;
+    --text-soft: #57524a;
+    --text-faint: #908a7c;
+    --border: #e6e1d5;
+    --border-strong: #d8d2c3;
+    --accent: #0e7c6b;
+    --accent-hover: #0a655700;
+    --accent-ink: #0a5d50;
+    --accent-soft: rgba(14,124,107,.10);
+    --accent-line: rgba(14,124,107,.28);
+    --code-bg: #f6f3eb;
+    --code-border: #e7e2d6;
+    --code-text: #2c2a25;
+    --kw: #b15a1e;
+    --shadow-sm: 0 1px 2px rgba(40,36,28,.05), 0 2px 8px rgba(40,36,28,.04);
+    --shadow-md: 0 4px 24px rgba(40,36,28,.08);
+    --scrim: rgba(27,26,23,.32);
+  }
+
+  html[data-theme="dark"] {
+    --bg: #0e100f;
+    --bg-grain: #121514;
+    --elev: #171a19;
+    --surface: #1a1e1d;
+    --surface-2: #202423;
+    --text: #ece8df;
+    --text-soft: #aaa498;
+    --text-faint: #6e695e;
+    --border: #272b29;
+    --border-strong: #343936;
+    --accent: #44c8b1;
+    --accent-hover: #5fd6c1;
+    --accent-ink: #6fdcc8;
+    --accent-soft: rgba(68,200,177,.13);
+    --accent-line: rgba(68,200,177,.34);
+    --code-bg: #131716;
+    --code-border: #242927;
+    --code-text: #d6d2c8;
+    --kw: #e0925a;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4), 0 2px 10px rgba(0,0,0,.25);
+    --shadow-md: 0 8px 32px rgba(0,0,0,.45);
+    --scrim: rgba(0,0,0,.55);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--topbar-h) + 24px); }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    transition: background .4s var(--ease), color .4s var(--ease);
+    background-image:
+      radial-gradient(120% 80% at 100% 0%, var(--accent-soft) 0%, transparent 42%),
+      radial-gradient(90% 60% at 0% 100%, var(--bg-grain) 0%, transparent 55%);
+    background-attachment: fixed;
+  }
+
+  /* ---------- Reading progress ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    z-index: 60; transition: width .12s linear;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 22px; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: saturate(140%) blur(14px);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; flex-shrink: 0; text-decoration: none; color: var(--text); }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-family: var(--font-display);
+    font-weight: 600; font-size: 17px; box-shadow: var(--shadow-sm);
+  }
+  html[data-theme="dark"] .brand .mark { color: #0c1110; }
+  .brand b { font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: -.01em; }
+  .brand span { color: var(--text-faint); font-size: 12.5px; display: block; margin-top: -3px; font-weight: 500; }
+
+  .topnav { display: flex; gap: 4px; margin-left: 12px; overflow-x: auto; scrollbar-width: none; }
+  .topnav::-webkit-scrollbar { display: none; }
+  .topnav a {
+    position: relative; text-decoration: none; color: var(--text-soft);
+    font-size: 14px; font-weight: 500; padding: 8px 13px; border-radius: 9px;
+    white-space: nowrap; transition: color .2s, background .2s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--accent-ink); }
+  .topnav a.active::after {
+    content: ""; position: absolute; left: 13px; right: 13px; bottom: 2px;
+    height: 2px; border-radius: 2px; background: var(--accent);
+  }
+
+  .actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .iconbtn {
+    width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--elev); color: var(--text-soft); cursor: pointer;
+    display: grid; place-items: center; transition: all .2s var(--ease);
+  }
+  .iconbtn:hover { color: var(--text); border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  .iconbtn svg { width: 18px; height: 18px; }
+  .iconbtn .sun { display: none; }
+  html[data-theme="dark"] .iconbtn .sun { display: block; }
+  html[data-theme="dark"] .iconbtn .moon { display: none; }
+  #hamburger, #railToggle { display: none; }
+
+  /* ---------- Layout ---------- */
+  .layout { display: flex; padding-top: var(--topbar-h); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0;
+    position: sticky; top: var(--topbar-h);
+    height: calc(100vh - var(--topbar-h));
+    overflow-y: auto; padding: 26px 14px 60px 22px;
+    border-right: 1px solid var(--border);
+    transition: width .34s var(--ease), transform .34s var(--ease), opacity .25s, padding .34s var(--ease);
+    scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  }
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+
+  .sb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; padding: 0 10px;
+  }
+  .sb-head .label { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
+  .sb-collapse {
+    background: none; border: none; cursor: pointer; color: var(--text-faint);
+    width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+    transition: all .2s;
+  }
+  .sb-collapse:hover { background: var(--surface); color: var(--text); }
+  .sb-collapse svg { width: 16px; height: 16px; }
+
+  .nav-group { margin-bottom: 2px; }
+  .nav-group__header {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px;
+    font-family: var(--font-body); font-size: 14.5px; font-weight: 600; color: var(--text);
+    transition: background .18s;
+  }
+  .nav-group__header:hover { background: var(--surface); }
+  .nav-group__header .chev {
+    width: 15px; height: 15px; flex-shrink: 0; color: var(--text-faint);
+    transition: transform .28s var(--ease);
+  }
+  .nav-group__header .num {
+    font-family: var(--font-mono); font-size: 11px; color: var(--accent-ink);
+    background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; flex-shrink: 0;
+  }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+
+  .nav-group__items {
+    overflow: hidden; max-height: 320px;
+    transition: max-height .32s var(--ease), opacity .26s;
+    opacity: 1; margin: 2px 0 6px 0;
+  }
+  .nav-group.collapsed .nav-group__items { max-height: 0; opacity: 0; }
+  .nav-group__items a {
+    display: block; text-decoration: none; color: var(--text-soft);
+    font-size: 13.5px; padding: 6px 10px 6px 32px; border-radius: 8px;
+    position: relative; transition: color .18s, background .18s;
+  }
+  .nav-group__items a::before {
+    content: ""; position: absolute; left: 19px; top: 50%; transform: translateY(-50%);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong);
+    transition: all .2s;
+  }
+  .nav-group__items a:hover { color: var(--text); background: var(--surface); }
+  .nav-group__items a.active { color: var(--accent-ink); font-weight: 600; background: var(--accent-soft); }
+  .nav-group__items a.active::before { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* Collapsed (horizontal) sidebar — desktop */
+  body[data-rail="on"] .sidebar { width: 0; padding-left: 0; padding-right: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+  #railToggle.show { display: grid; }
+
+  /* ---------- Main ---------- */
+  .main { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 0 32px; }
+  .content { width: 100%; max-width: var(--maxw); padding: 52px 0 120px; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink);
+    background: var(--accent-soft); padding: 6px 13px; border-radius: 100px; margin-bottom: 22px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  h1 {
+    font-family: var(--font-display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.2rem);
+    line-height: 1.08; letter-spacing: -.02em; margin-bottom: 18px;
+  }
+  h1 em { font-style: italic; color: var(--accent-ink); }
+  .lede { font-size: 1.18rem; color: var(--text-soft); max-width: 64ch; line-height: 1.6; }
+
+  h2 {
+    font-family: var(--font-display); font-weight: 600; font-size: clamp(1.55rem, 3vw, 2rem);
+    letter-spacing: -.015em; line-height: 1.15; margin: 0 0 6px;
+  }
+  h3 { font-size: 1.18rem; font-weight: 700; letter-spacing: -.01em; margin: 30px 0 10px; }
+  section h2 { scroll-margin-top: calc(var(--topbar-h) + 24px); }
+  .sub { scroll-margin-top: calc(var(--topbar-h) + 24px); }
+
+  section { padding-top: 64px; }
+  section + section { border-top: 1px solid var(--border); margin-top: 30px; }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 13px; color: var(--accent-ink);
+    letter-spacing: .04em; display: block; margin-bottom: 10px; font-weight: 500;
+  }
+  p { margin: 14px 0; color: var(--text); }
+  p.muted { color: var(--text-soft); }
+  strong { font-weight: 700; color: var(--text); }
+  a.inline { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-line); transition: border-color .2s; }
+  a.inline:hover { border-color: var(--accent); }
+  code.ic {
+    font-family: var(--font-mono); font-size: .86em; background: var(--code-bg);
+    border: 1px solid var(--code-border); padding: 1px 6px; border-radius: 6px; color: var(--code-text);
+  }
+
+  /* Layer cards */
+  .layers { display: grid; gap: 14px; margin: 26px 0; }
+  .layer {
+    display: grid; grid-template-columns: 46px 1fr; gap: 18px; align-items: start;
+    background: var(--elev); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 20px 22px; box-shadow: var(--shadow-sm); transition: transform .25s var(--ease), border-color .25s, box-shadow .25s;
+  }
+  .layer:hover { transform: translateY(-2px); border-color: var(--accent-line); box-shadow: var(--shadow-md); }
+  .layer .n {
+    width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink);
+    display: grid; place-items: center; font-family: var(--font-display); font-weight: 600; font-size: 20px;
+  }
+  .layer h4 { font-size: 1.02rem; font-weight: 700; margin-bottom: 3px; }
+  .layer h4 code { font-family: var(--font-mono); font-size: .82em; color: var(--accent-ink); font-weight: 600; }
+  .layer p { margin: 0; color: var(--text-soft); font-size: .95rem; }
+
+  /* Code blocks */
+  .codewrap { margin: 20px 0; border-radius: var(--r); overflow: hidden; border: 1px solid var(--code-border); box-shadow: var(--shadow-sm); }
+  .codewrap .bar {
+    display: flex; align-items: center; gap: 8px; padding: 9px 15px;
+    background: var(--surface); border-bottom: 1px solid var(--code-border);
+  }
+  .codewrap .bar .fname { font-family: var(--font-mono); font-size: 12px; color: var(--text-soft); }
+  .codewrap .bar .dots { display: flex; gap: 6px; margin-right: 4px; }
+  .codewrap .bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+  pre { background: var(--code-bg); padding: 18px 20px; overflow-x: auto; }
+  pre code { font-family: var(--font-mono); font-size: 13px; line-height: 1.75; color: var(--code-text); white-space: pre; }
+  pre .t { color: var(--kw); }
+  pre .c { color: var(--text-faint); font-style: italic; }
+  pre .a { color: var(--accent-ink); }
+
+  /* Callout */
+  .callout {
+    display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: start;
+    background: var(--accent-soft); border: 1px solid var(--accent-line);
+    border-radius: var(--r); padding: 18px 20px; margin: 24px 0;
+  }
+  .callout svg { width: 22px; height: 22px; color: var(--accent-ink); margin-top: 2px; }
+  .callout p { margin: 0; font-size: .95rem; color: var(--text); }
+  .callout b { color: var(--accent-ink); }
+
+  /* Pills / chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 4px; }
+  .chip {
+    font-size: 12.5px; font-weight: 500; padding: 5px 12px; border-radius: 100px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-soft);
+    font-family: var(--font-mono);
+  }
+
+  /* Compare */
+  .compare { display: grid; gap: 14px; margin: 22px 0; }
+  @media (min-width: 620px) { .compare { grid-template-columns: 1fr 1fr; } }
+  .opt { background: var(--elev); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+  .opt.rec { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line); }
+  .opt .tag { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
+  .opt.rec .tag { color: var(--accent-ink); }
+  .opt h4 { font-size: 1.05rem; margin: 8px 0 6px; font-weight: 700; }
+  .opt p { margin: 0; font-size: .92rem; color: var(--text-soft); }
+
+  /* Steps */
+  .steps { counter-reset: s; margin: 22px 0; display: grid; gap: 12px; }
+  .step {
+    counter-increment: s; position: relative; padding: 16px 18px 16px 58px;
+    background: var(--elev); border: 1px solid var(--border); border-radius: var(--r);
+  }
+  .step::before {
+    content: counter(s); position: absolute; left: 16px; top: 15px;
+    width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-family: var(--font-mono); font-weight: 600; font-size: 13px;
+  }
+  html[data-theme="dark"] .step::before { color: #0c1110; }
+  .step b { display: block; margin-bottom: 2px; }
+  .step span { color: var(--text-soft); font-size: .92rem; }
+
+  footer.end {
+    margin-top: 30px; padding: 26px; border-radius: var(--r);
+    background: var(--surface); border: 1px solid var(--border); text-align: center;
+  }
+  footer.end p { color: var(--text-soft); font-size: .92rem; }
+  footer.end .src { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+
+  /* Mobile drawer scrim */
+  #scrim {
+    position: fixed; inset: 0; background: var(--scrim); z-index: 45;
+    opacity: 0; pointer-events: none; transition: opacity .3s; backdrop-filter: blur(2px);
+  }
+
+  /* Entrance animation */
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise .7s var(--ease) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1024px) {
+    .topnav { display: none; }
+    #hamburger { display: grid; }
+    .sidebar {
+      position: fixed; top: var(--topbar-h); left: 0; z-index: 48;
+      background: var(--elev); transform: translateX(-100%);
+      box-shadow: var(--shadow-md); width: 300px;
+    }
+    body[data-drawer="open"] .sidebar { transform: translateX(0); }
+    body[data-drawer="open"] #scrim { opacity: 1; pointer-events: auto; }
+    .sb-collapse { display: none; }
+    .main { padding: 0 26px; }
+  }
+  @media (max-width: 560px) {
+    .topbar { padding: 0 14px; gap: 10px; }
+    .brand span { display: none; }
+    .main { padding: 0 18px; }
+    .content { padding: 38px 0 90px; }
+    .layer { grid-template-columns: 1fr; gap: 10px; }
+    .iconbtn { width: 36px; height: 36px; }
+  }
+</style>
+</head>
+<body data-theme-host>
+<div id="progress"></div>
+
+<!-- ===== TOP BAR ===== -->
+<header class="topbar">
+  <button id="hamburger" class="iconbtn" aria-label="Toggle navigation">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <a class="brand" href="#top">
+    <span class="mark">S</span>
+    <span><b>StaticDeck</b><span>HTML collection guide</span></span>
+  </a>
+  <nav class="topnav" id="topnav">
+    <a href="#overview" data-sec="overview">Overview</a>
+    <a href="#architecture" data-sec="architecture">Architecture</a>
+    <a href="#manifest" data-sec="manifest">Manifest</a>
+    <a href="#search" data-sec="search">Search</a>
+    <a href="#hosting" data-sec="hosting">Hosting</a>
+    <a href="#setup" data-sec="setup">Setup</a>
+  </nav>
+  <div class="actions">
+    <button id="railToggle" class="iconbtn" aria-label="Show contents">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h13M3 6h18M3 18h18M18 9l3 3-3 3"/></svg>
+    </button>
+    <button id="themeBtn" class="iconbtn" aria-label="Toggle theme">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+    </button>
+  </div>
+</header>
+
+<div id="scrim"></div>
+
+<div class="layout">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <span class="label">On this page</span>
+      <button class="sb-collapse" id="sbCollapse" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 6l-6 6 6 6M19 6h-7M19 12h-7M19 18h-7"/></svg>
+      </button>
+    </div>
+    <nav id="tree">
+      <div class="nav-group" data-sec="overview">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">00</span> Overview</button>
+        <div class="nav-group__items">
+          <a href="#the-big-idea">The big idea</a>
+        </div>
+      </div>
+      <div class="nav-group" data-sec="architecture">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">01</span> Architecture</button>
+        <div class="nav-group__items">
+          <a href="#three-layers">Three layers</a>
+          <a href="#how-it-serves">How it gets served</a>
+        </div>
+      </div>
+      <div class="nav-group" data-sec="manifest">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">02</span> Manifest</button>
+        <div class="nav-group__items">
+          <a href="#metadata">Metadata convention</a>
+          <a href="#build-script">The build script</a>
+          <a href="#automation">Automating it</a>
+        </div>
+      </div>
+      <div class="nav-group" data-sec="search">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">03</span> Search &amp; Tags</button>
+        <div class="nav-group__items">
+          <a href="#client-side">Client-side approach</a>
+          <a href="#fuse-pagefind">Fuse.js vs Pagefind</a>
+        </div>
+      </div>
+      <div class="nav-group" data-sec="hosting">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">04</span> Hosting</button>
+        <div class="nav-group__items">
+          <a href="#github-pages">GitHub Pages</a>
+          <a href="#nojekyll">The .nojekyll gotcha</a>
+          <a href="#alternatives">Alternatives</a>
+        </div>
+      </div>
+      <div class="nav-group" data-sec="setup">
+        <button class="nav-group__header"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg><span class="num">05</span> Setup</button>
+        <div class="nav-group__items">
+          <a href="#repo-layout">Repo layout</a>
+          <a href="#first-steps">First steps</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+    <div class="content" id="top">
+
+      <!-- ===== FEATURED / COVER IMAGE (theme-responsive, axonometric) ===== -->
+      <style>
+      .cover{position:relative;margin:0 0 34px;border-radius:18px;overflow:hidden;
+        border:1px solid var(--border);
+        background:
+          radial-gradient(130% 150% at 82% -30%, var(--accent-soft), transparent 58%),
+          linear-gradient(165deg, var(--surface), var(--elev));
+        box-shadow:var(--shadow-md);
+        --edge:color-mix(in srgb, var(--text) 24%, transparent);
+        --neutral:var(--elev);}
+      .cover svg{display:block;width:100%;height:auto}
+      .cover .neu{color:var(--neutral)} .cover .acc{color:var(--accent)}
+      .cover .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;
+        text-transform:uppercase;fill:var(--text-faint)}
+      </style>
+      <figure class="cover">
+        <svg viewBox="0 0 1200 340" role="img" aria-label="Axonometric diagram — many standalone HTML file tiles wired into a single elevated index block.">
+          <defs>
+            <g id="cube">
+              <polygon fill="currentColor" points="0,0 86.6,50 0,100 -86.6,50"/>
+              <polygon fill="currentColor" points="0,100 -86.6,50 -86.6,150 0,200"/>
+              <polygon fill="currentColor" points="0,100 86.6,50 86.6,150 0,200"/>
+              <polygon fill="#000" opacity=".12" points="0,100 -86.6,50 -86.6,150 0,200"/>
+              <polygon fill="#000" opacity=".26" points="0,100 86.6,50 86.6,150 0,200"/>
+              <g fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round">
+                <polygon points="0,0 86.6,50 0,100 -86.6,50"/>
+                <polygon points="0,100 -86.6,50 -86.6,150 0,200"/>
+                <polygon points="0,100 86.6,50 86.6,150 0,200"/>
+              </g>
+            </g>
+            <g id="tile">
+              <polygon fill="currentColor" points="0,0 86.6,50 0,100 -86.6,50"/>
+              <polygon fill="currentColor" points="0,100 -86.6,50 -86.6,66 0,116"/>
+              <polygon fill="currentColor" points="0,100 86.6,50 86.6,66 0,116"/>
+              <polygon fill="#000" opacity=".12" points="0,100 -86.6,50 -86.6,66 0,116"/>
+              <polygon fill="#000" opacity=".26" points="0,100 86.6,50 86.6,66 0,116"/>
+              <g fill="none" stroke="var(--edge)" stroke-width="1.6" stroke-linejoin="round">
+                <polygon points="0,0 86.6,50 0,100 -86.6,50"/>
+                <polygon points="0,100 -86.6,50 -86.6,66 0,116"/>
+                <polygon points="0,100 86.6,50 86.6,66 0,116"/>
+              </g>
+            </g>
+          </defs>
+          <!-- wires from index to each file -->
+          <g stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="3 7" opacity=".5" fill="none">
+            <path d="M600,210 L343,230"/><path d="M600,210 L458,275"/><path d="M600,210 L603,287"/>
+            <path d="M600,210 L743,275"/><path d="M600,210 L888,235"/><path d="M600,210 L958,185"/>
+          </g>
+          <!-- file tiles -->
+          <use href="#tile" class="neu" transform="translate(300,205) scale(.5)"/>
+          <use href="#tile" class="neu" transform="translate(415,250) scale(.5)"/>
+          <use href="#tile" class="neu" transform="translate(560,262) scale(.5)"/>
+          <use href="#tile" class="neu" transform="translate(700,250) scale(.5)"/>
+          <use href="#tile" class="neu" transform="translate(845,210) scale(.5)"/>
+          <use href="#tile" class="neu" transform="translate(915,160) scale(.5)"/>
+          <!-- index block -->
+          <use href="#cube" class="acc" transform="translate(600,62) scale(.74)"/>
+          <circle cx="600" cy="210" r="5" fill="var(--accent)"/>
+          <text class="lbl" x="24" y="316">Files &#8594; one index</text>
+        </svg>
+      </figure>
+      <div class="reveal" style="animation-delay:.02s">
+        <span class="eyebrow"><span class="dot"></span> Static-Site Playbook</span>
+      </div>
+      <h1 class="reveal" style="animation-delay:.08s">Host a growing collection of <em>standalone HTML</em> as one searchable site.</h1>
+      <p class="lede reveal" style="animation-delay:.16s">Your generated pages already render on their own. The only missing piece is a front door — a single index that knows what exists and lets you browse, search, filter, and group it. Here's the whole design, end to end.</p>
+
+      <!-- 00 OVERVIEW -->
+      <section id="overview">
+        <span class="sec-num">00 — Overview</span>
+        <h2 id="the-big-idea" class="sub">The big idea</h2>
+        <p>This is simpler than it first looks, because each of your HTML files is <strong>already self-contained</strong> and renders independently in a browser. You don't convert or rebuild them. You add exactly two new pieces on top: a <strong>manifest</strong> that lists what you have, and one <strong>index page</strong> that reads it. Clicking an entry just navigates the browser to that file — rich contents and all.</p>
+      </section>
+
+      <!-- 01 ARCHITECTURE -->
+      <section id="architecture">
+        <span class="sec-num">01 — Architecture</span>
+        <h2 id="three-layers" class="sub">Three layers in one repo</h2>
+        <div class="layers">
+          <div class="layer">
+            <div class="n">A</div>
+            <div><h4>Your HTML files <code>/posts/</code></h4><p>Dropped into a folder. They already render, so a click simply opens them in a new page. No build step ever touches them.</p></div>
+          </div>
+          <div class="layer">
+            <div class="n">B</div>
+            <div><h4>A manifest <code>posts.json</code></h4><p>One JSON file listing each post's title, date, tags, description, and path. This is what makes search, filtering, and grouping possible without any server.</p></div>
+          </div>
+          <div class="layer">
+            <div class="n">C</div>
+            <div><h4>One home <code>index.html</code></h4><p>Fetches <code class="ic">posts.json</code>, renders the cards or list, and runs search &amp; filter entirely in the browser.</p></div>
+          </div>
+        </div>
+        <h3 id="how-it-serves" class="sub">How it gets served</h3>
+        <p class="muted">A static host serves these files verbatim — it takes your HTML, CSS, and JavaScript straight from the repository and publishes them, with no server-side processing. Every interactive thing happens client-side, which is exactly what static hosting is best at.</p>
+      </section>
+
+      <!-- 02 MANIFEST -->
+      <section id="manifest">
+        <span class="sec-num">02 — Keeping it current</span>
+        <h2 id="metadata" class="sub">Make each file self-describing</h2>
+        <p>The "ever-growing" requirement is the real design question. The trick is to let each file carry its own metadata in <code class="ic">&lt;meta&gt;</code> tags, so it describes itself:</p>
+        <div class="codewrap">
+          <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="fname">posts/solar-explorer.html — &lt;head&gt;</span></div>
+<pre><code><span class="t">&lt;title&gt;</span>Interactive Solar Irradiance Explorer<span class="t">&lt;/title&gt;</span>
+<span class="t">&lt;meta</span> <span class="a">name</span>=<span class="a">"description"</span> <span class="a">content</span>=<span class="a">"A three.js scene visualizing annual irradiance."</span><span class="t">&gt;</span>
+<span class="t">&lt;meta</span> <span class="a">name</span>=<span class="a">"keywords"</span> <span class="a">content</span>=<span class="a">"threejs, dataviz, solar"</span><span class="t">&gt;</span>
+<span class="t">&lt;meta</span> <span class="a">name</span>=<span class="a">"date"</span> <span class="a">content</span>=<span class="a">"2026-05-01"</span><span class="t">&gt;</span></code></pre>
+        </div>
+        <p class="muted">Title comes from <code class="ic">&lt;title&gt;</code>; tags, description, and date from the meta tags. Just ask Claude to include these when it generates a page, and your files arrive ready to index.</p>
+
+        <h3 id="build-script" class="sub">A small Python build script</h3>
+        <p>A script scans <code class="ic">/posts/</code>, reads each file's metadata, and writes <code class="ic">posts.json</code>. The key trick: <strong>merge</strong> with the existing manifest rather than overwrite it — so hand-curated tags on old posts are preserved while new files get auto-added.</p>
+        <div class="callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4.5v5c0 5-3.8 8.5-9 10.5-5.2-2-9-5.5-9-10.5v-5L12 2z"/><path d="M9 12l2 2 4-4"/></svg>
+          <p><b>Your whole workflow becomes:</b> drop a file in the folder → run the script → commit. That's it.</p>
+        </div>
+
+        <h3 id="automation" class="sub">Automate it with GitHub Actions</h3>
+        <p>A workflow runs the script on every push, regenerates <code class="ic">posts.json</code>, and commits it back. After that you never touch the manifest by hand — push a new HTML file and the index updates itself.</p>
+      </section>
+
+      <!-- 03 SEARCH -->
+      <section id="search">
+        <span class="sec-num">03 — Search, filter &amp; tags</span>
+        <h2 id="client-side" class="sub">Do it all client-side</h2>
+        <p>For a personal collection (tens to low hundreds of files), everything runs in the browser. Tags become clickable filter chips, keyword search runs over title / description / tags, and group-by-tag is just a <code class="ic">groupBy</code> over the same JSON.</p>
+        <div class="chips">
+          <span class="chip"># threejs</span><span class="chip"># dataviz</span><span class="chip"># solar</span><span class="chip"># pytorch</span><span class="chip"># grasshopper</span><span class="chip"># radiance</span>
+        </div>
+
+        <h3 id="fuse-pagefind" class="sub">Fuse.js vs Pagefind</h3>
+        <div class="compare">
+          <div class="opt rec">
+            <span class="tag">★ Recommended</span>
+            <h4>Fuse.js / MiniSearch + posts.json</h4>
+            <p>No backend, full control of the card UI, fuzzy search. The only cost is generating an index file — which your Python script already does. Loads the whole dataset client-side, so it can slow down only once you're well into the thousands.</p>
+          </div>
+          <div class="opt">
+            <span class="tag">Upgrade path</span>
+            <h4>Pagefind</h4>
+            <p>Crawls your built HTML and indexes the full text <em>inside</em> each page. Reach for it when you want to search content within documents, not just their metadata.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 HOSTING -->
+      <section id="hosting">
+        <span class="sec-num">04 — Where to host</span>
+        <h2 id="github-pages" class="sub">GitHub Pages</h2>
+        <p>The most frictionless choice if your files are already heading into a Git repo, and free for public repos. A user site needs a repo named exactly <code class="ic">username.github.io</code>; a project site gives you <code class="ic">username.github.io/reponame</code>.</p>
+
+        <h3 id="nojekyll" class="sub">The <code class="ic">.nojekyll</code> gotcha</h3>
+        <div class="callout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+          <p><b>Add an empty <code class="ic">.nojekyll</code> file at the repo root.</b> By default, Pages runs files through Jekyll, which ignores underscore-prefixed files and can interfere with arbitrary HTML. This empty file disables that and serves your files untouched.</p>
+        </div>
+
+        <h3 id="alternatives" class="sub">Solid alternatives</h3>
+        <p><strong>Cloudflare Pages</strong> and <strong>Netlify</strong> both have generous free tiers, easy Git integration, custom domains, and fewer build quirks. <strong>Vercel</strong> is aimed at Next.js apps — overkill here, unless you later rebuild the index as a Next.js / React app, which is a natural future iteration given you're learning Next.js.</p>
+      </section>
+
+      <!-- 05 SETUP -->
+      <section id="setup">
+        <span class="sec-num">05 — Suggested first version</span>
+        <h2 id="repo-layout" class="sub">Repo layout</h2>
+        <div class="codewrap">
+          <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="fname">my-pages/</span></div>
+<pre><code>my-pages/
+├── <span class="a">.nojekyll</span>            <span class="c"># disable Jekyll processing</span>
+├── <span class="a">index.html</span>           <span class="c"># browse / search / filter UI</span>
+├── <span class="a">posts.json</span>           <span class="c"># generated manifest</span>
+├── <span class="a">build_index.py</span>       <span class="c"># scans /posts, rebuilds manifest</span>
+├── posts/               <span class="c"># your HTML files live here</span>
+└── .github/workflows/   <span class="c"># optional: auto-run on push</span></code></pre>
+        </div>
+
+        <h3 id="first-steps" class="sub">First steps</h3>
+        <div class="steps">
+          <div class="step"><b>Get the manual version working</b><span>Write <code class="ic">build_index.py</code> and a card-based <code class="ic">index.html</code> with Fuse.js search and tag filtering.</span></div>
+          <div class="step"><b>Confirm the feel</b><span>Make sure browsing, search, and filtering behave the way you want before adding moving parts.</span></div>
+          <div class="step"><b>Automate the manifest</b><span>Add the GitHub Action so the index updates itself on every push.</span></div>
+          <div class="step"><b>(Later) Level up</b><span>Swap the index page for a React / Next.js app, or add Pagefind for full-text search inside documents.</span></div>
+        </div>
+
+        <footer class="end">
+          <p>Want this turned into real files? The next step is scaffolding <code class="ic">build_index.py</code> (with tag-preserving merge), a polished card-based <code class="ic">index.html</code>, and the GitHub Actions workflow — as plain HTML/JS or as a React component.</p>
+          <p class="src">Reference: GitHub Pages docs · Fuse.js · Pagefind · Cloudflare Pages · Netlify</p>
+        </footer>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var body = document.body;
+
+  /* ---- Theme ---- */
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---- Sidebar: vertical collapse of groups ---- */
+  document.querySelectorAll('.nav-group__header').forEach(function (h) {
+    h.addEventListener('click', function () { h.parentElement.classList.toggle('collapsed'); });
+  });
+
+  /* ---- Sidebar: horizontal collapse (desktop rail) ---- */
+  var railToggle = document.getElementById('railToggle');
+  var sbCollapse = document.getElementById('sbCollapse');
+  function setRail(on) {
+    body.setAttribute('data-rail', on ? 'on' : 'off');
+    railToggle.classList.toggle('show', on);
+  }
+  sbCollapse.addEventListener('click', function () { setRail(true); });
+  railToggle.addEventListener('click', function () { setRail(false); });
+
+  /* ---- Mobile drawer ---- */
+  var hamburger = document.getElementById('hamburger');
+  var scrim = document.getElementById('scrim');
+  function closeDrawer() { body.removeAttribute('data-drawer'); }
+  hamburger.addEventListener('click', function () {
+    body.setAttribute('data-drawer', body.getAttribute('data-drawer') === 'open' ? '' : 'open');
+  });
+  scrim.addEventListener('click', closeDrawer);
+
+  /* ---- Smooth-scroll + close drawer on link click ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (window.innerWidth <= 1024) closeDrawer(); }
+    });
+  });
+
+  /* ---- Reading progress ---- */
+  var progress = document.getElementById('progress');
+  window.addEventListener('scroll', function () {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    progress.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+  }, { passive: true });
+
+  /* ---- Scrollspy: highlight top nav + sidebar tree ---- */
+  var subs = Array.prototype.slice.call(document.querySelectorAll('.sub, section[id]'));
+  var topLinks = document.querySelectorAll('#topnav a');
+  var treeLinks = document.querySelectorAll('#tree .nav-group__items a');
+  var groups = document.querySelectorAll('#tree .nav-group');
+
+  // map each detailed anchor to its parent section id
+  var sectionOf = {};
+  document.querySelectorAll('section[id]').forEach(function (s) {
+    s.querySelectorAll('[id]').forEach(function (n) { sectionOf[n.id] = s.id; });
+    sectionOf[s.id] = s.id;
+  });
+
+  var current = null;
+  function spy() {
+    var pos = window.scrollY + (window.innerHeight * 0.28);
+    var activeId = null;
+    var anchors = document.querySelectorAll('h2.sub, h3.sub, section[id]');
+    anchors.forEach(function (el) { if (el.offsetTop <= pos) activeId = el.id; });
+    if (activeId === current) return;
+    current = activeId;
+    var secId = sectionOf[activeId] || activeId;
+
+    topLinks.forEach(function (l) { l.classList.toggle('active', l.dataset.sec === secId); });
+    treeLinks.forEach(function (l) { l.classList.toggle('active', l.getAttribute('href') === '#' + activeId); });
+    groups.forEach(function (g) {
+      if (g.dataset.sec === secId) g.classList.remove('collapsed');
+    });
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  window.addEventListener('resize', spy);
+  spy();
+})();
+</script>
+</body>
+</html>
