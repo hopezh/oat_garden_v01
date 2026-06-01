@@ -53,6 +53,13 @@
     "date": "2026-06-01"
   },
   {
+    "file": "Claude Context Switcher (Refined) Marathon style.html",
+    "title": "Claude Context Switcher",
+    "description": "",
+    "tags": [],
+    "date": "2026-05-30"
+  },
+  {
     "file": "claude-code-dynamic-workflows_v02.html",
     "title": "Dynamic Workflows in Claude Code — A Field Guide",
     "description": "A field guide to Claude Code dynamic workflows: how Claude writes orchestration scripts that fan out across parallel subagents, and when to use them.",
