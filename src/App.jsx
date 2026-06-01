@@ -102,71 +102,73 @@ export default function App() {
         />
         <header className="site-header">
           <div>
-            <h1 className="site-title">
-              Oat Garden<span className="dot">.</span>
-            </h1>
+            <h1 className="site-title">Oat Garden</h1>
             <p className="site-tagline">
-              A growing collection of standalone HTML pages — searchable, filterable, and tagged.
+              A collection of distilled knowledge cards - Ji ZHANG
             </p>
           </div>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
       </div>
 
-      <div className="controls">
-        <SearchBar value={query} onChange={setQuery} />
-        <TagFilter
-          tags={tagList}
-          selected={selectedTags}
-          onToggle={toggleTag}
-          onClear={() => setSelectedTags([])}
-          groupByTag={groupByTag}
-          onGroupToggle={() => setGroupByTag((g) => !g)}
-        />
-      </div>
+      <div className="layout">
+        <aside className="sidebar">
+          <SearchBar value={query} onChange={setQuery} />
+          <TagFilter
+            tags={tagList}
+            selected={selectedTags}
+            onToggle={toggleTag}
+            onClear={() => setSelectedTags([])}
+            groupByTag={groupByTag}
+            onGroupToggle={() => setGroupByTag((g) => !g)}
+          />
+        </aside>
 
-      {status === 'loading' && (
-        <div className="state">
-          <p>Loading pages…</p>
-        </div>
-      )}
-
-      {status === 'error' && (
-        <div className="state">
-          <h2>Couldn’t load the index</h2>
-          <p>
-            Run <code>python build_index.py</code> to generate <code>public/posts.json</code>, then reload.
-          </p>
-        </div>
-      )}
-
-      {status === 'ready' && (
-        <>
-          <p className="result-count">
-            {filtered.length} of {posts.length} page{posts.length === 1 ? '' : 's'}
-            {query && <> matching “{query}”</>}
-          </p>
-
-          {filtered.length === 0 ? (
+        <main className="content">
+          {status === 'loading' && (
             <div className="state">
-              <h2>No matches</h2>
-              <p>Try a different search term or clear your tag filters.</p>
+              <p>Loading pages…</p>
             </div>
-          ) : groupByTag ? (
-            grouped.map((group) => (
-              <section className="group" key={group.tag}>
-                <h2 className="group-heading">
-                  {group.tag}
-                  <span className="count">{group.items.length}</span>
-                </h2>
-                <CardGrid posts={group.items} selectedTags={selectedTags} onTagClick={toggleTag} />
-              </section>
-            ))
-          ) : (
-            <CardGrid posts={filtered} selectedTags={selectedTags} onTagClick={toggleTag} />
           )}
-        </>
-      )}
+
+          {status === 'error' && (
+            <div className="state">
+              <h2>Couldn’t load the index</h2>
+              <p>
+                Run <code>python build_index.py</code> to generate <code>public/posts.json</code>, then reload.
+              </p>
+            </div>
+          )}
+
+          {status === 'ready' && (
+            <>
+              <p className="result-count">
+                {filtered.length} of {posts.length} page{posts.length === 1 ? '' : 's'}
+                {query && <> matching “{query}”</>}
+              </p>
+
+              {filtered.length === 0 ? (
+                <div className="state">
+                  <h2>No matches</h2>
+                  <p>Try a different search term or clear your tag filters.</p>
+                </div>
+              ) : groupByTag ? (
+                grouped.map((group) => (
+                  <section className="group" key={group.tag}>
+                    <h2 className="group-heading">
+                      {group.tag}
+                      <span className="count">{group.items.length}</span>
+                    </h2>
+                    <CardGrid posts={group.items} selectedTags={selectedTags} onTagClick={toggleTag} />
+                  </section>
+                ))
+              ) : (
+                <CardGrid posts={filtered} selectedTags={selectedTags} onTagClick={toggleTag} />
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
