@@ -90,17 +90,20 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="site-header">
-        <div>
-          <h1 className="site-title">
-            Oat Garden<span className="dot">.</span>
-          </h1>
-          <p className="site-tagline">
-            A growing collection of standalone HTML pages — searchable, filterable, and tagged.
-          </p>
-        </div>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
-      </header>
+      <div className="site-cover">
+        <img className="site-cover__bg" src={`${BASE}cover_img_v01.svg`} alt="" />
+        <header className="site-header">
+          <div>
+            <h1 className="site-title">
+              Oat Garden<span className="dot">.</span>
+            </h1>
+            <p className="site-tagline">
+              A growing collection of standalone HTML pages — searchable, filterable, and tagged.
+            </p>
+          </div>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </header>
+      </div>
 
       <div className="controls">
         <SearchBar value={query} onChange={setQuery} />
