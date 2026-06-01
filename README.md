@@ -44,6 +44,23 @@ repo subpath. All fetches/links use `import.meta.env.BASE_URL`.
 The push triggers the workflow; the new card appears on the live site within a
 minute or two.
 
+## Enriching pages with `/enrich-pages all`
+
+If you'd rather not hand-write the `<meta>` tags, run the `/enrich-pages`
+[slash command](https://docs.claude.com/en/docs/claude-code/slash-commands) in
+[Claude Code](https://claude.com/claude-code) from the project root:
+
+```
+/enrich-pages all
+```
+
+It scans every `.html` file in `public/pages/`, and for any page missing a
+`description`, `keywords`, or `date` `<meta>` tag, it reads the page content,
+generates sensible values, and inserts the tags in place. The `all` argument
+processes the whole folder; omit it to enrich only pages added or changed since
+the last run. When it finishes, it re-runs `build_index.py` so `public/posts.json`
+reflects the new metadata. Review the edits, then commit and push as usual.
+
 ## Project layout
 
 ```
