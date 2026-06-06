@@ -1,5 +1,33 @@
 [
   {
+    "file": "llm-wiki-summary.html",
+    "title": "The LLM Wiki Pattern — Karpathy's Compounding Knowledge Base",
+    "description": "A summary of Karpathy's LLM Wiki: an LLM-maintained, persistent markdown knowledge base that compiles knowledge once and keeps it current, unlike RAG.",
+    "tags": [
+      "llm-wiki",
+      "knowledge-base",
+      "rag-alternative",
+      "karpathy",
+      "persistent-memory",
+      "markdown-wiki"
+    ],
+    "date": "2026-06-06"
+  },
+  {
+    "file": "theory-of-code.html",
+    "title": "The Theory of Code: The Last Software Engineering Skill",
+    "description": "Why a deep mental model of your system, not coding speed, is the evergreen engineering skill in the AI era, and how to build and apply it.",
+    "tags": [
+      "theory-of-code",
+      "mental-models",
+      "ai-engineering",
+      "code-review",
+      "vibe-coding",
+      "senior-engineer"
+    ],
+    "date": "2026-06-02"
+  },
+  {
     "file": "vibe_coding_workflow.html",
     "title": "Vibe Coding Workflow v2 — Pipeline Diagram",
     "description": "A systematic multi-agent Claude Code methodology using a 5-session, file-driven prompt pipeline to build a tested NES emulator with zero hand-written code.",

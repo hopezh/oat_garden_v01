@@ -246,6 +246,59 @@ a { color: inherit; text-decoration: none; }
 }
 .search-bar .clear:hover { color: var(--text); }
 
+/* ── Sort control ─────────────────────────────────────────────────────── */
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sort-control .label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.sort-select-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.sort-select-wrap select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.6rem 2.2rem 0.6rem 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.sort-select-wrap select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.sort-select-wrap svg {
+  position: absolute;
+  right: 0.75rem;
+  width: 16px;
+  height: 16px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
 /* ── Tag filter ───────────────────────────────────────────────────────── */
 .tag-filter {
   display: flex;

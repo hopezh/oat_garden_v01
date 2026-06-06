@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Fuse from 'fuse.js'
 import SearchBar from './components/SearchBar.jsx'
+import SortControl, { SORT_OPTIONS } from './components/SortControl.jsx'
 import TagFilter from './components/TagFilter.jsx'
 import CardGrid from './components/CardGrid.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
@@ -10,6 +11,20 @@ import { useTheme } from './hooks/useTheme.js'
 import coverSvg from '../public/cover_img_v14.svg?raw'
 
 const BASE = import.meta.env.BASE_URL
+const SORT_STORAGE_KEY = 'oat-garden-sort'
+const DEFAULT_SORT = 'date-desc' // Date — newest first
+
+// Read the remembered sort, falling back to the default if absent/invalid.
+function getInitialSort() {
+  if (typeof window === 'undefined') return DEFAULT_SORT
+  try {
+    const stored = window.localStorage.getItem(SORT_STORAGE_KEY)
+    if (stored && SORT_OPTIONS.some((o) => o.value === stored)) return stored
+  } catch {
+    /* storage unavailable (private mode / sandbox) — ignore */
+  }
+  return DEFAULT_SORT
+}
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
@@ -19,6 +34,16 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState([])
   const [groupByTag, setGroupByTag] = useState(false)
+  const [sortBy, setSortBy] = useState(getInitialSort)
+
+  // Remember the chosen sort across reloads (same mechanism as the theme).
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SORT_STORAGE_KEY, sortBy)
+    } catch {
+      /* storage unavailable (private mode / sandbox) — ignore */
+    }
+  }, [sortBy])
 
   // Fetch the generated manifest (path respects the base for /<repo>/ on Pages).
   useEffect(() => {
@@ -76,17 +101,35 @@ export default function App() {
     return base.filter((p) => selectedTags.every((t) => (p.tags || []).includes(t)))
   }, [query, selectedTags, fuse, posts])
 
+  // Sort the filtered results by date or title (feeds both grouped + flat views).
+  const sorted = useMemo(() => {
+    const [key, dir] = sortBy.split('-')
+    const factor = dir === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (key === 'title') {
+        return factor * (a.title || '').localeCompare(b.title || '')
+      }
+      // date: empty dates sort to the end regardless of direction.
+      const da = a.date || ''
+      const db = b.date || ''
+      if (!da && !db) return 0
+      if (!da) return 1
+      if (!db) return -1
+      return factor * da.localeCompare(db)
+    })
+  }, [filtered, sortBy])
+
   // When grouping, a post appears under each of its (selected-or-all) tags.
   const grouped = useMemo(() => {
     if (!groupByTag) return null
     const activeTags = selectedTags.length > 0 ? selectedTags : tagList.map((t) => t.tag)
     const groups = activeTags
-      .map((tag) => ({ tag, items: filtered.filter((p) => (p.tags || []).includes(tag)) }))
+      .map((tag) => ({ tag, items: sorted.filter((p) => (p.tags || []).includes(tag)) }))
       .filter((g) => g.items.length > 0)
-    const untagged = filtered.filter((p) => !(p.tags || []).length)
+    const untagged = sorted.filter((p) => !(p.tags || []).length)
     if (untagged.length) groups.push({ tag: 'untagged', items: untagged })
     return groups
-  }, [groupByTag, filtered, selectedTags, tagList])
+  }, [groupByTag, sorted, selectedTags, tagList])
 
   const toggleTag = (tag) =>
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
@@ -114,6 +157,7 @@ export default function App() {
       <div className="layout">
         <aside className="sidebar">
           <SearchBar value={query} onChange={setQuery} />
+          <SortControl value={sortBy} onChange={setSortBy} />
           <TagFilter
             tags={tagList}
             selected={selectedTags}
@@ -163,7 +207,7 @@ export default function App() {
                   </section>
                 ))
               ) : (
-                <CardGrid posts={filtered} selectedTags={selectedTags} onTagClick={toggleTag} />
+                <CardGrid posts={sorted} selectedTags={selectedTags} onTagClick={toggleTag} />
               )}
             </>
           )}
