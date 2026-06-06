@@ -14,6 +14,20 @@
     "date": "2026-06-06"
   },
   {
+    "file": "llm-wiki-implementation_v2.html",
+    "title": "Implementing Karpathy's LLM Wiki — Scenarios, Stack & Wiring",
+    "description": "A research guide to implementing Karpathy's LLM Wiki: best scenarios, which software to use, and how to wire the agent, editor and search together.",
+    "tags": [
+      "llm-wiki",
+      "knowledge-base",
+      "claude-code",
+      "obsidian",
+      "qmd",
+      "rag-alternative"
+    ],
+    "date": "2026-06-06"
+  },
+  {
     "file": "theory-of-code.html",
     "title": "The Theory of Code: The Last Software Engineering Skill",
     "description": "Why a deep mental model of your system, not coding speed, is the evergreen engineering skill in the AI era, and how to build and apply it.",
