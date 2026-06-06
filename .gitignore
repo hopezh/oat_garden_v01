@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Generated search index — rebuilt from public/pages/*.html by build_index.py
+# (predev / prebuild hooks and the CI deploy regenerate it on every run).
+public/posts.json
+
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
 
