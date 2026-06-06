@@ -147,7 +147,9 @@ export default function App() {
           <div>
             <h1 className="site-title">Oat Garden</h1>
             <p className="site-tagline">
-              A collection of distilled knowledge cards - Ji ZHANG
+              • A collection of knowledge cards distilled by Claude
+              <br />
+              • Coauthored by ZHANG Ji &amp; Claude Code, June 2026
             </p>
           </div>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
