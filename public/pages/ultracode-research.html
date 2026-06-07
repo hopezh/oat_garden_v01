@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ── REQUIRED METADATA BLOCK ──────────────────────────────────────── -->
+<title>Claude Code "ultracode" — Research Report</title>
+<meta name="description" content="How Claude Codes ultracode setting pairs xhigh reasoning with automatic dynamic multi-agent workflow orchestration, and how to configure it.">
+<meta name="keywords" content="claude-code, ultracode, dynamic-workflows, xhigh-effort, multi-agent-orchestration, effort-levels">
+<meta name="date" content="2026-06-07">
+<!-- ─────────────────────────────────────────────────────────────────── -->
+
+<style>
+/* ============================ THEME TOKENS ============================ */
+:root{
+  --bg:#0c0e12; --bg-soft:#12151c; --bg-elev:#161a23; --bg-elev-2:#1c212c;
+  --text:#e7ebf3; --text-soft:#aab2c2; --text-mute:#727d92;
+  --border:#252b38; --border-soft:#1d2230;
+  --accent:#7c9cff; --accent-2:#54e0c7; --accent-3:#ffb27c;
+  --accent-soft:rgba(124,156,255,.14);
+  --good:#54e0a8; --bad:#ff7b8a; --warn:#ffce6b;
+  --shadow:0 10px 40px rgba(0,0,0,.45);
+  --code-bg:#0a0c10;
+  /* SVG hero palette (dark) */
+  --svg-sky-a:#0d1018; --svg-sky-b:#141a26;
+  --svg-grid:#222a3a;
+  --svg-top:#5b76d8; --svg-left:#2f3d76; --svg-right:#202a55;
+  --svg-top2:#3fc2ac; --svg-left2:#1f6f64; --svg-right2:#16504a;
+  --svg-line:#7c9cff; --svg-node:#54e0c7; --svg-glow:rgba(124,156,255,.30);
+}
+html[data-theme="light"]{
+  --bg:#f4f6fb; --bg-soft:#ffffff; --bg-elev:#ffffff; --bg-elev-2:#f0f3f9;
+  --text:#16202e; --text-soft:#48566b; --text-mute:#7a879c;
+  --border:#dde3ed; --border-soft:#e7ecf4;
+  --accent:#3b5bdb; --accent-2:#0d9488; --accent-3:#d2691e;
+  --accent-soft:rgba(59,91,219,.10);
+  --good:#0f9d6e; --bad:#d6455c; --warn:#b5860b;
+  --shadow:0 10px 34px rgba(40,60,110,.12);
+  --code-bg:#0f1622;
+  --svg-sky-a:#eef2fb; --svg-sky-b:#dfe7f7;
+  --svg-grid:#cdd7ea;
+  --svg-top:#9db3ff; --svg-left:#6b85e6; --svg-right:#4f6ad6;
+  --svg-top2:#7ce0cf; --svg-left2:#3bb6a3; --svg-right2:#1f9385;
+  --svg-line:#3b5bdb; --svg-node:#0d9488; --svg-glow:rgba(59,91,219,.18);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:84px}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.65; font-size:16px;
+  -webkit-font-smoothing:antialiased; transition:background .3s,color .3s;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd,pre{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* ============================ TOP NAV ============================ */
+.topnav{
+  position:fixed; top:0; left:0; right:0; height:60px; z-index:60;
+  display:flex; align-items:center; gap:14px; padding:0 18px;
+  background:color-mix(in srgb, var(--bg-soft) 85%, transparent);
+  backdrop-filter:blur(14px); border-bottom:1px solid var(--border);
+}
+.topnav .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; white-space:nowrap}
+.brand .dot{width:11px;height:11px;border-radius:50%;
+  background:conic-gradient(from 0deg,var(--accent),var(--accent-2),var(--accent-3),var(--accent));
+  box-shadow:0 0 12px var(--svg-glow)}
+.brand .tag{font:600 10px/1 "JetBrains Mono",monospace; color:var(--accent);
+  border:1px solid var(--accent); border-radius:5px; padding:3px 6px; letter-spacing:.5px}
+
+/* persistent sidebar toggle — lives in TOP NAV, always visible */
+.icon-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:38px; height:38px; flex:0 0 auto; cursor:pointer;
+  background:var(--bg-elev); border:1px solid var(--border); border-radius:9px;
+  color:var(--text-soft); transition:all .2s;
+}
+.icon-btn:hover{color:var(--text); border-color:var(--accent); background:var(--accent-soft)}
+.icon-btn svg{width:18px;height:18px}
+
+.topnav .center{
+  flex:1; display:flex; justify-content:center; align-items:center;
+  gap:4px; overflow-x:auto; scrollbar-width:none;
+}
+.topnav .center::-webkit-scrollbar{display:none}
+.topnav .center a{
+  color:var(--text-soft); font-size:13.5px; font-weight:600; padding:8px 13px;
+  border-radius:8px; white-space:nowrap; transition:all .18s;
+}
+.topnav .center a:hover{color:var(--text); background:var(--bg-elev); text-decoration:none}
+.topnav .center a.active{color:var(--accent); background:var(--accent-soft)}
+.topnav .right{display:flex; align-items:center; gap:10px}
+
+/* theme toggle */
+.theme-toggle{position:relative}
+.theme-toggle .sun{display:none}
+html[data-theme="light"] .theme-toggle .sun{display:block}
+html[data-theme="light"] .theme-toggle .moon{display:none}
+
+/* ============================ SIDEBAR ============================ */
+:root{--side-w:282px}
+.sidebar{
+  position:fixed; top:60px; bottom:0; left:0; width:var(--side-w); z-index:55;
+  background:var(--bg-soft); border-right:1px solid var(--border);
+  overflow-y:auto; padding:22px 14px 60px;
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+}
+.sidebar::-webkit-scrollbar{width:8px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border); border-radius:8px}
+body.side-collapsed .sidebar{transform:translateX(calc(-1 * var(--side-w) - 4px))}
+
+.side-head{font:700 11px/1 "JetBrains Mono",monospace; letter-spacing:1.4px;
+  text-transform:uppercase; color:var(--text-mute); padding:0 10px 8px}
+
+.side-group{margin-bottom:6px; border-radius:10px; overflow:hidden}
+.side-group > .grp-btn{
+  display:flex; align-items:center; gap:8px; width:100%; cursor:pointer;
+  background:transparent; border:0; color:var(--text); text-align:left;
+  font:600 13.5px/1.3 inherit; padding:9px 10px; border-radius:8px; transition:background .15s;
+}
+.side-group > .grp-btn:hover{background:var(--bg-elev)}
+.grp-btn .num{font:700 11px/1 "JetBrains Mono",monospace; color:var(--accent);
+  background:var(--accent-soft); border-radius:5px; padding:3px 5px; min-width:22px; text-align:center}
+.grp-btn .chev{margin-left:auto; transition:transform .25s; color:var(--text-mute)}
+.side-group.open .grp-btn .chev{transform:rotate(90deg)}
+.grp-links{max-height:0; overflow:hidden; transition:max-height .3s ease}
+.side-group.open .grp-links{max-height:340px}
+.grp-links a{
+  display:block; color:var(--text-soft); font-size:12.8px; padding:7px 10px 7px 30px;
+  border-radius:7px; position:relative; transition:all .15s;
+}
+.grp-links a::before{content:""; position:absolute; left:16px; top:50%; transform:translateY(-50%);
+  width:5px;height:5px;border-radius:50%; background:var(--border)}
+.grp-links a:hover{color:var(--text); background:var(--bg-elev); text-decoration:none}
+.grp-links a.active{color:var(--accent); background:var(--accent-soft)}
+.grp-links a.active::before{background:var(--accent); box-shadow:0 0 8px var(--accent)}
+
+/* mobile scrim */
+.scrim{position:fixed; inset:60px 0 0 0; background:rgba(0,0,0,.5); z-index:54;
+  opacity:0; pointer-events:none; transition:opacity .3s}
+
+/* ============================ LAYOUT / MAIN ============================ */
+/* Sidebar is fixed/floating → main content is centered in the WINDOW,
+   independent of the sidebar. */
+.main{padding-top:60px; min-height:100vh}
+.wrap{max-width:880px; margin:0 auto; padding:0 24px 100px}
+
+/* ---- HERO (full-bleed, SVG behind title) ---- */
+.hero{position:relative; width:100%; height:clamp(280px,42vh,420px); overflow:hidden;
+  border-bottom:1px solid var(--border); margin-bottom:8px}
+.hero svg.cover{position:absolute; inset:0; width:100%; height:100%; display:block}
+.hero .hero-inner{
+  position:relative; z-index:2; max-width:880px; margin:0 auto; height:100%;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:0 24px 30px; /* title/subtitle LEFT-aligned within centered content */
+}
+.hero .eyebrow{font:600 11.5px/1 "JetBrains Mono",monospace; letter-spacing:2px;
+  text-transform:uppercase; color:var(--accent-2); margin-bottom:14px;
+  display:inline-flex; align-items:center; gap:8px}
+.hero h1{margin:0; font-size:clamp(28px,5vw,46px); line-height:1.08; font-weight:800;
+  letter-spacing:-.5px; max-width:18ch; text-shadow:0 2px 30px rgba(0,0,0,.35)}
+html[data-theme="light"] .hero h1{text-shadow:0 1px 14px rgba(255,255,255,.6)}
+.hero .sub{margin:14px 0 0; font-size:clamp(14px,2.2vw,17px); color:var(--text-soft);
+  max-width:54ch; font-weight:500}
+
+.meta-row{display:flex; flex-wrap:wrap; gap:10px; margin:22px 0 6px}
+.chip{display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:600;
+  color:var(--text-soft); background:var(--bg-elev); border:1px solid var(--border);
+  border-radius:30px; padding:6px 13px}
+.chip .k{color:var(--accent)}
+
+/* ---- callout / banner from source ---- */
+.callout{display:flex; gap:14px; align-items:flex-start; margin:26px 0;
+  padding:16px 18px; border-radius:13px; background:var(--bg-elev);
+  border:1px solid var(--border); border-left:3px solid var(--accent)}
+.callout.demo{border-left-color:var(--accent-2)}
+.callout .ico{flex:0 0 auto; font-size:20px; line-height:1.4}
+.callout p{margin:0; font-size:14.5px; color:var(--text-soft)}
+.callout strong{color:var(--text)}
+
+/* ---- sections ---- */
+section{padding-top:30px}
+.sec-h{display:flex; align-items:baseline; gap:12px; margin:14px 0 6px;
+  border-bottom:1px solid var(--border-soft); padding-bottom:12px}
+.sec-h .n{font:800 14px/1 "JetBrains Mono",monospace; color:var(--accent)}
+.sec-h h2{margin:0; font-size:clamp(20px,3vw,27px); font-weight:750; letter-spacing:-.3px}
+h3{font-size:17px; font-weight:700; margin:30px 0 8px; letter-spacing:-.2px}
+p{color:var(--text-soft)}
+.lead{font-size:16.5px; color:var(--text)}
+strong{color:var(--text); font-weight:650}
+
+ul.clean{list-style:none; padding:0; margin:14px 0}
+ul.clean li{position:relative; padding:7px 0 7px 26px; color:var(--text-soft); font-size:14.5px}
+ul.clean li::before{content:""; position:absolute; left:4px; top:15px; width:7px; height:7px;
+  border-radius:2px; background:var(--accent); transform:rotate(45deg)}
+ul.clean li strong{color:var(--text)}
+
+/* ---- code ---- */
+pre{background:var(--code-bg); color:#dfe6f5; border:1px solid var(--border);
+  border-radius:11px; padding:15px 17px; overflow-x:auto; font-size:13px; line-height:1.6;
+  position:relative; margin:14px 0}
+pre code{color:inherit}
+.cmt{color:#6b7689}
+.kw{color:#7c9cff}
+.str{color:#54e0c7}
+code.inline{background:var(--bg-elev-2); border:1px solid var(--border-soft);
+  border-radius:5px; padding:1.5px 6px; font-size:12.8px; color:var(--accent-2)}
+html[data-theme="light"] code.inline{color:var(--accent)}
+kbd{background:var(--bg-elev); border:1px solid var(--border); border-bottom-width:2px;
+  border-radius:6px; padding:2px 7px; font-size:12px; color:var(--text)}
+
+/* ---- tables ---- */
+.tbl-wrap{overflow-x:auto; margin:18px 0; border:1px solid var(--border); border-radius:12px}
+table{width:100%; border-collapse:collapse; font-size:13.7px; min-width:520px}
+thead th{background:var(--bg-elev-2); color:var(--text); text-align:left; font-weight:700;
+  padding:12px 14px; border-bottom:1px solid var(--border); white-space:nowrap}
+tbody td{padding:12px 14px; border-bottom:1px solid var(--border-soft); color:var(--text-soft);
+  vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--bg-elev)}
+.v-confirmed{color:var(--good); font-weight:700; white-space:nowrap}
+.v-refuted{color:var(--bad); font-weight:700; white-space:nowrap}
+
+/* ---- cards ---- */
+.cards{display:grid; gap:16px; margin:18px 0}
+.cards.two{grid-template-columns:1fr 1fr}
+.card{background:var(--bg-elev); border:1px solid var(--border); border-radius:14px; padding:18px 20px}
+.card h4{margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:9px}
+.card.pro h4{color:var(--good)} .card.con h4{color:var(--bad)}
+.card ul{margin:6px 0 0; padding-left:0; list-style:none}
+.card li{position:relative; padding:6px 0 6px 22px; font-size:13.6px; color:var(--text-soft)}
+.card.pro li::before{content:"+"; position:absolute; left:3px; color:var(--good); font-weight:800}
+.card.con li::before{content:"–"; position:absolute; left:4px; color:var(--bad); font-weight:800}
+.card li strong{color:var(--text)}
+
+/* scenario grid */
+.scn{display:grid; grid-template-columns:repeat(auto-fit,minmax(225px,1fr)); gap:14px; margin:18px 0}
+.scn .item{background:var(--bg-elev); border:1px solid var(--border); border-radius:13px; padding:16px;
+  transition:transform .2s,border-color .2s}
+.scn .item:hover{transform:translateY(-3px); border-color:var(--accent)}
+.scn .item .ic{font-size:22px; margin-bottom:8px}
+.scn .item h4{margin:0 0 5px; font-size:14.5px}
+.scn .item p{margin:0; font-size:13px; color:var(--text-soft)}
+
+/* ---- figure / diagram block ---- */
+.figure{margin:24px 0; background:var(--bg-soft); border:1px solid var(--border);
+  border-radius:15px; padding:20px; overflow:hidden}
+.figure svg{width:100%; height:auto; display:block}
+.figure .cap{margin-top:12px; font-size:12.5px; color:var(--text-mute); text-align:center;
+  font-style:italic}
+.fig-title{font:700 11px/1 "JetBrains Mono",monospace; letter-spacing:1.4px; text-transform:uppercase;
+  color:var(--text-mute); margin-bottom:14px}
+
+/* bottom line */
+.bottomline{margin:40px 0 0; padding:24px; border-radius:16px;
+  background:linear-gradient(135deg,var(--accent-soft),transparent);
+  border:1px solid var(--border)}
+.bottomline .fig-title{color:var(--accent)}
+.bottomline p{margin:0; color:var(--text); font-size:15.5px}
+
+.src-list{list-style:none; padding:0; margin:16px 0}
+.src-list li{padding:11px 0; border-bottom:1px solid var(--border-soft);
+  font-size:13.6px; color:var(--text-soft); display:flex; gap:12px; align-items:flex-start}
+.src-list li code{flex:0 0 auto}
+.src-list .note{color:var(--text-mute)}
+
+footer{margin-top:50px; padding-top:22px; border-top:1px solid var(--border);
+  font-size:12.5px; color:var(--text-mute); display:flex; justify-content:space-between;
+  flex-wrap:wrap; gap:10px}
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width:1040px){
+  /* sidebar becomes an overlay drawer; collapsed by default */
+  .sidebar{box-shadow:var(--shadow)}
+  body.side-open .scrim{opacity:1; pointer-events:auto}
+  body:not(.side-open) .sidebar{transform:translateX(calc(-1 * var(--side-w) - 4px))}
+  body.side-open .sidebar{transform:translateX(0)}
+}
+@media (max-width:680px){
+  body{font-size:15px}
+  .topnav .center{display:none}
+  .topnav .brand .full{display:none}
+  .cards.two{grid-template-columns:1fr}
+  .wrap{padding:0 16px 80px}
+  .hero .hero-inner{padding:0 16px 24px}
+  footer{flex-direction:column}
+}
+</style>
+</head>
+
+<body class="side-open">
+
+<!-- ============================ TOP NAV ============================ -->
+<header class="topnav">
+  <!-- PERSISTENT sidebar toggle — OUTSIDE the sidebar, always visible & clickable -->
+  <button class="icon-btn" id="sideToggle" aria-label="Toggle sidebar" title="Toggle contents sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="14" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <div class="brand">
+    <span class="dot"></span>
+    <span class="full">Claude Code Research</span>
+    <span class="tag">ultracode</span>
+  </div>
+
+  <nav class="center" id="topLinks">
+    <a href="#what-it-is">Overview</a>
+    <a href="#terminology">Terminology</a>
+    <a href="#when-to-use">When to Use</a>
+    <a href="#pros-cons">Pros &amp; Cons</a>
+    <a href="#configure">Configure</a>
+    <a href="#verification">Verification</a>
+  </nav>
+
+  <div class="right">
+    <button class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle dark / light">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============================ SIDEBAR ============================ -->
+<aside class="sidebar" id="sidebar">
+  <div class="side-head">Contents</div>
+
+  <div class="side-group open">
+    <button class="grp-btn"><span class="num">1</span> What ultracode Is
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#def">Definition</a>
+      <a href="#behavior">Behavior change</a>
+      <a href="#under-hood">Under the hood</a>
+      <a href="#constraints">Constraints</a>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <button class="grp-btn"><span class="num">2</span> Terminology
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#term-table">One machine, one switch</a>
+      <a href="#two-dynamic">Two meanings of "dynamic"</a>
+      <a href="#ultrawork">The "ultrawork" impostor</a>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <button class="grp-btn"><span class="num">3</span> Best Scenarios
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#use-good">Where it shines</a>
+      <a href="#use-skip">When to skip it</a>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <button class="grp-btn"><span class="num">4</span> Pros &amp; Cons
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#pros">Pros</a>
+      <a href="#cons">Cons</a>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <button class="grp-btn"><span class="num">5</span> Configure
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#enable">Enable</a>
+      <a href="#disable">Disable</a>
+      <a href="#kill-switch">Turn off machinery</a>
+      <a href="#related-cfg">Related effort config</a>
+    </div>
+  </div>
+
+  <div class="side-group">
+    <button class="grp-btn"><span class="num">6</span> Verification
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="grp-links">
+      <a href="#verification">Verdict summary</a>
+      <a href="#sources">Sources</a>
+      <a href="#bottom-line">Bottom line</a>
+    </div>
+  </div>
+</aside>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- ============================ MAIN ============================ -->
+<main class="main">
+
+  <!-- ───────── HERO with full-bleed axonometric SVG cover ───────── -->
+  <div class="hero">
+    <!-- Cover: abstract axonometric geometry → a fan-out of parallel agent "towers"
+         linked by an orchestration network. Colours bound to theme vars. -->
+    <svg class="cover" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--svg-sky-a)"/>
+          <stop offset="1" stop-color="var(--svg-sky-b)"/>
+        </linearGradient>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="6"/>
+        </filter>
+      </defs>
+
+      <rect width="1200" height="400" fill="url(#sky)"/>
+
+      <!-- faint isometric ground grid -->
+      <g stroke="var(--svg-grid)" stroke-width="1" opacity=".55">
+        <path d="M-100 300 L600 -50 M50 380 L750 30 M200 460 L900 110 M350 540 L1050 190 M500 620 L1200 270 M650 700 L1350 350"/>
+        <path d="M600 -50 L1300 300 M450 30 L1150 380 M300 110 L1000 460 M150 190 L850 540"/>
+      </g>
+
+      <!-- orchestration network: polyline linking tower tops -->
+      <polyline points="250,150 380,215 510,150 640,215 770,175 900,230 1030,165"
+        fill="none" stroke="var(--svg-line)" stroke-width="1.6" opacity=".5" filter="url(#soft)"/>
+      <polyline points="250,150 380,215 510,150 640,215 770,175 900,230 1030,165"
+        fill="none" stroke="var(--svg-line)" stroke-width="1.4" opacity=".85"/>
+
+      <!-- ===== iso towers (top / left / right faces for axonometric shading) ===== -->
+      <!-- Tower 1 -->
+      <polygon points="250,150 305,177.5 250,205 195,177.5" fill="var(--svg-top2)"/>
+      <polygon points="195,177.5 250,205 250,295 195,267.5" fill="var(--svg-left2)"/>
+      <polygon points="305,177.5 250,205 250,295 305,267.5" fill="var(--svg-right2)"/>
+      <!-- Tower 2 -->
+      <polygon points="380,215 435,242.5 380,270 325,242.5" fill="var(--svg-top)"/>
+      <polygon points="325,242.5 380,270 380,325 325,297.5" fill="var(--svg-left)"/>
+      <polygon points="435,242.5 380,270 380,325 435,297.5" fill="var(--svg-right)"/>
+      <!-- Tower 3 (tall) -->
+      <polygon points="510,150 565,177.5 510,205 455,177.5" fill="var(--svg-top)"/>
+      <polygon points="455,177.5 510,205 510,325 455,297.5" fill="var(--svg-left)"/>
+      <polygon points="565,177.5 510,205 510,325 565,297.5" fill="var(--svg-right)"/>
+      <!-- Tower 4 (short) -->
+      <polygon points="640,215 695,242.5 640,270 585,242.5" fill="var(--svg-top2)"/>
+      <polygon points="585,242.5 640,270 640,310 585,282.5" fill="var(--svg-left2)"/>
+      <polygon points="695,242.5 640,270 640,310 695,282.5" fill="var(--svg-right2)"/>
+      <!-- Tower 5 -->
+      <polygon points="770,175 825,202.5 770,230 715,202.5" fill="var(--svg-top)"/>
+      <polygon points="715,202.5 770,230 770,305 715,277.5" fill="var(--svg-left)"/>
+      <polygon points="825,202.5 770,230 770,305 825,277.5" fill="var(--svg-right)"/>
+      <!-- Tower 6 -->
+      <polygon points="900,230 955,257.5 900,285 845,257.5" fill="var(--svg-top2)"/>
+      <polygon points="845,257.5 900,285 900,335 845,307.5" fill="var(--svg-left2)"/>
+      <polygon points="955,257.5 900,285 900,335 955,307.5" fill="var(--svg-right2)"/>
+      <!-- Tower 7 (tall) -->
+      <polygon points="1030,165 1085,192.5 1030,220 975,192.5" fill="var(--svg-top)"/>
+      <polygon points="975,192.5 1030,220 1030,320 975,292.5" fill="var(--svg-left)"/>
+      <polygon points="1085,192.5 1030,220 1030,320 1085,292.5" fill="var(--svg-right)"/>
+
+      <!-- wireframe ghost cube (orchestrator) -->
+      <g stroke="var(--svg-line)" stroke-width="1.4" fill="none" opacity=".7">
+        <polygon points="120,110 175,137.5 120,165 65,137.5"/>
+        <line x1="65" y1="137.5" x2="65" y2="200"/><line x1="175" y1="137.5" x2="175" y2="200"/>
+        <line x1="120" y1="165" x2="120" y2="228"/>
+        <polyline points="65,200 120,228 175,200"/>
+      </g>
+
+      <!-- nodes at tower tops -->
+      <g>
+        <circle cx="250" cy="150" r="5" fill="var(--svg-node)"/>
+        <circle cx="510" cy="150" r="5" fill="var(--svg-node)"/>
+        <circle cx="770" cy="175" r="5" fill="var(--svg-node)"/>
+        <circle cx="1030" cy="165" r="5" fill="var(--svg-node)"/>
+        <circle cx="120" cy="110" r="6.5" fill="none" stroke="var(--svg-line)" stroke-width="2"/>
+      </g>
+    </svg>
+
+    <div class="hero-inner">
+      <!-- title + subtitle: LEFT-aligned inside the centered content column -->
+      <span class="eyebrow">● Research Report · Grounded in official docs</span>
+      <h1>Claude Code <span style="color:var(--accent)">“ultracode”</span></h1>
+      <p class="sub">The session switch that pairs <code class="inline">xhigh</code> reasoning with automatic, model-authored dynamic multi-agent workflow orchestration — what it is, when to use it, and how to configure it.</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="meta-row">
+      <span class="chip"><span class="k">Compiled</span> 2026-06-07</span>
+      <span class="chip"><span class="k">Method</span> 5 research + 4 fact-check agents</span>
+      <span class="chip"><span class="k">Model gate</span> Opus 4.8 / 4.7</span>
+      <span class="chip"><span class="k">Requires</span> Claude Code v2.1.154+</span>
+    </div>
+
+    <div class="callout demo">
+      <span class="ico">🛰️</span>
+      <p>This report was itself generated <strong>using</strong> ultracode — the background fan-out of 9 agents is exactly the dynamic-workflow orchestration that ultracode enables, so it doubles as a live demonstration.</p>
+    </div>
+
+    <!-- ═══════════════ 1 · WHAT IT IS ═══════════════ -->
+    <section id="what-it-is">
+      <div class="sec-h"><span class="n">01</span><h2>What “ultracode” Is</h2></div>
+
+      <p class="lead" id="def"><strong>Ultracode is a Claude Code <em>setting</em> — not a model/API effort level — that appears in the <code class="inline">/effort</code> menu.</strong> It does two things at once:</p>
+      <ul class="clean">
+        <li><strong>Sends <code class="inline">xhigh</code> reasoning effort</strong> to the model — the highest <em>adaptive-thinking</em> level the API exposes below <code class="inline">max</code>.</li>
+        <li><strong>Grants standing permission</strong> for Claude to automatically orchestrate dynamic multi-agent workflows for substantive tasks.</li>
+      </ul>
+
+      <!-- DIAGRAM: ultracode = xhigh + auto-orchestration -->
+      <div class="figure">
+        <div class="fig-title">Figure 1 — Ultracode = two things, one switch</div>
+        <svg viewBox="0 0 760 230" role="img" aria-label="Ultracode equals xhigh reasoning plus auto orchestration">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
+            </linearGradient>
+          </defs>
+          <!-- center switch -->
+          <rect x="300" y="78" width="160" height="74" rx="14" fill="url(#g1)"/>
+          <text x="380" y="108" text-anchor="middle" font-size="19" font-weight="800" fill="#0c0e12">ultracode</text>
+          <text x="380" y="130" text-anchor="middle" font-size="11" fill="#0c0e12" font-family="monospace">/effort menu setting</text>
+          <!-- left box -->
+          <rect x="34" y="58" width="226" height="114" rx="13" fill="var(--bg-elev)" stroke="var(--border)"/>
+          <text x="147" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">1 · Reasoning depth</text>
+          <rect x="64" y="104" width="166" height="34" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="147" y="126" text-anchor="middle" font-size="14" font-weight="800" fill="var(--accent)" font-family="monospace">xhigh</text>
+          <text x="147" y="158" text-anchor="middle" font-size="11" fill="var(--text-mute)">sent to the model every turn</text>
+          <!-- right box -->
+          <rect x="500" y="58" width="226" height="114" rx="13" fill="var(--bg-elev)" stroke="var(--border)"/>
+          <text x="613" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">2 · Standing permission</text>
+          <rect x="530" y="104" width="166" height="34" rx="8" fill="rgba(84,224,199,.14)" stroke="var(--accent-2)"/>
+          <text x="613" y="126" text-anchor="middle" font-size="12.5" font-weight="800" fill="var(--accent-2)">auto-orchestrate</text>
+          <text x="613" y="158" text-anchor="middle" font-size="11" fill="var(--text-mute)">dynamic multi-agent workflows</text>
+          <!-- connectors -->
+          <line x1="260" y1="115" x2="300" y2="115" stroke="var(--accent)" stroke-width="2.5"/>
+          <line x1="460" y1="115" x2="500" y2="115" stroke="var(--accent-2)" stroke-width="2.5"/>
+          <text x="280" y="106" text-anchor="middle" font-size="16" font-weight="800" fill="var(--accent)">+</text>
+        </svg>
+        <div class="cap">The <code class="inline">/effort</code> one-liner — “xhigh + dynamic workflow orchestration” — is accurate.</div>
+      </div>
+
+      <p>The one precision worth knowing: the API’s actual effort scale is <code class="inline">low / medium / high / xhigh / max</code>. Ultracode isn’t a sixth API level — it’s a Claude Code <strong>behavior layer</strong> that <em>pairs</em> <code class="inline">xhigh</code> with an auto-orchestration permission.</p>
+
+      <div class="callout">
+        <span class="ico">📖</span>
+        <p>“Ultracode is a Claude Code setting rather than a model effort level: it sends <strong>xhigh</strong> to the model and additionally has Claude <strong>orchestrate dynamic workflows</strong> for substantive tasks.”</p>
+      </div>
+
+      <h3 id="behavior">Behavior change</h3>
+      <p>With it on, <em>“Claude plans a workflow for each substantive task instead of waiting for you to ask… A single request can turn into several workflows in a row: one to understand the code, one to make the change, and one to verify it.”</em></p>
+
+      <!-- DIAGRAM: one request → several workflows -->
+      <div class="figure">
+        <div class="fig-title">Figure 2 — One request becomes a pipeline of workflows</div>
+        <svg viewBox="0 0 760 150" role="img" aria-label="A single request expands into understand, change and verify workflows">
+          <!-- request -->
+          <rect x="20" y="52" width="120" height="46" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="80" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent)">1 request</text>
+          <!-- arrow -->
+          <line x1="142" y1="75" x2="178" y2="75" stroke="var(--text-mute)" stroke-width="2"/>
+          <polygon points="178,70 188,75 178,80" fill="var(--text-mute)"/>
+          <!-- three workflows -->
+          <g>
+            <rect x="195" y="20" width="170" height="46" rx="10" fill="var(--bg-elev)" stroke="var(--border)"/>
+            <text x="280" y="42" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">① Understand code</text>
+            <text x="280" y="58" text-anchor="middle" font-size="10.5" fill="var(--text-mute)" font-family="monospace">workflow</text>
+
+            <rect x="195" y="83" width="170" height="46" rx="10" fill="var(--bg-elev)" stroke="var(--border)"/>
+            <text x="280" y="105" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">② Make the change</text>
+            <text x="280" y="121" text-anchor="middle" font-size="10.5" fill="var(--text-mute)" font-family="monospace">workflow</text>
+          </g>
+          <rect x="400" y="52" width="170" height="46" rx="10" fill="var(--bg-elev)" stroke="var(--border)"/>
+          <text x="485" y="74" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">③ Verify it</text>
+          <text x="485" y="90" text-anchor="middle" font-size="10.5" fill="var(--text-mute)" font-family="monospace">workflow</text>
+          <!-- connectors -->
+          <path d="M365 43 C385 43 385 60 400 70" fill="none" stroke="var(--text-mute)" stroke-width="1.6"/>
+          <path d="M365 106 C385 106 385 88 400 80" fill="none" stroke="var(--text-mute)" stroke-width="1.6"/>
+          <line x1="572" y1="75" x2="608" y2="75" stroke="var(--accent-2)" stroke-width="2"/>
+          <polygon points="608,70 618,75 608,80" fill="var(--accent-2)"/>
+          <rect x="620" y="52" width="120" height="46" rx="10" fill="rgba(84,224,199,.14)" stroke="var(--accent-2)"/>
+          <text x="680" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent-2)">result</text>
+        </svg>
+        <div class="cap">Each phase runs as its own background workflow; only final answers return to context.</div>
+      </div>
+
+      <h3 id="under-hood">Under the hood</h3>
+      <p>The “standing permission” is implemented via the Claude API’s <strong>mid-conversation system messages</strong> feature (Opus 4.8) — it grants standing consent to an expensive capability with a periodic refresher and an exit notice when you turn it off.</p>
+
+      <h3 id="constraints">Constraints</h3>
+      <ul class="clean">
+        <li><strong>Session-scoped</strong> — resets on a new session.</li>
+        <li><strong>Model-gated</strong> — only offered on models that support <code class="inline">xhigh</code>: <strong>Opus 4.8 and Opus 4.7</strong>.</li>
+        <li><strong>Research preview</strong> — dynamic workflows require <strong>Claude Code v2.1.154+</strong>.</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════ 2 · TERMINOLOGY ═══════════════ -->
+    <section id="terminology">
+      <div class="sec-h"><span class="n">02</span><h2>Terminology &amp; Relationships</h2></div>
+      <p class="lead" id="term-table">One capability, one switch, one shared-but-overloaded word, and one impostor.</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>What it actually is</th><th>Relationship to ultracode</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Workflows / dynamic workflows</strong></td>
+              <td>The <em>capability</em>: a JavaScript orchestration script <strong>Claude writes on the fly</strong> that a background runtime runs, spawning subagents at scale (≤16 concurrent, ≤1,000/run). Intermediate results live in script variables; only the final answer returns to context.</td>
+              <td>The <strong>machine</strong>. Normally <strong>opt-in</strong> (keyword, natural-language request, or a saved <code class="inline">/workflows</code> command).</td>
+            </tr>
+            <tr>
+              <td><strong>Ultracode</strong></td>
+              <td>The <em>switch</em> that makes Claude author &amp; run those workflows <strong>automatically, by default</strong>, for substantive tasks — plus <code class="inline">xhigh</code>.</td>
+              <td>The <strong>“always-on” mode</strong> for the machine above.</td>
+            </tr>
+            <tr>
+              <td><strong>“dynamic” (the word)</strong></td>
+              <td><strong>Overloaded</strong> — two unrelated meanings (see below).</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>Ultrawork</strong></td>
+              <td>⚠️ <strong>NOT an official Anthropic feature.</strong></td>
+              <td><strong>No relationship</strong> — it doesn’t exist in Claude Code.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="two-dynamic">The two meanings of “dynamic”</h3>
+      <p>Verdict: <span class="v-confirmed">confirmed</span> they’re distinct — they only share the word.</p>
+
+      <!-- DIAGRAM: two meanings of dynamic -->
+      <div class="figure">
+        <div class="fig-title">Figure 3 — “dynamic” splits into two unrelated mechanisms</div>
+        <svg viewBox="0 0 760 200" role="img" aria-label="The word dynamic refers to model-authored workflows or self-paced loop intervals">
+          <rect x="300" y="20" width="160" height="44" rx="11" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="380" y="42" text-anchor="middle" font-size="14" font-weight="800" fill="var(--accent)">“dynamic”</text>
+          <text x="380" y="57" text-anchor="middle" font-size="10.5" fill="var(--text-mute)">one word, two meanings</text>
+
+          <line x1="340" y1="64" x2="200" y2="104" stroke="var(--text-mute)" stroke-width="1.6"/>
+          <line x1="420" y1="64" x2="560" y2="104" stroke="var(--text-mute)" stroke-width="1.6"/>
+
+          <rect x="40" y="104" width="320" height="80" rx="12" fill="var(--bg-elev)" stroke="var(--border)" stroke-left="3"/>
+          <rect x="40" y="104" width="5" height="80" rx="2" fill="var(--accent)"/>
+          <text x="60" y="128" font-size="13.5" font-weight="700" fill="var(--text)">Dynamic workflow</text>
+          <text x="60" y="148" font-size="11.5" fill="var(--text-soft)">orchestration program is</text>
+          <text x="60" y="164" font-size="11.5" fill="var(--text-soft)"><tspan font-weight="700" fill="var(--accent)">model-authored on the fly</tspan> · the ultracode sense</text>
+
+          <rect x="400" y="104" width="320" height="80" rx="12" fill="var(--bg-elev)" stroke="var(--border)"/>
+          <rect x="400" y="104" width="5" height="80" rx="2" fill="var(--accent-3)"/>
+          <text x="420" y="128" font-size="13.5" font-weight="700" fill="var(--text)">Self-paced <tspan font-family="monospace">/loop</tspan> mode</text>
+          <text x="420" y="148" font-size="11.5" fill="var(--text-soft)">Claude picks the <tspan font-weight="700" fill="var(--accent-3)">re-fire interval</tspan></text>
+          <text x="420" y="164" font-size="11.5" fill="var(--text-soft)">(1 min–1 hr) · nothing to do with ultracode</text>
+        </svg>
+        <div class="cap">Left = <em>what</em> orchestrates; right = <em>when</em> a prompt repeats. Unrelated mechanisms.</div>
+      </div>
+
+      <h3 id="ultrawork">About “ultrawork” — this premise was refuted</h3>
+      <div class="callout" style="border-left-color:var(--bad)">
+        <span class="ico">⚠️</span>
+        <p><strong>“ultrawork” is not an official Anthropic feature.</strong> The <code class="inline">/effort</code> menu’s complete option set is <code class="inline">low / medium / high / xhigh / max</code> + <strong>ultracode</strong> + the per-turn keyword <strong>ultrathink</strong>. No “ultrawork.”</p>
+      </div>
+      <ul class="clean">
+        <li><strong>Third-party keyword</strong> — it comes from the <em>oh-my-claude / oh-my-claudecode</em> community ecosystem (e.g. <code class="inline">TechDufus/oh-my-claude</code>); aliases <code class="inline">ulw</code>/<code class="inline">uw</code> that hooks inject to force aggressive “never stop until done” parallel execution.</li>
+        <li><strong>False dichotomy</strong> — the framing “ultrawork = general/non-coding, ultracode = coding” has no official basis. The only official orchestration setting is <strong>ultracode</strong>.</li>
+        <li><strong>Likely point of confusion: <code class="inline">ultrathink</code></strong> (official) — drop that word in a prompt to request deeper reasoning for that <em>single turn</em> without changing session effort.</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════ 3 · BEST SCENARIOS ═══════════════ -->
+    <section id="when-to-use">
+      <div class="sec-h"><span class="n">03</span><h2>Best Scenarios to Use It</h2></div>
+      <p class="lead" id="use-good">Ultracode shines when the task is <strong>big enough that decomposition + parallelism + verification beats a single linear pass</strong>.</p>
+
+      <div class="scn">
+        <div class="item"><div class="ic">🔍</div><h4>Codebase-wide audits</h4><p>“Audit every endpoint for missing auth checks,” security/perf sweeps, dead-code hunts.</p></div>
+        <div class="item"><div class="ic">🔀</div><h4>Large migrations / refactors</h4><p>Fan out one agent per file/module with worktree isolation, transform, then verify each.</p></div>
+        <div class="item"><div class="ic">🧱</div><h4>Multi-step features</h4><p>The understand → design → implement → verify pipeline, each phase its own workflow.</p></div>
+        <div class="item"><div class="ic">📚</div><h4>Deep research / fact-checking</h4><p>Broad fan-out across sources with adversarial verification (the bundled <code class="inline">/deep-research</code>).</p></div>
+        <div class="item"><div class="ic">✅</div><h4>Correctness <em>checked</em></h4><p>Adversarial verify, judge panels, completeness critics — not just produced, but proven.</p></div>
+      </div>
+
+      <h3 id="use-skip">Skip it for</h3>
+      <p>Quick edits, single-file changes, conversational Q&amp;A, anything latency-sensitive. The autonomy and token cost are pure overhead there.</p>
+    </section>
+
+    <!-- ═══════════════ 4 · PROS & CONS ═══════════════ -->
+    <section id="pros-cons">
+      <div class="sec-h"><span class="n">04</span><h2>Pros &amp; Cons</h2></div>
+      <div class="cards two">
+        <div class="card pro" id="pros">
+          <h4>✔ Pros</h4>
+          <ul>
+            <li><strong>More exhaustive &amp; correct</strong> — multi-agent decomposition + adversarial verification catches what a single pass misses.</li>
+            <li><strong>Parallelism / scale</strong> — work exceeding one context window (≤1,000 agents/run) runs in the background while your session stays responsive.</li>
+            <li><strong>Zero ceremony</strong> — Claude initiates workflows itself; no need to remember to ask.</li>
+            <li><strong>Highest reasoning depth</strong> (<code class="inline">xhigh</code>) on every turn.</li>
+          </ul>
+        </div>
+        <div class="card con" id="cons">
+          <h4>✘ Cons</h4>
+          <ul>
+            <li><strong>More tokens &amp; latency</strong> — docs are explicit: “each request uses more tokens and takes longer.” (This report spent ~390k subagent tokens across 9 agents.)</li>
+            <li><strong>Can over-engineer</strong> — may spin up a workflow where a one-line edit would do.</li>
+            <li><strong>Research preview</strong> — requires v2.1.154+, paid plan; behavior may change.</li>
+            <li><strong>Less visibility</strong> — orchestration runs in the background (use <code class="inline">/workflows</code> to watch).</li>
+            <li><strong>Model-gated</strong> — Opus 4.8 / 4.7 only.</li>
+            <li><strong>Permission nuance</strong> — <em>Auto</em> mode skips the per-run prompt; <em>Default</em>/<em>accept-edits</em> may prompt per run unless you chose “don’t ask again.”</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 5 · CONFIGURE ═══════════════ -->
+    <section id="configure">
+      <div class="sec-h"><span class="n">05</span><h2>How to Configure It</h2></div>
+
+      <h3 id="enable">Enable</h3>
+<pre><code><span class="cmt"># turn it on for the session</span>
+/effort ultracode</code></pre>
+      <ul class="clean">
+        <li><strong>One-off</strong> without changing session effort — put the keyword <code class="inline">ultracode</code> in a single prompt:<br>
+          <code class="inline">ultracode: audit every API endpoint under src/routes/ for missing auth checks</code></li>
+        <li><strong>Programmatic</strong> — pass <code class="inline">"ultracode": true</code> via <code class="inline">--settings</code> or an Agent SDK control request.</li>
+      </ul>
+
+      <h3 id="disable">Disable</h3>
+<pre><code><span class="cmt"># any normal level drops you out of ultracode</span>
+/effort high</code></pre>
+      <ul class="clean">
+        <li>Or just <strong>start a new session</strong> — it’s session-scoped and resets automatically.</li>
+        <li>There is <strong>no <code class="inline">/effort off</code></strong> — you exit by picking another effort level.</li>
+      </ul>
+
+      <h3 id="kill-switch">Turn off the whole workflow machinery</h3>
+      <p>(This also removes ultracode from the <code class="inline">/effort</code> menu.)</p>
+<pre><code><span class="cmt">// ~/.claude/settings.json  (persists)</span>
+<span class="str">"disableWorkflows"</span>: <span class="kw">true</span>
+
+<span class="cmt"># …or env var</span>
+CLAUDE_CODE_DISABLE_WORKFLOWS=1
+
+<span class="cmt"># …or toggle "Dynamic workflows" off in /config</span></code></pre>
+
+      <h3 id="related-cfg">Related effort config (for context)</h3>
+      <ul class="clean">
+        <li><code class="inline">effortLevel</code> in <code class="inline">settings.json</code> accepts <strong>only</strong> <code class="inline">low/medium/high/xhigh</code> — <strong>not</strong> <code class="inline">max</code> or <code class="inline">ultracode</code> (both session-only).</li>
+        <li><code class="inline">CLAUDE_CODE_EFFORT_LEVEL</code> env var — highest precedence; the only way to persist <code class="inline">max</code>; does <strong>not</strong> accept ultracode.</li>
+        <li><code class="inline">--effort &lt;level&gt;</code> launch flag; effort slider inside <code class="inline">/model</code>.</li>
+        <li><code class="inline">/config</code> also has an <strong>“Ultracode keyword trigger”</strong> toggle (whether the literal keyword fires a workflow).</li>
+      </ul>
+
+      <!-- DIAGRAM: effort ladder + precedence -->
+      <div class="figure">
+        <div class="fig-title">Figure 4 — The effort ladder &amp; precedence</div>
+        <svg viewBox="0 0 760 250" role="img" aria-label="API effort scale ladder and configuration precedence order">
+          <text x="20" y="28" font-size="12" font-weight="700" fill="var(--text-mute)" font-family="monospace">API EFFORT SCALE</text>
+          <!-- ladder bars -->
+          <g font-family="monospace" font-size="12.5" font-weight="700">
+            <rect x="20" y="40" width="120" height="30" rx="7" fill="var(--bg-elev-2)" stroke="var(--border)"/><text x="80" y="60" text-anchor="middle" fill="var(--text-soft)">low</text>
+            <rect x="20" y="76" width="170" height="30" rx="7" fill="var(--bg-elev-2)" stroke="var(--border)"/><text x="105" y="96" text-anchor="middle" fill="var(--text-soft)">medium</text>
+            <rect x="20" y="112" width="220" height="30" rx="7" fill="var(--bg-elev-2)" stroke="var(--border)"/><text x="130" y="132" text-anchor="middle" fill="var(--text-soft)">high</text>
+            <rect x="20" y="148" width="270" height="30" rx="7" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="155" y="168" text-anchor="middle" fill="var(--accent)">xhigh ← ultracode sends this</text>
+            <rect x="20" y="184" width="320" height="30" rx="7" fill="var(--bg-elev-2)" stroke="var(--border)"/><text x="180" y="204" text-anchor="middle" fill="var(--text-soft)">max</text>
+          </g>
+          <text x="20" y="240" font-size="11" fill="var(--text-mute)">ultracode is a Claude Code layer over xhigh — not a 6th API level</text>
+
+          <!-- precedence chain -->
+          <text x="430" y="28" font-size="12" font-weight="700" fill="var(--text-mute)" font-family="monospace">PRECEDENCE</text>
+          <g>
+            <rect x="430" y="44" width="300" height="40" rx="9" fill="var(--bg-elev)" stroke="var(--accent)"/>
+            <text x="448" y="69" font-size="12.5" font-weight="700" fill="var(--text)">env var <tspan font-family="monospace" font-size="11" fill="var(--accent)">CLAUDE_CODE_EFFORT_LEVEL</tspan></text>
+            <text x="580" y="100" text-anchor="middle" font-size="16" fill="var(--text-mute)">↓</text>
+            <rect x="430" y="108" width="300" height="40" rx="9" fill="var(--bg-elev)" stroke="var(--border)"/>
+            <text x="448" y="133" font-size="12.5" font-weight="700" fill="var(--text)">configured level <tspan font-family="monospace" font-size="11" fill="var(--text-mute)">(effortLevel)</tspan></text>
+            <text x="580" y="164" text-anchor="middle" font-size="16" fill="var(--text-mute)">↓</text>
+            <rect x="430" y="172" width="300" height="40" rx="9" fill="var(--bg-elev)" stroke="var(--border)"/>
+            <text x="448" y="197" font-size="12.5" font-weight="700" fill="var(--text)">model default</text>
+          </g>
+        </svg>
+        <div class="cap">Requirements recap: <strong>Opus 4.8 or 4.7</strong> + <strong>Claude Code v2.1.154+</strong>.</div>
+      </div>
+
+      <div class="callout" style="border-left-color:var(--warn)">
+        <span class="ico">⚠️</span>
+        <p><strong>Accuracy caveat:</strong> a couple of exact command spellings (e.g. <code class="inline">/effort ultracode</code> vs. selecting from the slider) come from docs extraction. If a command doesn’t behave as written, run <code class="inline">/effort</code> with no args and pick <strong>ultracode</strong> from the interactive menu — the canonical path.</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 6 · VERIFICATION ═══════════════ -->
+    <section id="verification">
+      <div class="sec-h"><span class="n">06</span><h2>Adversarial Verification Summary</h2></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Claim checked</th><th>Verdict</th></tr></thead>
+          <tbody>
+            <tr><td>ultracode = <code class="inline">xhigh</code> + automatic dynamic multi-agent orchestration, set via <code class="inline">/effort</code>, session-scoped</td><td><span class="v-confirmed">✔ Confirmed</span><br><span style="color:var(--text-mute);font-size:12px">nuance: a Claude Code setting, not a true API level</span></td></tr>
+            <tr><td>“ultrawork” is a distinct Claude Code effort mode for general/non-coding tasks</td><td><span class="v-refuted">✘ Refuted</span><br><span style="color:var(--text-mute);font-size:12px">third-party plugin keyword, not official</span></td></tr>
+            <tr><td>Under ultracode, Claude authors &amp; runs multi-agent workflows by default; normally opt-in</td><td><span class="v-confirmed">✔ Confirmed</span></td></tr>
+            <tr><td>“dynamic workflow” is distinct from the <code class="inline">/loop</code> self-paced “dynamic mode”</td><td><span class="v-confirmed">✔ Confirmed</span><br><span style="color:var(--text-mute);font-size:12px">same word, two unrelated mechanisms</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="sources">Sources</h3>
+      <p>All high-confidence, from official Anthropic documentation:</p>
+      <ul class="src-list">
+        <li><code class="inline">code.claude.com/docs/en/model-config</code><span class="note">effort levels &amp; ultracode</span></li>
+        <li><code class="inline">code.claude.com/docs/en/workflows</code><span class="note">dynamic workflows + ultracode</span></li>
+        <li><code class="inline">platform.claude.com/docs/en/build-with-claude/effort</code><span class="note">API effort scale — confirms ultracode is a Claude Code setting</span></li>
+        <li><code class="inline">platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages</code><span class="note">the standing-permission mechanism</span></li>
+        <li><code class="inline">code.claude.com/docs/en/scheduled-tasks</code><span class="note">the separate <code class="inline">/loop</code> self-paced (“dynamic”) mode</span></li>
+        <li><code class="inline">github.com/TechDufus/oh-my-claude</code> · <code class="inline">ohmyclaudecode.com</code><span class="note">“ultrawork” → third-party only, not Anthropic</span></li>
+      </ul>
+
+      <div class="bottomline" id="bottom-line">
+        <div class="fig-title">Bottom line</div>
+        <p>ultracode = <code class="inline">xhigh</code> + auto-orchestration of dynamic (model-written, multi-agent) workflows, session-scoped, Opus 4.8/4.7 only. <strong>“Workflows” is the engine, ultracode is the always-on switch, “dynamic” is an overloaded word</strong> with a second unrelated <code class="inline">/loop</code> meaning, and <strong>“ultrawork” is a community plugin keyword, not an Anthropic feature</strong> — most likely a mix-up with <code class="inline">ultrathink</code> (deeper reasoning for one turn).</p>
+      </div>
+    </section>
+
+    <footer>
+      <span>Claude Code “ultracode” — Research Report</span>
+      <span>Compiled 2026-06-07 · Grounded in official Anthropic documentation</span>
+    </footer>
+  </div>
+</main>
+
+<script>
+(function(){
+  var root=document.documentElement, body=document.body;
+
+  /* ---------- THEME ---------- */
+  var saved=null;
+  try{ saved=localStorage.getItem('uc-theme'); }catch(e){}
+  if(saved){ root.setAttribute('data-theme',saved); }
+  document.getElementById('themeToggle').addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);
+    try{ localStorage.setItem('uc-theme',next); }catch(e){}
+  });
+
+  /* ---------- SIDEBAR: single persistent toggle in the top nav ---------- */
+  var mq=window.matchMedia('(max-width:1040px)');
+  function setInitial(){
+    body.classList.remove('side-open','side-collapsed');
+    if(mq.matches){ /* mobile: drawer starts closed */ }
+    else { body.classList.add('side-open'); } /* desktop: open */
+  }
+  setInitial();
+  mq.addEventListener('change',setInitial);
+
+  document.getElementById('sideToggle').addEventListener('click',function(){
+    if(mq.matches){
+      body.classList.toggle('side-open');
+    } else {
+      body.classList.toggle('side-collapsed');
+    }
+  });
+  document.getElementById('scrim').addEventListener('click',function(){
+    body.classList.remove('side-open');
+  });
+
+  /* ---------- SIDEBAR GROUPS: vertical collapse ---------- */
+  document.querySelectorAll('.side-group .grp-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){ btn.parentElement.classList.toggle('open'); });
+  });
+  /* clicking a sub-link closes the drawer on mobile */
+  document.querySelectorAll('.grp-links a').forEach(function(a){
+    a.addEventListener('click',function(){ if(mq.matches) body.classList.remove('side-open'); });
+  });
+
+  /* ---------- SCROLLSPY ---------- */
+  var topLinks=Array.prototype.slice.call(document.querySelectorAll('#topLinks a'));
+  var subLinks=Array.prototype.slice.call(document.querySelectorAll('.grp-links a'));
+  var sections=Array.prototype.slice.call(document.querySelectorAll('main section[id]'));
+  var subTargets=subLinks.map(function(a){ return document.getElementById(a.getAttribute('href').slice(1)); });
+
+  function spy(){
+    var y=window.scrollY+120, curSec=sections[0];
+    sections.forEach(function(s){ if(s.offsetTop<=y) curSec=s; });
+    topLinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+curSec.id); });
+
+    var curSub=null;
+    subTargets.forEach(function(t){ if(t && t.offsetTop<=y) curSub=t; });
+    subLinks.forEach(function(a){
+      var on = curSub && a.getAttribute('href')==='#'+curSub.id;
+      a.classList.toggle('active', !!on);
+      if(on){ var g=a.closest('.side-group'); if(g && !g.classList.contains('open')) g.classList.add('open'); }
+    });
+  }
+  window.addEventListener('scroll',spy,{passive:true});
+  window.addEventListener('resize',spy);
+  spy();
+})();
+</script>
+</body>
+</html>
