@@ -49,7 +49,10 @@ export default function App() {
     // Fetch the generated manifest (path respects the base for /<repo>/ on Pages).
     useEffect(() => {
         let cancelled = false
-        fetch(`${BASE}posts.json`)
+        // `no-cache` forces revalidation (cheap 304 via ETag) so a freshly
+        // deployed manifest is picked up immediately instead of being served
+        // from the browser's 10-minute HTTP cache.
+        fetch(`${BASE}posts.json`, { cache: 'no-cache' })
             .then((res) => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`)
                 return res.json()
