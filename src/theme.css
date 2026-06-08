@@ -489,12 +489,20 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ── Theme toggle ─────────────────────────────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
 .theme-toggle {
   display: grid;
   place-items: center;
   width: 42px;
   height: 42px;
   flex-shrink: 0;
+  text-decoration: none;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);

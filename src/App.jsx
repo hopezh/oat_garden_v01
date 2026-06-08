@@ -5,6 +5,7 @@ import SortControl, { SORT_OPTIONS } from './components/SortControl.jsx'
 import TagFilter from './components/TagFilter.jsx'
 import CardGrid from './components/CardGrid.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
+import GitHubLink from './components/GitHubLink.jsx'
 import { useTheme } from './hooks/useTheme.js'
 // Inlined (not <img>) so the page's data-theme on <html> cascades into the
 // SVG and its embedded dark/light <style> tracks the theme toggle live.
@@ -150,7 +151,10 @@ export default function App() {
                             A collection of knowledge cards distilled by Claude
                         </p>
                     </div>
-                    <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                    <div className="header-actions">
+                        <GitHubLink href="https://github.com/hopezh/oat_garden_v01" />
+                        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                    </div>
                 </header>
             </div>
 
