@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research, Plan, Build: Matt Van Horn's Agentic Engineering Workflow</title>
+<meta name="description" content="A digest of Matt Van Horn's two field guides: start every idea with a plan.md, research the last 30 days, then build by voice across parallel sessions.">
+<meta name="keywords" content="agentic-engineering, claude-code, plan-md, compound-engineering, voice-first, parallel-sessions">
+<meta name="date" content="2026-06-08">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #16130d;
+    --bg-elev: #1f1a12;
+    --bg-elev-2: #271f15;
+    --surface: #1a160f;
+    --border: #34291c;
+    --text: #f1e9dc;
+    --text-dim: #b7a98f;
+    --text-faint: #8a7c63;
+    --accent: #e8a33d;        /* amber */
+    --accent-2: #44b6a6;      /* teal */
+    --clay: #d07a52;          /* terracotta */
+    --accent-soft: rgba(232,163,61,0.13);
+    --teal-soft: rgba(68,182,166,0.13);
+    --clay-soft: rgba(208,122,82,0.14);
+    --good: #6fb86a;
+    --warn: #e0b441;
+    --bad: #e0664f;
+    --code-bg: #0f0c07;
+    --shadow: 0 16px 40px -18px rgba(0,0,0,0.7);
+    --grid-line: rgba(255,255,255,0.045);
+    --nav-h: 60px;
+    --side-w: 290px;
+    --maxw: 880px;
+    --radius: 15px;
+    --geo-stroke: #5a4528;
+    --geo-fill-a: #241c12;
+    --geo-fill-b: #2f2517;
+    --geo-accent: #e8a33d;
+    --geo-accent-2: #44b6a6;
+    --geo-clay: #d07a52;
+  }
+  html[data-theme="light"] {
+    --bg: #f7f2e9;
+    --bg-elev: #fffdf8;
+    --bg-elev-2: #f0e8d9;
+    --surface: #fffdf8;
+    --border: #e4d9c5;
+    --text: #2a2114;
+    --text-dim: #6b5d44;
+    --text-faint: #9a8a6e;
+    --accent: #b9750f;
+    --accent-2: #1f8c7e;
+    --clay: #b85a30;
+    --accent-soft: rgba(185,117,15,0.12);
+    --teal-soft: rgba(31,140,126,0.11);
+    --clay-soft: rgba(184,90,48,0.11);
+    --good: #2f9d3f;
+    --warn: #b07d12;
+    --bad: #cc4a32;
+    --code-bg: #efe6d4;
+    --shadow: 0 16px 38px -20px rgba(90,70,30,0.3);
+    --grid-line: rgba(80,55,15,0.05);
+    --geo-stroke: #d7c4a0;
+    --geo-fill-a: #efe6d4;
+    --geo-fill-b: #e6dac2;
+    --geo-accent: #b9750f;
+    --geo-accent-2: #1f8c7e;
+    --geo-clay: #b85a30;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: calc(var(--nav-h) + 16px); }
+  body {
+    margin: 0;
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+    transition: background .35s ease, color .35s ease;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  code {
+    font-size: .88em; background: var(--code-bg); border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 6px; color: var(--accent); white-space: nowrap;
+  }
+
+  /* ---------- Top nav ---------- */
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+    display: flex; align-items: center; gap: 12px; padding: 0 18px;
+    background: color-mix(in srgb, var(--bg) 84%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border); z-index: 100;
+  }
+  .topnav .brand {
+    display: flex; align-items: center; gap: 9px;
+    font-family: "Fraunces", serif; font-weight: 700; font-size: 16px;
+    white-space: nowrap; letter-spacing: -0.01em;
+  }
+  .brand .mark { width: 27px; height: 27px; flex: none; }
+  .topnav .menu { display: flex; gap: 3px; margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+  .topnav .menu::-webkit-scrollbar { display: none; }
+  .topnav .menu a {
+    color: var(--text-dim); font-size: 13.5px; font-weight: 600;
+    padding: 7px 12px; border-radius: 8px; white-space: nowrap;
+    transition: color .2s, background .2s;
+  }
+  .topnav .menu a:hover { color: var(--text); background: var(--accent-soft); text-decoration: none; }
+  .topnav .menu a.active { color: var(--accent); background: var(--accent-soft); }
+  .topnav .actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .icon-btn {
+    width: 38px; height: 38px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); color: var(--text-dim);
+    cursor: pointer; transition: all .2s;
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .icon-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- Layout ---------- */
+  .shell { display: flex; padding-top: var(--nav-h); }
+
+  /* ---------- Side nav ---------- */
+  .sidebar {
+    position: fixed; top: var(--nav-h); bottom: 0; left: 0; width: var(--side-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto; overflow-x: hidden; padding: 18px 10px 60px;
+    transition: width .28s ease, transform .28s ease; z-index: 90;
+  }
+  .sidebar::-webkit-scrollbar { width: 8px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  .side-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 10px 10px; margin-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .side-head span { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); }
+  .collapse-x { border: none; background: transparent; color: var(--text-faint); cursor: pointer; padding: 4px; border-radius: 6px; display: inline-flex; }
+  .collapse-x:hover { color: var(--accent); background: var(--accent-soft); }
+  .collapse-x svg { width: 16px; height: 16px; }
+
+  .nav-group { margin-bottom: 2px; }
+  .nav-group > .grp-toggle {
+    width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    background: transparent; border: none; color: var(--text); font-size: 13.5px; font-weight: 600;
+    padding: 9px 10px; border-radius: 8px; transition: background .2s; font-family: inherit;
+  }
+  .nav-group > .grp-toggle:hover { background: var(--bg-elev); }
+  .grp-toggle .chev { width: 14px; height: 14px; transition: transform .2s; color: var(--text-faint); flex: none; }
+  .nav-group.collapsed .chev { transform: rotate(-90deg); }
+  .nav-group.collapsed .sublinks { display: none; }
+  .sublinks { display: flex; flex-direction: column; padding: 2px 0 6px 0; }
+  .sublinks a {
+    color: var(--text-dim); font-size: 13px; padding: 6px 10px 6px 32px; border-radius: 7px;
+    border-left: 2px solid transparent; line-height: 1.4; transition: all .18s;
+  }
+  .sublinks a:hover { color: var(--text); background: var(--bg-elev); text-decoration: none; }
+  .sublinks a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+
+  body.side-collapsed .sidebar { width: 0; padding-left: 0; padding-right: 0; border-right: none; }
+  body.side-collapsed .sidebar > * { opacity: 0; pointer-events: none; }
+  body.side-collapsed .content-wrap { margin-left: 0; }
+  .content-wrap { margin-left: var(--side-w); transition: margin-left .28s ease; flex: 1 1 auto; min-width: 0; }
+
+  /* ---------- Cover band (now standalone, title sits BELOW it) ---------- */
+  .cover {
+    position: relative; width: 100%; height: 300px; overflow: hidden;
+    border-bottom: 1px solid var(--border); background: var(--bg-elev);
+  }
+  .cover svg.cover-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cover .cover-fade {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--bg) 70%, transparent) 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- Title block (below the cover) ---------- */
+  .titleblock {
+    max-width: var(--maxw); margin: 0 auto; padding: 34px 28px 4px;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft); padding: 5px 12px; border-radius: 999px;
+    margin-bottom: 16px; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .titleblock h1 {
+    font-family: "Fraunces", serif; margin: 0 0 14px; font-size: clamp(30px, 5.2vw, 48px);
+    line-height: 1.06; letter-spacing: -0.02em; font-weight: 900; text-align: left; max-width: 19ch;
+  }
+  .titleblock .subtitle { margin: 0; font-size: clamp(15px, 2.2vw, 18.5px); color: var(--text-dim); text-align: left; max-width: 64ch; line-height: 1.6; }
+  .titleblock .subtitle code { white-space: nowrap; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 20px; font-size: 12.5px; color: var(--text-faint); font-family: "IBM Plex Mono", monospace; }
+  .meta-row span { display: inline-flex; align-items: center; gap: 6px; }
+  .meta-row a { color: var(--text-faint); }
+  .meta-row a:hover { color: var(--accent); }
+
+  /* ---------- Content ---------- */
+  .content { max-width: var(--maxw); margin: 0 auto; padding: 6px 28px 100px; }
+  section { padding-top: 26px; }
+  .part-label { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent-2); margin: 34px 0 4px; }
+  h2 { font-family: "Fraunces", serif; font-size: clamp(23px, 3.6vw, 32px); font-weight: 800; letter-spacing: -0.015em; margin: 6px 0 14px; line-height: 1.18; }
+  h3 { font-family: "Fraunces", serif; font-size: 20px; font-weight: 700; margin: 30px 0 10px; letter-spacing: -0.01em; }
+  h4 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--text); }
+  p { margin: 0 0 14px; color: var(--text); }
+  .lead { font-size: 17px; color: var(--text-dim); }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 42px 0; }
+
+  /* reference markers */
+  .ref {
+    font-family: "IBM Plex Mono", monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .06em;
+    vertical-align: super; line-height: 0; margin-left: 4px; padding: 2px 5px; border-radius: 5px;
+    background: var(--teal-soft); color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 32%, transparent);
+    cursor: help; white-space: nowrap;
+  }
+
+  /* TLDR card */
+  .tldr { background: linear-gradient(140deg, var(--bg-elev) 0%, var(--bg-elev-2) 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px; margin: 18px 0 6px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+  .tldr::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, var(--accent), var(--clay)); }
+  .tldr .tl { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600; letter-spacing: .18em; color: var(--accent); margin: 0 0 10px; }
+  .tldr p { font-size: 14.5px; margin: 0 0 10px; }
+  .tldr p:last-of-type { margin-bottom: 0; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .pill { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; padding: 4px 10px; border-radius: 999px; background: var(--code-bg); border: 1px solid var(--border); color: var(--text-dim); }
+
+  /* source chips */
+  .srcbar { display: grid; gap: 10px; margin: 18px 0; }
+  .srcchip { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; background: var(--surface); transition: border-color .2s, transform .2s; }
+  .srcchip:hover { border-color: var(--accent-2); transform: translateX(2px); text-decoration: none; }
+  .srcchip .tag { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; color: var(--accent-2); background: var(--teal-soft); padding: 3px 8px; border-radius: 6px; flex: none; margin-top: 2px; }
+  .srcchip .meta { font-size: 13px; color: var(--text-dim); }
+  .srcchip .meta b { color: var(--text); }
+
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin: 18px 0; box-shadow: var(--shadow); }
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 18px 0; color: var(--text); }
+  .callout.golden { border-left-color: var(--clay); background: var(--clay-soft); }
+  .callout.teal { border-left-color: var(--accent-2); background: var(--teal-soft); }
+  .quote { font-family: "Fraunces", serif; font-size: 18px; font-style: italic; color: var(--text); border-left: 3px solid var(--accent-2); padding: 6px 0 6px 20px; margin: 18px 0; }
+  .quote cite { display: block; font-family: "IBM Plex Sans", sans-serif; font-style: normal; font-size: 13px; color: var(--text-faint); margin-top: 8px; }
+
+  /* feature grid */
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .feature { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 16px; transition: transform .2s, border-color .2s; }
+  .feature:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .feature .fi { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .feature .fi svg { width: 19px; height: 19px; }
+  .feature h4 { margin: 0 0 5px; font-size: 14.5px; }
+  .feature p { font-size: 13px; color: var(--text-dim); margin: 0; }
+
+  /* stat grid */
+  .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .stat { border: 1px solid var(--border); border-radius: 12px; padding: 16px 14px; background: var(--bg-elev); text-align: center; }
+  .stat .v { font-family: "Fraunces", serif; font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .stat .l { font-size: 11.5px; color: var(--text-faint); margin-top: 7px; }
+
+  /* hack list */
+  .hacklist { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 9px; }
+  .hacklist .hk { display: flex; gap: 13px; align-items: flex-start; border: 1px solid var(--border); border-radius: 11px; padding: 12px 15px; background: var(--surface); }
+  .hacklist .hk .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; flex: none; min-width: 56px; text-align: center; }
+  .hacklist .hk .t { font-size: 13.5px; color: var(--text-dim); }
+  .hacklist .hk .t b { color: var(--text); }
+
+  /* loop diagram */
+  .loop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; position: relative; }
+  .loopstep { border: 1px solid var(--border); border-radius: 13px; padding: 16px; background: var(--bg-elev); position: relative; }
+  .loopstep .k { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+  .loopstep b { display: block; font-family: "IBM Plex Mono", monospace; font-size: 16px; margin: 6px 0 7px; }
+  .loopstep p { font-size: 12.5px; color: var(--text-dim); margin: 0; }
+  .loopstep.r { border-top: 3px solid var(--accent-2); } .loopstep.r b { color: var(--accent-2); }
+  .loopstep.p { border-top: 3px solid var(--accent); } .loopstep.p b { color: var(--accent); }
+  .loopstep.b { border-top: 3px solid var(--clay); } .loopstep.b b { color: var(--clay); }
+
+  /* charts */
+  .chart-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; margin: 20px 0; box-shadow: var(--shadow); }
+  .chart-card .ct { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+  .chart-card .cs { font-size: 12.5px; color: var(--text-faint); margin: 0 0 18px; }
+  .figcap { font-size: 12px; color: var(--text-faint); text-align: center; margin-top: 10px; }
+  .barset { display: flex; flex-direction: column; gap: 16px; }
+  .bar-row .bl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .bar-row .bl .pct { font-weight: 700; font-family: "IBM Plex Mono", monospace; }
+  .track { height: 16px; background: var(--bg-elev-2); border-radius: 8px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 8px; width: 0; transition: width 1.1s cubic-bezier(.2,.8,.2,1); }
+
+  /* signal split */
+  .splitbar { display: flex; height: 50px; border-radius: 11px; overflow: hidden; font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600; }
+  .splitbar .s { display: flex; align-items: center; justify-content: center; color: #fff; padding: 0 10px; text-align: center; }
+  .splitbar .s.sig { background: var(--accent); flex: 20; }
+  .splitbar .s.hand { background: var(--accent-2); flex: 80; }
+
+  /* before/after compare */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .ba { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface); }
+  .ba .h { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 11px; }
+  .ba.old .h { color: var(--text-faint); }
+  .ba.new .h { color: var(--accent); }
+  .ba ul { margin: 0; padding-left: 18px; }
+  .ba li { font-size: 13px; color: var(--text-dim); }
+  .ba li code { font-size: .85em; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px; text-align: center; color: var(--text-faint); font-size: 13px; max-width: var(--maxw); margin: 0 auto; }
+  .backtop { position: fixed; right: 22px; bottom: 22px; z-index: 80; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .backtop.show { opacity: 1; pointer-events: auto; }
+  .scrim { display:none; }
+
+  @media (max-width: 1080px) { :root { --side-w: 250px; } }
+  @media (max-width: 860px) {
+    .topnav .menu { display: none; }
+    .sidebar { transform: translateX(-100%); width: 280px; box-shadow: var(--shadow); }
+    body.side-open .sidebar { transform: translateX(0); }
+    .content-wrap { margin-left: 0 !important; }
+    .scrim { display: block; position: fixed; inset: var(--nav-h) 0 0 0; background: rgba(0,0,0,.45); z-index: 85; opacity: 0; pointer-events: none; transition: opacity .25s; }
+    body.side-open .scrim { opacity: 1; pointer-events: auto; }
+    .collapse-x { display: none; }
+  }
+  @media (max-width: 640px) {
+    .compare, .grid.cols-2, .grid.cols-3, .loop { grid-template-columns: 1fr; }
+    .statgrid { grid-template-columns: 1fr 1fr; }
+    .content, .titleblock { padding-left: 18px; padding-right: 18px; }
+    .cover { height: 220px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP NAV ===================== -->
+<header class="topnav">
+  <button id="menuToggle" class="icon-btn" aria-label="Toggle sidebar" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="26" height="26" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <path d="M9 11h14M9 16h9M9 21h11" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="23.5" cy="20.5" r="2.2" fill="var(--accent-2)"/>
+    </svg>
+    <span>Agentic Engineering</span>
+  </div>
+  <nav class="menu" id="topMenu">
+    <a href="#overview">Overview</a>
+    <a href="#hacks">The Hacks</a>
+    <a href="#loop">Core Loop</a>
+    <a href="#voice">Voice &amp; Signal</a>
+    <a href="#terminal">The Terminal</a>
+    <a href="#beyond">Beyond Code</a>
+    <a href="#coda">The Coda</a>
+  </nav>
+  <div class="actions">
+    <button id="themeToggle" class="icon-btn" aria-label="Toggle dark / light theme">
+      <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"/></svg>
+      <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="shell">
+  <!-- ===================== SIDE NAV ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <span>Contents</span>
+      <button class="collapse-x" id="collapseX" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <nav id="sideNav">
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Overview</button>
+        <div class="sublinks">
+          <a href="#overview">From vibe coding to AE</a>
+          <a href="#sources">The two sources</a>
+          <a href="#thesis">Where the bottleneck moved</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> The 22 Hacks</button>
+        <div class="sublinks">
+          <a href="#hacks">At a glance</a>
+          <a href="#output">What it shipped</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> The Core Loop</button>
+        <div class="sublinks">
+          <a href="#loop">Research, Plan, Build</a>
+          <a href="#planfile">The plan-file rules</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Voice &amp; Signal</button>
+        <div class="sublinks">
+          <a href="#voice">Get voice-pilled</a>
+          <a href="#signal">Be the human signal</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> The Terminal</button>
+        <div class="sublinks">
+          <a href="#terminal">Parallel sessions</a>
+          <a href="#remote">Remote &amp; autonomous</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Beyond Code</button>
+        <div class="sublinks">
+          <a href="#beyond">The loop leaves the editor</a>
+          <a href="#compounding">Compounding</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> The Coda</button>
+        <div class="sublinks">
+          <a href="#coda">The honest part</a>
+          <a href="#evolution">March → June</a>
+          <a href="#takeaway">The takeaway</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ===================== CONTENT ===================== -->
+  <div class="content-wrap">
+
+    <!-- COVER BAND (title now sits BELOW this) -->
+    <div class="cover">
+      <svg class="cover-art" viewBox="0 0 1600 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <pattern id="iso" width="56" height="32" patternUnits="userSpaceOnUse">
+            <path d="M0 16 L28 0 L56 16 L28 32 Z" fill="none" stroke="var(--grid-line)" stroke-width="1"/>
+          </pattern>
+          <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--geo-fill-b)"/>
+            <stop offset="1" stop-color="var(--geo-fill-a)"/>
+          </linearGradient>
+        </defs>
+        <rect width="1600" height="300" fill="url(#iso)"/>
+        <!-- axonometric "plan stack" feeding parallel build sessions; nodes/links = the agentic loop -->
+        <g stroke="var(--geo-stroke)" stroke-width="2" stroke-linejoin="round">
+          <!-- central plan.md block -->
+          <g transform="translate(740,70)" stroke="var(--geo-accent)">
+            <path d="M0 40 L75 0 L150 40 L75 80 Z" fill="var(--accent-soft)"/>
+            <path d="M0 40 L0 120 L75 160 L75 80 Z" fill="var(--geo-fill-a)"/>
+            <path d="M150 40 L150 120 L75 160 L75 80 Z" fill="url(#gA)"/>
+            <path d="M30 33 L95 33 M30 45 L80 45" stroke="var(--geo-accent)" stroke-width="2" opacity="0.7"/>
+          </g>
+          <!-- parallel session cubes on the right -->
+          <g transform="translate(1080,60)">
+            <path d="M0 30 L52 0 L104 30 L52 60 Z" fill="var(--geo-fill-b)"/>
+            <path d="M0 30 L0 96 L52 126 L52 60 Z" fill="var(--geo-fill-a)"/>
+            <path d="M104 30 L104 96 L52 126 L52 60 Z" fill="url(#gA)"/>
+          </g>
+          <g transform="translate(1180,120)">
+            <path d="M0 30 L52 0 L104 30 L52 60 Z" fill="none"/>
+            <path d="M0 30 L0 96 L52 126 L52 60 Z" fill="none"/>
+            <path d="M104 30 L104 96 L52 126 L52 60 Z" fill="none"/>
+            <path d="M52 60 L52 126 M0 30 L0 96 M104 30 L104 96"/>
+          </g>
+          <g transform="translate(1300,75)" stroke="var(--geo-clay)">
+            <path d="M0 28 L46 0 L92 28 L46 56 Z" fill="none"/>
+            <path d="M0 28 L0 88 L46 116 L46 56 Z" fill="none"/>
+            <path d="M92 28 L92 88 L46 116 L46 56 Z" fill="none"/>
+          </g>
+          <g transform="translate(1430,130)">
+            <path d="M0 30 L52 0 L104 30 L52 60 Z" fill="var(--geo-fill-b)" opacity="0.6"/>
+            <path d="M0 30 L0 96 L52 126 L52 60 Z" fill="var(--geo-fill-a)" opacity="0.6"/>
+            <path d="M104 30 L104 96 L52 126 L52 60 Z" fill="url(#gA)" opacity="0.6"/>
+          </g>
+          <!-- research nodes on the left -->
+          <g transform="translate(150,150)">
+            <path d="M0 22 L40 0 L80 22 L40 44 Z" fill="var(--geo-fill-b)" opacity="0.75"/>
+            <path d="M0 22 L0 70 L40 92 L40 44 Z" fill="var(--geo-fill-a)" opacity="0.75"/>
+            <path d="M80 22 L80 70 L40 92 L40 44 Z" fill="url(#gA)" opacity="0.75"/>
+          </g>
+          <g transform="translate(280,95)" stroke="var(--geo-accent-2)">
+            <path d="M0 22 L40 0 L80 22 L40 44 Z" fill="none"/>
+            <path d="M0 22 L0 70 L40 92 L40 44 Z" fill="none"/>
+            <path d="M80 22 L80 70 L40 92 L40 44 Z" fill="none"/>
+          </g>
+        </g>
+        <!-- link lines: research -> plan -> sessions -->
+        <g stroke="var(--geo-accent-2)" stroke-width="1.6" opacity="0.8" fill="none" stroke-dasharray="2 9" stroke-linecap="round">
+          <path d="M230 172 L760 150 M340 117 L760 150 M815 150 L1132 120 M815 150 L1232 180 M815 150 L1346 130 M815 150 L1482 190"/>
+        </g>
+        <g>
+          <circle cx="230" cy="172" r="5" fill="var(--geo-accent-2)"/>
+          <circle cx="340" cy="117" r="5" fill="var(--geo-accent-2)"/>
+          <circle cx="815" cy="150" r="6" fill="var(--geo-accent)"/>
+          <circle cx="1132" cy="120" r="5" fill="var(--geo-accent)"/>
+          <circle cx="1232" cy="180" r="5" fill="var(--geo-accent)"/>
+          <circle cx="1346" cy="130" r="5" fill="var(--geo-clay)"/>
+          <circle cx="1482" cy="190" r="5" fill="var(--geo-accent)"/>
+        </g>
+      </svg>
+      <div class="cover-fade"></div>
+    </div>
+
+    <!-- TITLE BLOCK — sits vertically below the cover, left-aligned -->
+    <div class="titleblock">
+      <span class="eyebrow">Field notes · @mvanhorn</span>
+      <h1>Research, Plan, Build</h1>
+      <p class="subtitle">A digest of Matt Van Horn's two field guides on his <strong>agentic engineering</strong> workflow. The throughline: the instant you have an idea, you don't type code — you run <code>/ce-plan</code> to make a durable <code>plan.md</code>, ground it in real-time research, and build by voice across a pile of parallel terminal sessions.</p>
+      <div class="meta-row">
+        <span>🧵 2 source articles</span>
+        <span>📋 22 hacks digested</span>
+        <span>🕒 ~10 min read</span>
+        <span>🔗 <a href="https://x.com/mvanhorn/status/2061877533885473181" target="_blank" rel="noopener">@mvanhorn</a></span>
+      </div>
+    </div>
+
+    <main class="content">
+
+      <!-- ===== OVERVIEW ===== -->
+      <section id="overview">
+        <div class="part-label">Overview</div>
+        <h2>From "vibe coding" to agentic engineering</h2>
+
+        <div class="tldr">
+          <p class="tl">TL;DR</p>
+          <p>Matt Van Horn argues that what people called "vibe coding" matured — around late 2025 — into a real, repeatable discipline he calls <strong>Agentic Engineering</strong>. The unchanging rule #1: the instant you have an idea, you don't start typing code — you run <code>/ce-plan</code> to produce a durable <code>plan.md</code>, then let agents execute it.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+          <p>The loop reduces to three words — <strong>Research → Plan → Build</strong> — powered by the Compound Engineering plugin, driven mostly by voice, run across four-to-six terminal tabs. June's biggest additions: <em>don't read the plan</em> (plans are for agents), <em>make a plan for the plan</em> for deep non-code work, <em>be the human signal</em>, write your own skills, and a fleet of real-life CLIs that book trips and preheat the car.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+          <p>The honest coda: this loop is genuinely addictive. Guard your relationships, and build things people actually want — even if "people" is just you.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+          <div class="pill-row">
+            <span class="pill">/ce-plan</span>
+            <span class="pill">/ce-brainstorm</span>
+            <span class="pill">/ce-work</span>
+            <span class="pill">/last30days</span>
+            <span class="pill">Compound Engineering</span>
+            <span class="pill">cmux</span>
+            <span class="pill">voice-first</span>
+          </div>
+        </div>
+
+        <p class="lead" id="thesis">The thesis: the bottleneck moved. Generating syntax is cheap. The leverage is in <em>planning well</em>, keeping that plan as a durable artifact, and spending your scarce human attention on taste and direction instead of typing.</p>
+
+        <h3 id="sources">The two sources</h3>
+        <div class="srcbar">
+          <a class="srcchip" href="https://x.com/mvanhorn/status/2061877533885473181" target="_blank" rel="noopener">
+            <span class="tag">SRC 1</span>
+            <span class="meta"><b>"Every Agentic Engineering Hack I Know"</b> (June 2026) — the 22-hack sequel, organized as a numbered playbook. The primary source for this digest.</span>
+          </a>
+          <a class="srcchip" href="https://x.com/mvanhorn/status/2035857346602340637" target="_blank" rel="noopener">
+            <span class="tag">SRC 2</span>
+            <span class="meta"><b>"Every Claude Code Hack I Know"</b> (March 2026) — the origin piece. Same skeleton, smaller surface area; June explicitly opens by referencing it.</span>
+          </a>
+        </div>
+        <p style="font-size:13px;color:var(--text-faint)">Reference markers like <span class="ref" title="example">SRC 1</span> appear throughout to flag which article a claim comes from. Figures (star counts, contribution ranks) are reported as the author states them; the digest paraphrases rather than quotes.</p>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== THE 22 HACKS ===== -->
+      <section id="hacks">
+        <div class="part-label">The 22 Hacks</div>
+        <h2>The playbook, at a glance</h2>
+        <p>June's article is a numbered playbook. It even opens with a "YOLO TL;DR hack": paste the whole article into your agent and have it set everything up, one hack at a time. Here's the map, grouped the way this digest covers it.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <ul class="hacklist">
+          <li class="hk"><span class="n">1–3</span><span class="t"><b>The plan-file loop</b> — <code>/ce-plan</code> the moment you have an idea; <code>/ce-brainstorm</code> when it's still fuzzy; don't read the plan; use a "plan for the plan" for deep non-code work.</span></li>
+          <li class="hk"><span class="n">4 · 12</span><span class="t"><b>Voice &amp; signal</b> — get voice-pilled; your real job is to be the human signal, not the hands.</span></li>
+          <li class="hk"><span class="n">5–9 · 19</span><span class="t"><b>The terminal at scale</b> — 4–6 cmux tabs, tabs that open straight into an agent, dangerously-skip-permissions, routing builds to Codex, and a laptop that survives the load.</span></li>
+          <li class="hk"><span class="n">7 · 15</span><span class="t"><b>Remote &amp; autonomous</b> — remote control + an email address for Claude; a Mac mini reachable by Telegram, Mosh and tmux.</span></li>
+          <li class="hk"><span class="n">10·11·13·14·16·20</span><span class="t"><b>Beyond code</b> — research first; raw Granola transcripts; HyperFrames video; notes as a knowledge base; Proof for sharing; Printing Press CLIs that run real-world errands.</span></li>
+          <li class="hk"><span class="n">17 · 18</span><span class="t"><b>Compounding</b> — write your own skills; contribute to the open source you love.</span></li>
+          <li class="hk"><span class="n">21 · 22</span><span class="t"><b>The honest part</b> — "AI psychosis," and the note that the article itself was built this way.</span></li>
+        </ul>
+
+        <h3 id="output">What the workflow actually shipped</h3>
+        <p>The case for the method is its output. Agentic engineering is what let Van Horn put out <code>last30days</code>, Printing Press and Agent Cookie, and land near the top of contributor lists on major open-source projects.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <div class="statgrid">
+          <div class="stat"><div class="v">26K+</div><div class="l"><code>last30days</code> GitHub stars</div></div>
+          <div class="stat"><div class="v">3.7K+</div><div class="l">Printing Press stars</div></div>
+          <div class="stat"><div class="v">22</div><div class="l">hacks in the June guide</div></div>
+          <div class="stat"><div class="v">4–6</div><div class="l">parallel sessions at once</div></div>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== THE LOOP ===== -->
+      <section id="loop">
+        <div class="part-label">The Core Loop</div>
+        <h2>The three-word workflow: Research, Plan, Build</h2>
+        <p>Everything hangs on one small loop, and each stage maps to a command from the Compound Engineering plugin (by @kieranklaassen and @trevin).<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <div class="loop">
+          <div class="loopstep r">
+            <span class="k">01 · Research</span>
+            <b>/last30days</b>
+            <p>Pull what the community knows <em>right now</em> across Reddit, X, YouTube, HN and more — not six-month-old training data.</p>
+          </div>
+          <div class="loopstep p">
+            <span class="k">02 · Plan</span>
+            <b>/ce-plan</b>
+            <p>Fan out research agents in parallel, then consolidate into a structured <code>plan.md</code>: problem, approach, files, checkbox acceptance criteria.</p>
+          </div>
+          <div class="loopstep b">
+            <span class="k">03 · Build</span>
+            <b>/ce-work</b>
+            <p>Take the plan, break it into tasks, implement, test, and check off the acceptance criteria — optionally routed to Codex with <code>--codex</code>.</p>
+          </div>
+        </div>
+
+        <h3 id="planfile">The plan-file rules</h3>
+        <ul>
+          <li><strong>Plan first, always.</strong> The plan is the durable artifact; the code is downstream of it. New idea → <code>/ce-plan</code> before anything else.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+          <li><strong>Brainstorm when it's fuzzy.</strong> <code>/ce-brainstorm</code> turns a half-formed thought into something a plan can be built on.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+          <li><strong>Don't read the plan.</strong> Plans are written for agents to execute, not for you to proofread line by line — reading them is a waste of your scarce attention.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+          <li><strong>Plan for the plan.</strong> For deep non-code work (his example: a book plus its transcript), first plan how you'll plan, then let the loop run.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+        </ul>
+        <div class="callout teal">
+          The two articles were themselves written this way — dictated into the terminal, rewritten on command, and reviewed in Proof.<span class="ref" title="Sources 1 and 2">SRC 1·2</span>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== VOICE & SIGNAL ===== -->
+      <section id="voice">
+        <div class="part-label">Voice &amp; Signal</div>
+        <h2>Talk to it; be the taste</h2>
+        <p>Two of the most load-bearing hacks aren't tools at all — they're a change in input method and a change in mindset.</p>
+
+        <h3>Get voice-pilled</h3>
+        <p>Typing is the throttle on how much you can drive the agents. Van Horn dictates almost everything through voice input (Monologue / Wispr Flow), which lets him keep four-to-six sessions fed without his hands becoming the bottleneck — from a desk, a couch, a car, or the sideline of a soccer field.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+
+        <h3 id="signal">Be the human signal</h3>
+        <p>The reframing that ties everything together: in an agentic workflow your value isn't producing keystrokes, it's supplying judgment and direction. As he puts it —</p>
+        <div class="quote">
+          "Be the taste, let them be the hands."
+          <cite>— Matt Van Horn, on being the human signal</cite>
+        </div>
+        <p>That principle is what the chart below tries to make concrete: the human contributes a small slice of high-value signal; the agents do the overwhelming majority of the hands-on execution.</p>
+        <div class="chart-card">
+          <p class="ct">Where the work goes in an agentic session</p>
+          <p class="cs">A conceptual split — taste/direction (you) vs. hands-on execution (the agents).</p>
+          <div class="splitbar" role="img" aria-label="Split bar: small human-signal slice, large agent-execution slice">
+            <div class="s sig">Signal · you</div>
+            <div class="s hand">Hands · the agents</div>
+          </div>
+          <p class="figcap">The scarce resource is your attention — spend it on direction, not typing.</p>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== THE TERMINAL ===== -->
+      <section id="terminal">
+        <div class="part-label">The Terminal</div>
+        <h2>Parallel sessions, at scale</h2>
+        <p>The "IDE" all but disappears. The workspace is a stack of terminal tabs, each running an agent, supervised in parallel.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <div class="grid cols-3">
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div>
+            <h4>4–6 cmux tabs</h4><p>Several agents running at once in <code>cmux</code>; he dropped the Zed editor entirely between March and June.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg></div>
+            <h4>Tab opens into an agent</h4><p>A new tab drops you straight into a running agent — plus <code>dangerously-skip-permissions</code> to cut the friction.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+            <h4>Route builds to Codex</h4><p>Two $200 plans and <code>/ce-work --codex</code> hand heavy build steps to Codex while Claude steers.</p>
+          </div>
+        </div>
+
+        <h3 id="remote">Remote &amp; autonomous</h3>
+        <p>The workflow doesn't need to be at the keyboard at all. A Mac mini stays on at home, reachable from anywhere, so sessions keep running while he's away.<span class="ref" title="Sources 1 and 2">SRC 1·2</span></p>
+        <ul>
+          <li><strong>Reach the machine</strong> via Telegram, plus <code>Mosh</code> + <code>tmux</code> for durable remote terminals (with Hermes / OpenClaw in the mix).<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+          <li><strong>An email address for Claude</strong> (AgentMail) so the agent can send and receive mail as part of a task.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></li>
+        </ul>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== BEYOND CODE ===== -->
+      <section id="beyond">
+        <div class="part-label">Beyond Code</div>
+        <h2>The same loop leaves the editor</h2>
+        <p>The biggest jump from March to June is scope. Once research → plan → build is reliable for code, the same loop runs meetings, media, knowledge, and real-world errands.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <div class="grid cols-2">
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+            <h4>Research first</h4><p>Start non-code work with <code>/last30days</code> too — current community knowledge beats stale training data.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+            <h4>Meetings → Granola</h4><p>Feed raw Granola transcripts in; a dedicated Printing Press CLI handles them (it was copy-paste, then MCP, in March).</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></div>
+            <h4>Video → HyperFrames</h4><p>Generate and edit video as part of the same agent-driven pipeline.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+            <h4>Notes as a knowledge base</h4><p>Bear / Obsidian (with supermemory) become a queryable store the agents read from and write to.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <h4>Share via Proof</h4><p>Hand a plan to non-technical collaborators in Proof instead of making them read raw Markdown.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v4H3zM3 10h18v11H3z"/><path d="M8 14h8"/></svg></div>
+            <h4>Real-world CLIs</h4><p>Printing Press + Agent Cookie run errands — booking a Disney trip, preheating the car — from the same loop.</p>
+          </div>
+        </div>
+
+        <h3 id="compounding">Compounding</h3>
+        <p>Two hacks turn the workflow into a flywheel: <strong>write your own skills</strong> so repeated tasks get cheaper every time, and <strong>contribute to the open source you love</strong> so the tools you depend on keep improving — which is how he ended up near the top of so many contributor lists.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== THE CODA ===== -->
+      <section id="coda">
+        <div class="part-label">The Coda</div>
+        <h2>The honest part</h2>
+        <p>June closes on something most workflow threads skip: a candid note on cost. The loop is genuinely addictive — Van Horn flags "AI psychosis" and is direct that an always-on, infinitely-productive setup can quietly crowd out the people in your life. Guard your relationships; build things people actually want, even if "people" is just you.<span class="ref" title="Source 1 — June 2026 article">SRC 1</span></p>
+        <div class="callout golden">
+          The March article's version of this was lighter — a quick "Sorry, sweetie." June makes it a real section.<span class="ref" title="Sources 1 and 2">SRC 1·2</span>
+        </div>
+
+        <h3 id="evolution">How it evolved: March → June</h3>
+        <p>The skeleton is unchanged — plan-file first, voice, parallel sessions. What changed is the surface area: more tools, more autonomy, and a workflow that increasingly leaves the editor and the terminal entirely.<span class="ref" title="Sources 1 and 2">SRC 1·2</span></p>
+        <div class="compare">
+          <div class="ba old">
+            <div class="h">◷ March 2026 — origin</div>
+            <ul>
+              <li>Ghostty windows <strong>+ Zed</strong> autosave</li>
+              <li>Commands written <code>/ce:plan</code>, <code>/ce:work</code></li>
+              <li>Granola via copy-paste, then MCP</li>
+              <li>~4.5K-star <code>last30days</code>; #3 on Compound Eng</li>
+              <li>Remote via Telegram to a Mac mini</li>
+              <li>Light coda: "Sorry, sweetie."</li>
+            </ul>
+          </div>
+          <div class="ba new">
+            <div class="h">✓ June 2026 — the sequel</div>
+            <ul>
+              <li><strong>cmux</strong>, and he dropped Zed entirely</li>
+              <li>Commands written <code>/ce-plan</code>, <code>/ce-work</code> <code>+ /ce-brainstorm</code></li>
+              <li>Granola via a dedicated Printing Press CLI</li>
+              <li>26K+ stars; top contributor across many repos</li>
+              <li>Email for Claude, Mosh, Hermes, Agent Cookie, real-world CLIs</li>
+              <li>Honest coda on addiction &amp; relationships</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <p class="ct"><code>last30days</code> GitHub stars: March → June</p>
+          <p class="cs">A rough proxy for how fast the surrounding ecosystem grew between the two pieces.</p>
+          <div class="barset">
+            <div class="bar-row">
+              <div class="bl"><span>March 2026</span><span class="pct" style="color:var(--text-dim)">~4.5K</span></div>
+              <div class="track"><div class="fill" data-w="17" style="background:linear-gradient(90deg,var(--text-faint),var(--text-dim))"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bl"><span>June 2026</span><span class="pct" style="color:var(--accent)">26K+</span></div>
+              <div class="track"><div class="fill" data-w="100" style="background:linear-gradient(90deg,var(--accent),var(--clay))"></div></div>
+            </div>
+          </div>
+          <p class="figcap">Roughly a 5–6× jump in stars over the three months between the articles.</p>
+        </div>
+
+        <h3 id="takeaway">The takeaway</h3>
+        <p>Neither article is really about an IDE or a single tool. It's that voice input, a durable <code>plan.md</code>, parallel sessions and a growing fleet of CLIs compose into one repeatable operating model — and that same model now powers code, strategy, writing, open source, and Disney trips alike.<span class="ref" title="Sources 1 and 2">SRC 1·2</span></p>
+        <div class="callout golden">
+          <strong>Research, plan, build.</strong> No IDE worship, no vibe-coding for its own sake — talk, produce a plan that survives, and be the signal while agents do the hands-on work. From a desk, a couch, a car, or a soccer field.
+        </div>
+      </section>
+
+      <footer>
+        <p>Digest of two articles by <strong>Matt Van Horn (@mvanhorn)</strong> on his agentic-engineering workflow.</p>
+        <p>Sources:
+          <a href="https://x.com/mvanhorn/status/2061877533885473181" target="_blank" rel="noopener">"Every Agentic Engineering Hack I Know" (Jun 2026)</a> ·
+          <a href="https://x.com/mvanhorn/status/2035857346602340637" target="_blank" rel="noopener">"Every Claude Code Hack I Know" (Mar 2026)</a>.
+          Generated 2026-06-08. Paraphrased throughout; figures reported as stated by the author.
+        </p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<button class="icon-btn backtop" id="backTop" aria-label="Back to top" title="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+(function(){
+  var root = document.documentElement, body = document.body;
+
+  /* ---- Theme ---- */
+  var moon = document.getElementById('iconMoon'), sun = document.getElementById('iconSun');
+  function applyTheme(t){
+    root.setAttribute('data-theme', t);
+    moon.style.display = t === 'dark' ? '' : 'none';
+    sun.style.display  = t === 'dark' ? 'none' : '';
+    try { localStorage.setItem('ae-theme', t); } catch(e){}
+  }
+  var saved;
+  try { saved = localStorage.getItem('ae-theme'); } catch(e){}
+  if(!saved){ saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+  applyTheme(saved);
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---- Sidebar: horizontal collapse (desktop) + mobile drawer ---- */
+  var menuToggle = document.getElementById('menuToggle');
+  var scrim = document.getElementById('scrim');
+  var collapseX = document.getElementById('collapseX');
+  function isMobile(){ return window.matchMedia('(max-width: 860px)').matches; }
+  function syncToggle(){
+    menuToggle.classList.toggle('active', !isMobile() && body.classList.contains('side-collapsed'));
+  }
+  menuToggle.addEventListener('click', function(){
+    if(isMobile()){ body.classList.toggle('side-open'); }
+    else { body.classList.toggle('side-collapsed'); syncToggle(); }
+  });
+  scrim.addEventListener('click', function(){ body.classList.remove('side-open'); });
+  collapseX.addEventListener('click', function(){ body.classList.toggle('side-collapsed'); syncToggle(); });
+  window.addEventListener('resize', function(){
+    if(isMobile()) body.classList.remove('side-collapsed');
+    else body.classList.remove('side-open');
+    syncToggle();
+  });
+
+  /* ---- Sidebar: vertical group collapse ---- */
+  document.querySelectorAll('.grp-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){ btn.parentElement.classList.toggle('collapsed'); });
+  });
+
+  /* close mobile drawer after picking a link */
+  document.querySelectorAll('#sideNav a').forEach(function(a){
+    a.addEventListener('click', function(){ if(isMobile()) body.classList.remove('side-open'); });
+  });
+
+  /* ---- Scrollspy ---- */
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section[id], h3[id]'));
+  var topLinks = document.querySelectorAll('#topMenu a');
+  var sideLinks = document.querySelectorAll('#sideNav a');
+  function setActive(id){
+    sideLinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href') === '#'+id); });
+    var sec = document.getElementById(id);
+    var partSec = sec ? sec.closest('section') : null;
+    var partId = partSec ? partSec.id : id;
+    topLinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href') === '#'+partId); });
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if(e.isIntersecting){ setActive(e.target.id); } });
+  }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+  sections.forEach(function(s){ io.observe(s); });
+
+  /* ---- Animate bars + back-to-top ---- */
+  var barIO = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){ e.target.style.width = e.target.getAttribute('data-w') + '%'; barIO.unobserve(e.target); }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('.fill').forEach(function(f){ barIO.observe(f); });
+
+  var backTop = document.getElementById('backTop');
+  window.addEventListener('scroll', function(){ backTop.classList.toggle('show', window.scrollY > 600); }, { passive:true });
+  backTop.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+})();
+</script>
+</body>
+</html>
