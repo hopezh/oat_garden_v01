@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAUDE.md Starter Kit for Next.js + React Three Fiber (Bun Edition)</title>
+<meta name="description" content="A five-file project memory kit that makes Claude Code remember a Next.js + three.js + R3F codebase across sessions, with usage workflow and download.">
+<meta name="keywords" content="claude-code, claude-md, project-memory, react-three-fiber, nextjs, bun">
+<meta name="date" content="2026-06-10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650;9..144,800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15110c; --bg-elev:#1e1812; --bg-elev-2:#272019; --surface:#1a1510;
+    --border:#372c22; --text:#ece4d6; --text-dim:#b3a692; --text-faint:#837866;
+    --amber:#e8a33d; --teal:#4db3a8; --clay:#cf6b46;
+    --accent:var(--amber); --accent-soft:rgba(232,163,61,.12);
+    --teal-soft:rgba(77,179,168,.12); --clay-soft:rgba(207,107,70,.13);
+    --good:#7fb069; --warn:#e8a33d; --bad:#d4604f;
+    --code-bg:#0f0c08;
+    --shadow:0 12px 32px -14px rgba(0,0,0,.65);
+    --grid-line:rgba(236,228,214,.055);
+    --nav-h:60px; --side-w:280px; --maxw:840px; --radius:14px;
+    --geo-stroke:#5a4a35; --geo-fill-a:#241c13; --geo-fill-b:#2e2418;
+    --display:'Fraunces',Georgia,serif;
+    --body:'IBM Plex Sans',-apple-system,Segoe UI,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  html[data-theme="light"]{
+    --bg:#f6f1e7; --bg-elev:#fdfaf3; --bg-elev-2:#efe7d8; --surface:#fbf7ee;
+    --border:#ded2bd; --text:#272016; --text-dim:#6d6049; --text-faint:#9c8f76;
+    --amber:#c07b16; --teal:#1f7d72; --clay:#b1502c;
+    --accent:var(--amber); --accent-soft:rgba(192,123,22,.11);
+    --teal-soft:rgba(31,125,114,.10); --clay-soft:rgba(177,80,44,.10);
+    --good:#4d8a3a; --warn:#a76f10; --bad:#bb4434;
+    --code-bg:#f0e9da;
+    --shadow:0 12px 30px -16px rgba(96,76,40,.28);
+    --grid-line:rgba(60,46,22,.06);
+    --geo-stroke:#c9b896; --geo-fill-a:#f1e8d6; --geo-fill-b:#e7dbc3;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:calc(var(--nav-h) + 16px)}
+  body{margin:0;font-family:var(--body);background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased;transition:background .35s,color .35s}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,pre,.mono{font-family:var(--mono)}
+  code{font-size:.88em;background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:13px;line-height:1.6}
+  pre code{background:none;border:none;padding:0}
+
+  /* ---------- top nav ---------- */
+  .topnav{position:fixed;inset:0 0 auto 0;height:var(--nav-h);display:flex;align-items:center;gap:12px;padding:0 18px;background:color-mix(in srgb,var(--bg) 84%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);z-index:100}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:650;font-size:15.5px;white-space:nowrap;letter-spacing:.01em}
+  .brand .mark{width:26px;height:26px;flex:none}
+  .topnav .menu{display:flex;gap:4px;margin:0 auto;overflow-x:auto;scrollbar-width:none}
+  .topnav .menu::-webkit-scrollbar{display:none}
+  .topnav .menu a{color:var(--text-dim);font-size:13.5px;font-weight:600;padding:7px 13px;border-radius:8px;white-space:nowrap;transition:.2s}
+  .topnav .menu a:hover{color:var(--text);background:var(--accent-soft);text-decoration:none}
+  .topnav .menu a.active{color:var(--accent);background:var(--accent-soft)}
+  .topnav .actions{display:flex;gap:8px;margin-left:auto}
+  .icon-btn{width:38px;height:38px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:var(--bg-elev);color:var(--text-dim);cursor:pointer;transition:.2s}
+  .icon-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .icon-btn.active{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  .icon-btn svg{width:18px;height:18px}
+  .icon-btn:focus-visible,a:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+  /* ---------- layout ---------- */
+  .shell{display:flex;padding-top:var(--nav-h)}
+  .sidebar{position:fixed;top:var(--nav-h);bottom:0;left:0;width:var(--side-w);background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;padding:18px 10px 60px;transition:width .28s,transform .28s;z-index:90}
+  .sidebar::-webkit-scrollbar{width:8px}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+  .side-head{display:flex;align-items:center;justify-content:space-between;padding:0 10px 10px;margin-bottom:6px;border-bottom:1px solid var(--border)}
+  .side-head span{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint)}
+  .collapse-x{border:none;background:transparent;color:var(--text-faint);cursor:pointer;padding:4px;border-radius:6px;display:inline-flex}
+  .collapse-x:hover{color:var(--accent);background:var(--accent-soft)}
+  .collapse-x svg{width:16px;height:16px}
+  .nav-group{margin-bottom:2px}
+  .grp-toggle{width:100%;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px;background:transparent;border:none;color:var(--text);font-family:var(--body);font-size:13.5px;font-weight:700;padding:9px 10px;border-radius:8px;transition:background .2s}
+  .grp-toggle:hover{background:var(--bg-elev)}
+  .grp-toggle .chev{width:14px;height:14px;transition:transform .2s;color:var(--text-faint);flex:none}
+  .nav-group.collapsed .chev{transform:rotate(-90deg)}
+  .nav-group.collapsed .sublinks{display:none}
+  .sublinks{display:flex;flex-direction:column;padding:2px 0 6px}
+  .sublinks a{color:var(--text-dim);font-size:13px;padding:6px 10px 6px 32px;border-radius:7px;border-left:2px solid transparent;line-height:1.4;transition:.18s}
+  .sublinks a:hover{color:var(--text);background:var(--bg-elev);text-decoration:none}
+  .sublinks a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft)}
+  body.side-collapsed .sidebar{width:0;padding-left:0;padding-right:0;border-right:none}
+  body.side-collapsed .sidebar > *{opacity:0;pointer-events:none}
+  body.side-collapsed .content-wrap{margin-left:0}
+  .content-wrap{margin-left:var(--side-w);transition:margin-left .28s;flex:1 1 auto;min-width:0}
+
+  /* ---------- cover band (above title, no overlap) ---------- */
+  .cover{width:100%;height:clamp(220px,30vw,330px);overflow:hidden;border-bottom:1px solid var(--border);background:var(--surface)}
+  .cover svg{width:100%;height:100%;display:block}
+
+  /* ---------- title block below cover ---------- */
+  .titleblock{max-width:var(--maxw);margin:0 auto;padding:42px 28px 6px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:18px;border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
+  h1{margin:0 0 14px;font-family:var(--display);font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.015em;font-weight:800;text-align:left;max-width:22ch}
+  .subtitle{margin:0;font-size:clamp(15px,2.2vw,18px);color:var(--text-dim);text-align:left;max-width:62ch}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:18px;font-family:var(--mono);font-size:12px;color:var(--text-faint)}
+
+  /* ---------- TLDR ---------- */
+  .tldr{max-width:var(--maxw);margin:26px auto 0;padding:0 28px}
+  .tldr-card{background:var(--bg-elev);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow)}
+  .tldr-card .tl{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .tldr-card p{margin:0;font-size:15px}
+
+  /* ---------- content ---------- */
+  .content{max-width:var(--maxw);margin:0 auto;padding:14px 28px 100px}
+  section{padding-top:26px}
+  .part-label{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin:36px 0 4px}
+  h2{font-family:var(--display);font-size:clamp(23px,3.4vw,31px);font-weight:650;letter-spacing:-.01em;margin:6px 0 14px;line-height:1.18}
+  h3{font-family:var(--display);font-size:19.5px;font-weight:650;margin:30px 0 10px}
+  p{margin:0 0 14px}
+  .lead{font-size:17px;color:var(--text-dim)}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin-bottom:6px}
+  hr.div{border:none;border-top:1px solid var(--border);margin:42px 0 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:14px 0}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);text-align:left;padding:8px 10px;border-bottom:2px solid var(--border)}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  td code{white-space:nowrap}
+
+  .card{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin:18px 0;box-shadow:var(--shadow)}
+  .callout{border-left:3px solid var(--teal);background:var(--teal-soft);border-radius:0 10px 10px 0;padding:14px 18px;margin:18px 0}
+  .callout.amber{border-left-color:var(--amber);background:var(--accent-soft)}
+  .callout.clay{border-left-color:var(--clay);background:var(--clay-soft)}
+
+  .grid{display:grid;gap:14px}
+  .grid.cols-2{grid-template-columns:1fr 1fr}
+  .feature{background:var(--bg-elev);border:1px solid var(--border);border-radius:12px;padding:16px 16px 18px;transition:transform .2s,border-color .2s}
+  .feature:hover{transform:translateY(-3px);border-color:var(--accent)}
+  .feature .fi{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .feature .fi.t{background:var(--teal-soft);color:var(--teal)}
+  .feature .fi.c{background:var(--clay-soft);color:var(--clay)}
+  .feature .fi svg{width:19px;height:19px}
+  .feature h4{margin:0 0 5px;font-size:14.5px;font-weight:700}
+  .feature p{font-size:13px;color:var(--text-dim);margin:0}
+
+  .chart-card{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin:20px 0;box-shadow:var(--shadow)}
+  .chart-card .ct{font-size:14px;font-weight:700;margin:0 0 4px}
+  .chart-card .cs{font-size:12.5px;color:var(--text-faint);margin:0 0 16px}
+  .figcap{font-size:12px;color:var(--text-faint);text-align:center;margin-top:10px}
+
+  /* line-budget bars */
+  .bar-row{margin-bottom:14px}
+  .bar-row .bl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+  .bar-row .bl .mono{color:var(--text-dim)}
+  .bar-row .bl .pct{font-family:var(--mono);font-weight:600}
+  .track{height:13px;background:var(--bg-elev-2);border-radius:8px;overflow:hidden;position:relative}
+  .fill{height:100%;border-radius:8px;width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+
+  /* file cards */
+  .filecard{border:1px solid var(--border);border-radius:12px;background:var(--surface);margin:16px 0;overflow:hidden}
+  .filecard .fh{display:flex;align-items:center;gap:10px;padding:13px 18px;background:var(--bg-elev);border-bottom:1px solid var(--border)}
+  .filecard .fh .fname{font-family:var(--mono);font-size:13.5px;font-weight:600}
+  .filecard .fh .ftag{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint)}
+  .filecard .fb{padding:14px 18px;font-size:14px}
+  .filecard .fb p{margin:0 0 8px}
+  .filecard .fb p:last-child{margin:0}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+
+  /* citation markers */
+  sup.cite a{font-family:var(--mono);font-size:.72em;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid color-mix(in srgb,var(--teal) 30%,transparent);border-radius:5px;padding:0 5px;margin-left:2px;text-decoration:none}
+  sup.cite a:hover{color:var(--bg);background:var(--teal)}
+  .reflist{list-style:none;padding:0;counter-reset:ref}
+  .reflist li{counter-increment:ref;display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+  .reflist li::before{content:"[" counter(ref) "]";font-family:var(--mono);color:var(--teal);font-weight:600;flex:none}
+
+  /* download */
+  .dl-btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--body);font-size:15px;font-weight:700;color:#fff;background:var(--accent);border:none;border-radius:12px;padding:13px 22px;cursor:pointer;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s,filter .15s}
+  .dl-btn:hover{transform:translateY(-2px);filter:brightness(1.06);text-decoration:none;color:#fff}
+  .dl-btn svg{width:18px;height:18px}
+  html[data-theme="light"] .dl-btn{color:#fff}
+
+  footer{border-top:1px solid var(--border);padding:28px;text-align:center;color:var(--text-faint);font-size:13px;max-width:var(--maxw);margin:0 auto}
+  .backtop{position:fixed;right:22px;bottom:22px;z-index:80;opacity:0;pointer-events:none;transition:opacity .25s}
+  .backtop.show{opacity:1;pointer-events:auto}
+  .scrim{display:none}
+
+  @media (max-width:1080px){:root{--side-w:250px}}
+  @media (max-width:860px){
+    .topnav .menu{display:none}
+    .sidebar{transform:translateX(-100%);width:280px;box-shadow:var(--shadow)}
+    body.side-open .sidebar{transform:translateX(0)}
+    .content-wrap{margin-left:0!important}
+    .scrim{display:block;position:fixed;inset:var(--nav-h) 0 0 0;background:rgba(0,0,0,.45);z-index:85;opacity:0;pointer-events:none;transition:opacity .25s}
+    body.side-open .scrim{opacity:1;pointer-events:auto}
+    .collapse-x{display:none}
+  }
+  @media (max-width:640px){
+    .grid.cols-2{grid-template-columns:1fr}
+    .content,.titleblock,.tldr{padding-left:18px;padding-right:18px}
+    td,th{padding:7px 6px}
+  }
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <button id="menuToggle" class="icon-btn" aria-label="Toggle sidebar" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="26" height="26" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <path d="M9 21l4-10M13 11h6l-4 10h-6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span>CLAUDE.md Kit</span>
+  </div>
+  <nav class="menu" id="topMenu">
+    <a href="#overview">Overview</a>
+    <a href="#kit">The Kit</a>
+    <a href="#files">File by File</a>
+    <a href="#principles">Principles</a>
+    <a href="#usage">Usage</a>
+    <a href="#download">Download</a>
+  </nav>
+  <div class="actions">
+    <button id="themeToggle" class="icon-btn" aria-label="Toggle dark / light theme">
+      <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"/></svg>
+      <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <span>Contents</span>
+      <button class="collapse-x" id="collapseX" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <nav id="sideNav">
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Overview</button>
+        <div class="sublinks">
+          <a href="#overview">The memory problem</a>
+          <a href="#mechanisms">Two memory mechanisms</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> The Kit</button>
+        <div class="sublinks">
+          <a href="#kit">Folder structure</a>
+          <a href="#budget">The line budget</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> File by File</button>
+        <div class="sublinks">
+          <a href="#f-claude">CLAUDE.md</a>
+          <a href="#f-arch">ARCHITECTURE.md</a>
+          <a href="#f-conv">CONVENTIONS.md</a>
+          <a href="#f-r3f">R3F-PATTERNS.md</a>
+          <a href="#f-dec">DECISIONS.md</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Principles</button>
+        <div class="sublinks">
+          <a href="#principles">Four design choices</a>
+          <a href="#bun">The Bun rules</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> How to Use</button>
+        <div class="sublinks">
+          <a href="#usage">Bootstrap in 3 steps</a>
+          <a href="#loop">The session loop</a>
+          <a href="#fillins">Fill-ins & checklist</a>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="grp-toggle"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg> Download & Refs</button>
+        <div class="sublinks">
+          <a href="#download">Download the kit</a>
+          <a href="#references">References</a>
+        </div>
+      </div>
+    </nav>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="content-wrap">
+
+    <!-- ===== COVER BAND (its own band; title sits below) ===== -->
+    <div class="cover" role="img" aria-label="Axonometric illustration: a stack of file cards feeding a wireframe cube, with a dashed loop returning to the stack">
+      <svg viewBox="0 0 1600 330" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <pattern id="iso" width="56" height="32" patternUnits="userSpaceOnUse">
+            <path d="M0 16 L28 0 L56 16 L28 32 Z" fill="none" stroke="var(--grid-line)" stroke-width="1"/>
+          </pattern>
+          <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--geo-fill-b)"/><stop offset="1" stop-color="var(--geo-fill-a)"/>
+          </linearGradient>
+        </defs>
+        <rect width="1600" height="330" fill="url(#iso)"/>
+        <!-- left: the 5-card memory stack (CLAUDE.md + 4 docs) -->
+        <g stroke="var(--geo-stroke)" stroke-width="2" stroke-linejoin="round">
+          <g transform="translate(240,200)"><path d="M0 30 L120 -34 L240 30 L120 94 Z" fill="var(--geo-fill-a)"/></g>
+          <g transform="translate(240,172)"><path d="M0 30 L120 -34 L240 30 L120 94 Z" fill="var(--geo-fill-b)"/></g>
+          <g transform="translate(240,144)"><path d="M0 30 L120 -34 L240 30 L120 94 Z" fill="url(#gA)"/></g>
+          <g transform="translate(240,116)"><path d="M0 30 L120 -34 L240 30 L120 94 Z" fill="none"/></g>
+          <g transform="translate(240,88)" stroke="var(--amber)"><path d="M0 30 L120 -34 L240 30 L120 94 Z" fill="none" stroke-width="2.4"/></g>
+        </g>
+        <!-- middle: dashed flow into the project cube -->
+        <path d="M520 175 C 660 140, 760 140, 880 165" fill="none" stroke="var(--teal)" stroke-width="2" stroke-dasharray="2 9" stroke-linecap="round"/>
+        <path d="M872 152 l16 12 -19 7" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- right: the project as axonometric cube cluster -->
+        <g stroke="var(--geo-stroke)" stroke-width="2" stroke-linejoin="round">
+          <g transform="translate(900,90)">
+            <path d="M0 46 L82 0 L164 46 L82 92 Z" fill="var(--geo-fill-b)"/>
+            <path d="M0 46 L0 140 L82 186 L82 92 Z" fill="var(--geo-fill-a)"/>
+            <path d="M164 46 L164 140 L82 186 L82 92 Z" fill="url(#gA)"/>
+          </g>
+          <g transform="translate(1075,170)" stroke="var(--teal)">
+            <path d="M0 36 L62 0 L124 36 L62 72 Z" fill="none"/>
+            <path d="M0 36 L0 112 L62 148 L62 72 Z" fill="none"/>
+            <path d="M124 36 L124 112 L62 148 L62 72 Z" fill="none"/>
+          </g>
+          <g transform="translate(1230,80)">
+            <path d="M0 40 L70 0 L140 40 L70 80 Z" fill="none"/>
+            <path d="M0 40 L0 118 L70 158 L70 80 Z" fill="none"/>
+            <path d="M140 40 L140 118 L70 158 L70 80 Z" fill="none"/>
+          </g>
+          <g transform="translate(1395,190)"><path d="M0 26 L46 0 L92 26 L46 52 Z" fill="var(--geo-fill-b)" opacity=".8"/><path d="M0 26 L0 66 L46 92 L46 52 Z" fill="var(--geo-fill-a)" opacity=".8"/><path d="M92 26 L92 66 L46 92 L46 52 Z" fill="url(#gA)" opacity=".8"/></g>
+        </g>
+        <!-- loop back: sessions writing lessons into the stack -->
+        <path d="M1000 290 C 800 340, 560 330, 410 300" fill="none" stroke="var(--clay)" stroke-width="2" stroke-dasharray="2 9" stroke-linecap="round"/>
+        <path d="M428 288 l-20 9 17 12" fill="none" stroke="var(--clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <g fill="var(--amber)">
+          <circle cx="360" cy="118" r="5"/><circle cx="982" cy="136" r="5"/>
+          <circle cx="1137" cy="206" r="5" fill="var(--teal)"/><circle cx="1300" cy="120" r="5" fill="var(--teal)"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ===== TITLE BLOCK (below cover, left aligned) ===== -->
+    <div class="titleblock">
+      <span class="eyebrow">Claude Code · Project Memory</span>
+      <h1>A CLAUDE.md Starter Kit for Next.js + R3F</h1>
+      <p class="subtitle">Five markdown files that give Claude Code a durable theory of your three.js / React Three Fiber codebase — so every new session starts informed instead of from zero. Bun edition.</p>
+      <div class="meta-row">
+        <span>5 files · 428 lines</span><span>JavaScript, no TypeScript</span><span>Bun, not npm</span><span>2026-06-10</span>
+      </div>
+    </div>
+
+    <!-- ===== TLDR ===== -->
+    <div class="tldr">
+      <div class="tldr-card">
+        <div class="tl">TL;DR</div>
+        <p>Claude Code starts every session with a fresh context window; only files loaded at startup carry knowledge forward<sup class="cite"><a href="#references">1</a></sup>. This kit is a lean, always-loaded <code>CLAUDE.md</code> that acts as a <em>router</em> — hard rules plus a table pointing to four <code>docs/</code> files (architecture, conventions, R3F patterns, decision log) read on demand. Drop it into your project root, run one bootstrap session to fill in the blanks, then end deep sessions with “append durable lessons to the relevant docs file.” Download the zip at the <a href="#download">bottom of this page</a>.</p>
+      </div>
+    </div>
+
+    <main class="content">
+
+      <!-- ===== OVERVIEW ===== -->
+      <section id="overview">
+        <div class="part-label">Overview</div>
+        <h2>The memory problem this kit solves</h2>
+        <p class="lead">“Combing through” a codebase with Claude Code in one session does not persist. Each session begins with a fresh context window<sup class="cite"><a href="#references">1</a></sup> — unless the understanding is written into files that load at startup.</p>
+        <p id="mechanisms">Two mechanisms carry knowledge across sessions: <strong>CLAUDE.md files</strong>, which you write and control, and <strong>auto memory</strong>, notes Claude writes for itself based on your corrections<sup class="cite"><a href="#references">1</a></sup>. Auto memory is convenient but uncurated — what it saves doesn’t always match what you’d want<sup class="cite"><a href="#references">2</a></sup>. This kit therefore treats the curated CLAUDE.md as the source of truth and auto memory as a supplement.</p>
+        <div class="grid cols-2">
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></div>
+            <h4>CLAUDE.md — you write it</h4>
+            <p>Loaded every session. Deliberate, versioned, reviewable. Adherence drops as it grows, so it must stay lean<sup class="cite"><a href="#references">2</a></sup>.</p>
+          </div>
+          <div class="feature">
+            <div class="fi t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <h4>Auto memory — Claude writes it</h4>
+            <p>Background notes under <code>~/.claude/projects/&lt;project&gt;/memory/</code>, loaded at startup<sup class="cite"><a href="#references">2</a></sup>. Helpful, but not a substitute for curation.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== THE KIT ===== -->
+      <section id="kit">
+        <div class="part-label">The Kit</div>
+        <h2>One router, four knowledge files</h2>
+        <p>The kit is tuned for a multi-page web app built with <strong>Next.js (App Router) + three.js + @react-three/fiber + @react-three/drei</strong>, in plain JavaScript, managed with <strong>Bun</strong><sup class="cite"><a href="#references">4</a></sup>.</p>
+        <pre><code>project-root/
+├── CLAUDE.md              ← always loaded · 95 lines · rules + routing table
+└── docs/
+    ├── ARCHITECTURE.md    ← system theory: routing, canvas mounting, state, assets
+    ├── CONVENTIONS.md     ← naming, JS style, asset pipeline (bunx), git
+    ├── R3F-PATTERNS.md    ← ✅/❌ three.js patterns + debugging table
+    └── DECISIONS.md       ← append-only decision log (ADR-lite)</code></pre>
+
+        <h3 id="budget">The line budget</h3>
+        <p>Reported practice puts the adherence ceiling for an always-loaded CLAUDE.md at roughly 200 lines<sup class="cite"><a href="#references">2</a></sup>. The kit keeps the root file at about half that and pushes depth into <code>docs/</code>, which is only read when the routing table says it’s relevant.</p>
+        <div class="chart-card">
+          <p class="ct">Lines per file vs. the ~200-line adherence ceiling</p>
+          <p class="cs">Only CLAUDE.md is loaded every session — the four docs files cost no context until needed.</p>
+          <div id="bars">
+            <div class="bar-row"><div class="bl"><span class="mono">CLAUDE.md <strong style="color:var(--amber)">· always loaded</strong></span><span class="pct" style="color:var(--amber)">95</span></div><div class="track"><div class="fill" data-w="47.5" style="background:linear-gradient(90deg,var(--amber),#f2c168)"></div></div></div>
+            <div class="bar-row"><div class="bl"><span class="mono">docs/R3F-PATTERNS.md</span><span class="pct" style="color:var(--teal)">107</span></div><div class="track"><div class="fill" data-w="53.5" style="background:var(--teal)"></div></div></div>
+            <div class="bar-row"><div class="bl"><span class="mono">docs/CONVENTIONS.md</span><span class="pct" style="color:var(--teal)">92</span></div><div class="track"><div class="fill" data-w="46" style="background:var(--teal)"></div></div></div>
+            <div class="bar-row"><div class="bl"><span class="mono">docs/ARCHITECTURE.md</span><span class="pct" style="color:var(--teal)">87</span></div><div class="track"><div class="fill" data-w="43.5" style="background:var(--teal)"></div></div></div>
+            <div class="bar-row"><div class="bl"><span class="mono">docs/DECISIONS.md (grows over time)</span><span class="pct" style="color:var(--clay)">47</span></div><div class="track"><div class="fill" data-w="23.5" style="background:var(--clay)"></div></div></div>
+          </div>
+          <p class="figcap">Bar length is lines ÷ 200 (the practical ceiling). The always-loaded file sits comfortably under it.</p>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== FILE BY FILE ===== -->
+      <section id="files">
+        <div class="part-label">File by File</div>
+        <h2>What each file holds, and why</h2>
+
+        <div class="filecard" id="f-claude">
+          <div class="fh"><span class="dot" style="background:var(--amber)"></span><span class="fname">CLAUDE.md</span><span class="ftag">root · always loaded</span></div>
+          <div class="fb">
+            <p><strong>A router, not an encyclopedia.</strong> It holds only what must apply in every session: project identity (JS-only, Bun-only), the command block (<code>bun dev</code>, <code>bun run build</code>…), the repo layout, and eight hard rules. A table then tells Claude <em>when</em> to read each docs file — e.g. “touching canvas code → read R3F-PATTERNS.md”.</p>
+            <p>The eight hard rules encode the classic Next.js + R3F failure modes: <code>'use client'</code> boundaries, mounting <code>&lt;Canvas&gt;</code> via <code>dynamic(ssr:false)</code>, no per-frame allocation, no setState in <code>useFrame</code>, disposal of manually created resources, drei loaders with preload, ESM-only, and ask-before-adding dependencies.</p>
+          </div>
+        </div>
+
+        <div class="filecard" id="f-arch">
+          <div class="fh"><span class="dot" style="background:var(--teal)"></span><span class="fname">docs/ARCHITECTURE.md</span><span class="ftag">read when touching structure</span></div>
+          <div class="fb">
+            <p><strong>The system theory.</strong> An ASCII diagram of the whole app, then: how routing works (server-component pages, client-only canvas), the single shared <code>Scene.jsx</code> wrapper that owns the only <code>&lt;Canvas&gt;</code>, the zustand store as the DOM ⇄ canvas bridge, the asset pipeline table (draco glb / ktx2 / hdr), and the performance model. Each subsection includes the <em>why</em>, so a future session doesn’t “fix” a deliberate choice.</p>
+          </div>
+        </div>
+
+        <div class="filecard" id="f-conv">
+          <div class="fh"><span class="dot" style="background:var(--teal)"></span><span class="fname">docs/CONVENTIONS.md</span><span class="ftag">read when writing new files</span></div>
+          <div class="fb">
+            <p><strong>How code should look.</strong> Naming tables (components, hooks, helpers, assets), component file structure, JavaScript style with JSDoc instead of TypeScript, state rules (zustand for shared, never three.js objects in state), the asset optimization commands run with <code>bunx</code> (gltf-transform, gltfjsx), asset size budgets, and git conventions — including that <code>bun.lock</code> is the only lockfile allowed.</p>
+          </div>
+        </div>
+
+        <div class="filecard" id="f-r3f">
+          <div class="fh"><span class="dot" style="background:var(--teal)"></span><span class="fname">docs/R3F-PATTERNS.md</span><span class="ftag">read for any canvas code</span></div>
+          <div class="fb">
+            <p><strong>✅/❌ pattern pairs for the render loop</strong> (scratch objects, transient store reads, fps-independent damping vs. per-frame allocation and setState), loading via drei with Suspense, pointer-event hygiene, color-space rules for textures, a ranked performance toolkit (Instances → demand frameloop → LOD → adaptive dpr), camera/controls conventions, Next.js-specific boundaries, and a symptom → suspects debugging table (black screen, <code>window is not defined</code>, washed-out textures…).</p>
+          </div>
+        </div>
+
+        <div class="filecard" id="f-dec">
+          <div class="fh"><span class="dot" style="background:var(--clay)"></span><span class="fname">docs/DECISIONS.md</span><span class="ftag">append-only · check before changing patterns</span></div>
+          <div class="fb">
+            <p><strong>The anti-erosion mechanism.</strong> A lightweight ADR log: one dated entry per deliberate choice (decision / context / alternatives / consequences). A future session — human or Claude — checks the <em>why</em> before “improving” something, directly countering the failure mode where AI suggestions quietly violate decisions made for a reason<sup class="cite"><a href="#references">3</a></sup>. Seeded with three example entries: JS-not-TS, one canvas per page via a shared wrapper, and zustand as the state bridge. Old entries are never edited, only superseded.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== PRINCIPLES ===== -->
+      <section id="principles">
+        <div class="part-label">Principles</div>
+        <h2>Four design choices behind the kit</h2>
+        <div class="grid cols-2">
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h6l3-9 3 18 3-9h3"/></svg></div>
+            <h4>1 · Lean router beats fat file</h4>
+            <p>The root file stays under the adherence ceiling by holding rules + a routing table, not knowledge. Depth lives in docs/ and costs context only on demand.</p>
+          </div>
+          <div class="feature">
+            <div class="fi c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+            <h4>2 · Hard rules = known failure modes</h4>
+            <p>The always-loaded rules are exactly the bugs Claude (and humans) reintroduce most: SSR boundaries, per-frame allocation, disposal, stray lockfiles.</p>
+          </div>
+          <div class="feature">
+            <div class="fi t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/></svg></div>
+            <h4>3 · Decisions outlive sessions</h4>
+            <p>DECISIONS.md preserves the <em>why</em>. Check it before changing a pattern — the cheapest defense against architectural erosion<sup class="cite"><a href="#references">3</a></sup>.</p>
+          </div>
+          <div class="feature">
+            <div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+            <h4>4 · Memory is an explicit step</h4>
+            <p>Don’t hope auto memory catches it. End deep sessions by asking Claude to append durable lessons to the right docs file — synthesis as a habit.</p>
+          </div>
+        </div>
+
+        <h3 id="bun">The Bun rules</h3>
+        <p>Three Bun-specific guards are written into the kit so Claude Code doesn’t fall back to npm habits:</p>
+        <ul>
+          <li><strong>Bun only.</strong> <code>bun</code> for installs and scripts, <code>bunx</code> instead of <code>npx</code>. <code>bun.lock</code> is the only lockfile; any stray <code>package-lock.json</code> is deleted on sight (otherwise a single habitual <code>npm install</code> splits the dependency tree).</li>
+          <li><strong>Runtime caveat.</strong> Bun here is the installer and script runner — Next.js itself still executes on the Node runtime by default, so Claude must not “helpfully” add <code>--bun</code> to next commands<sup class="cite"><a href="#references">4</a></sup>. Going full-Bun-runtime later would be a DECISIONS.md entry.</li>
+          <li><strong>Command block rewritten:</strong> <code>bun install</code> · <code>bun dev</code> · <code>bun run build</code> · <code>bun start</code> · <code>bun run lint</code> · <code>bun add &lt;pkg&gt;</code> (ask first).</li>
+        </ul>
+        <div class="callout amber">
+          Bun ↔ Next.js runtime compatibility evolves quickly — if you ever switch the runtime itself to Bun, verify current support at that time rather than trusting this snapshot.
+        </div>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== USAGE ===== -->
+      <section id="usage">
+        <div class="part-label">How to Use</div>
+        <h2>Bootstrap in three steps</h2>
+        <ol>
+          <li><strong>Drop the files in.</strong> Unzip into your project root so <code>CLAUDE.md</code> sits beside <code>package.json</code> and <code>docs/</code> beside it. Commit them — the project file is team memory via source control<sup class="cite"><a href="#references">1</a></sup>.</li>
+          <li><strong>Run one bootstrap session.</strong> Start Claude Code in the project and ask it to <em>read the codebase and fill in ARCHITECTURE.md sections 2–7 with what’s actually there</em>, then correct anything it got wrong. This converts the template into your project’s real theory.</li>
+          <li><strong>Replace the placeholders.</strong> Project name, the styling choice in CONVENTIONS §4 (CSS Modules vs Tailwind — keep one, delete the other), and the three seeded DECISIONS entries, which are examples in the correct format.</li>
+        </ol>
+
+        <h3 id="loop">The session loop</h3>
+        <div class="chart-card">
+          <p class="ct">How knowledge compounds instead of evaporating</p>
+          <p class="cs">The loop the kit is built around — synthesis is an explicit end-of-session step.</p>
+          <svg viewBox="0 0 720 240" width="100%" role="img" aria-label="Cycle diagram: session start loads CLAUDE.md, work happens, durable lessons are appended to docs, which load next session">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" fill="var(--teal)"/>
+              </marker>
+              <marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" fill="var(--clay)"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono,monospace" font-size="12" text-anchor="middle">
+              <rect x="30" y="85" width="160" height="64" rx="12" fill="var(--accent-soft)" stroke="var(--amber)" stroke-width="1.5"/>
+              <text x="110" y="112" fill="var(--text)">Session starts</text>
+              <text x="110" y="130" fill="var(--text-dim)">CLAUDE.md auto-loads</text>
+
+              <rect x="280" y="85" width="160" height="64" rx="12" fill="var(--teal-soft)" stroke="var(--teal)" stroke-width="1.5"/>
+              <text x="360" y="112" fill="var(--text)">Work happens</text>
+              <text x="360" y="130" fill="var(--text-dim)">docs/ read on demand</text>
+
+              <rect x="530" y="85" width="160" height="64" rx="12" fill="var(--clay-soft)" stroke="var(--clay)" stroke-width="1.5"/>
+              <text x="610" y="106" fill="var(--text)">Session ends</text>
+              <text x="610" y="124" fill="var(--text-dim)">append lessons to docs/</text>
+              <text x="610" y="140" fill="var(--text-dim)">+ DECISIONS entry</text>
+            </g>
+            <line x1="190" y1="117" x2="276" y2="117" stroke="var(--teal)" stroke-width="2" marker-end="url(#arr)"/>
+            <line x1="440" y1="117" x2="526" y2="117" stroke="var(--teal)" stroke-width="2" marker-end="url(#arr)"/>
+            <path d="M610 149 C 610 215, 110 215, 110 153" fill="none" stroke="var(--clay)" stroke-width="2" stroke-dasharray="3 7" marker-end="url(#arrC)"/>
+            <text x="360" y="208" font-family="IBM Plex Mono,monospace" font-size="11.5" fill="var(--text-faint)" text-anchor="middle">commit → next session starts already informed</text>
+          </svg>
+        </div>
+        <p>Two prompts make the loop concrete:</p>
+        <div class="callout">
+          <strong>End of a deep session:</strong> “Summarize the durable, non-obvious things you learned this session — one or two lines each — and append them to the right file under docs/. If we made a deliberate choice, add a dated DECISIONS.md entry.”
+        </div>
+        <div class="callout">
+          <strong>Start of the next session:</strong> just state the task (“continue the particle system”) — the theory is already loaded. For resuming the <em>same conversation</em> instead, <code>claude --continue</code> / <code>claude --resume</code> restore a prior session directly.
+        </div>
+
+        <h3 id="fillins">Fill-ins & maintenance checklist</h3>
+        <table>
+          <thead><tr><th>Item</th><th>Where</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>Project name & description</td><td><code>CLAUDE.md</code> §Project</td><td>Replace placeholders on day one</td></tr>
+            <tr><td>Styling approach</td><td><code>CONVENTIONS.md</code> §4</td><td>Keep CSS Modules <em>or</em> Tailwind, delete the other</td></tr>
+            <tr><td>Seeded decisions</td><td><code>DECISIONS.md</code></td><td>Replace examples with your real choices, same format</td></tr>
+            <tr><td>Root file size</td><td><code>CLAUDE.md</code></td><td>Keep under ~150 lines; push detail down into docs/</td></tr>
+            <tr><td>New hard-won pattern</td><td><code>R3F-PATTERNS.md</code></td><td>Append with date + one-line context</td></tr>
+            <tr><td>Changed convention</td><td><code>DECISIONS.md</code></td><td>New entry supersedes; never edit old entries</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== DOWNLOAD ===== -->
+      <section id="download">
+        <div class="part-label">Download</div>
+        <h2>Get the kit</h2>
+        <p>The complete starter kit (Bun edition, 2026-06-10) is embedded in this page — no external link needed.</p>
+        <p style="margin:22px 0">
+          <a class="dl-btn" id="dlZip" download="claude-md-starter.zip" href="data:application/zip;base64,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">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download claude-md-starter.zip
+          </a>
+          <span class="mono" style="font-size:12px;color:var(--text-faint);margin-left:12px">≈ 11 KB · 5 markdown files</span>
+        </p>
+        <table>
+          <thead><tr><th>File</th><th>Lines</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><code>CLAUDE.md</code></td><td>95</td><td>Always-loaded router: rules, commands, layout, docs table</td></tr>
+            <tr><td><code>docs/ARCHITECTURE.md</code></td><td>87</td><td>System theory with the <em>why</em> per subsection</td></tr>
+            <tr><td><code>docs/CONVENTIONS.md</code></td><td>92</td><td>Naming, JS style, bunx asset pipeline, git + lockfile rules</td></tr>
+            <tr><td><code>docs/R3F-PATTERNS.md</code></td><td>107</td><td>✅/❌ canvas patterns + debugging table</td></tr>
+            <tr><td><code>docs/DECISIONS.md</code></td><td>47</td><td>Append-only decision log, 3 seeded examples</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <hr class="div">
+
+      <!-- ===== REFERENCES ===== -->
+      <section id="references">
+        <div class="part-label">References</div>
+        <h2>Reference</h2>
+        <ol class="reflist">
+          <li><span>Anthropic — <em>How Claude remembers your project</em>, Claude Code documentation. Fresh context per session; CLAUDE.md files and auto memory as the two cross-session mechanisms; file locations and scopes. <a href="https://code.claude.com/docs/en/memory" target="_blank" rel="noopener">code.claude.com/docs/en/memory</a></span></li>
+          <li><span>DataCamp — <em>Claude-Mem Guide: Persistent Memory for Claude Code</em> (2026). Auto memory mechanics (<code>~/.claude/projects/…/memory/</code>, MEMORY.md at startup) and the ~200-line practical adherence ceiling for CLAUDE.md. <a href="https://www.datacamp.com/tutorial/claude-mem-guide" target="_blank" rel="noopener">datacamp.com/tutorial/claude-mem-guide</a></span></li>
+          <li><span><em>The Theory of Code: The Last Software Engineering Skill</em> — on architectural erosion when AI suggestions violate decisions made for a reason, and persisting theory as the countermeasure. <a href="https://www.youtube.com/watch?v=WWrGPHT2em4" target="_blank" rel="noopener">youtube.com/watch?v=WWrGPHT2em4</a></span></li>
+          <li><span>Bun — official documentation: <code>bun install</code>, <code>bunx</code>, <code>bun.lock</code>, and running Next.js with Bun as package manager vs. runtime. <a href="https://bun.sh/docs" target="_blank" rel="noopener">bun.sh/docs</a></span></li>
+        </ol>
+      </section>
+
+      <footer>
+        <p>CLAUDE.md Starter Kit · Bun edition · generated 2026-06-10 from the working session that produced the kit.</p>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<button class="icon-btn backtop" id="backTop" aria-label="Back to top" title="Back to top">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+(function(){
+  var root=document.documentElement, body=document.body;
+
+  /* theme: system default, localStorage persistence */
+  var moon=document.getElementById('iconMoon'), sun=document.getElementById('iconSun');
+  function applyTheme(t){
+    root.setAttribute('data-theme',t);
+    moon.style.display = t==='dark' ? '' : 'none';
+    sun.style.display  = t==='dark' ? 'none' : '';
+    try{localStorage.setItem('cmk-theme',t)}catch(e){}
+  }
+  var saved; try{saved=localStorage.getItem('cmk-theme')}catch(e){}
+  if(!saved){saved=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'}
+  applyTheme(saved);
+  document.getElementById('themeToggle').addEventListener('click',function(){
+    applyTheme(root.getAttribute('data-theme')==='dark'?'light':'dark');
+  });
+
+  /* sidebar: horizontal collapse (desktop) + drawer (mobile); expand toggle lives in topnav */
+  var menuToggle=document.getElementById('menuToggle'), scrim=document.getElementById('scrim'), collapseX=document.getElementById('collapseX');
+  function isMobile(){return window.matchMedia('(max-width: 860px)').matches}
+  function syncToggle(){menuToggle.classList.toggle('active', !isMobile()&&body.classList.contains('side-collapsed'))}
+  menuToggle.addEventListener('click',function(){
+    if(isMobile()){body.classList.toggle('side-open')}
+    else{body.classList.toggle('side-collapsed');syncToggle()}
+  });
+  scrim.addEventListener('click',function(){body.classList.remove('side-open')});
+  collapseX.addEventListener('click',function(){body.classList.toggle('side-collapsed');syncToggle()});
+  window.addEventListener('resize',function(){
+    if(isMobile())body.classList.remove('side-collapsed');else body.classList.remove('side-open');
+    syncToggle();
+  });
+
+  /* sidebar vertical group collapse */
+  document.querySelectorAll('.grp-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){btn.parentElement.classList.toggle('collapsed')});
+  });
+  document.querySelectorAll('#sideNav a').forEach(function(a){
+    a.addEventListener('click',function(){if(isMobile())body.classList.remove('side-open')});
+  });
+
+  /* scrollspy */
+  var sections=Array.prototype.slice.call(document.querySelectorAll('section[id], h3[id], div.filecard[id], p[id]'));
+  var topLinks=document.querySelectorAll('#topMenu a'), sideLinks=document.querySelectorAll('#sideNav a');
+  function setActive(id){
+    sideLinks.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id)});
+    var el=document.getElementById(id);
+    var sec=el?el.closest('section'):null, partId=sec?sec.id:id;
+    topLinks.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+partId)});
+  }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){setActive(e.target.id)}});
+  },{rootMargin:'-40% 0px -52% 0px',threshold:0});
+  sections.forEach(function(s){io.observe(s)});
+
+  /* animate bars */
+  var barIO=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){e.target.style.width=e.target.getAttribute('data-w')+'%';barIO.unobserve(e.target)}
+    });
+  },{threshold:.4});
+  document.querySelectorAll('.fill').forEach(function(f){barIO.observe(f)});
+
+  /* back to top */
+  var backTop=document.getElementById('backTop');
+  window.addEventListener('scroll',function(){backTop.classList.toggle('show',window.scrollY>600)},{passive:true});
+  backTop.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+</body>
+</html>
