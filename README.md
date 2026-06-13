@@ -76,5 +76,3 @@ src/
 build_index.py                 # the indexer (stdlib only)
 vite.config.js                 # base: '/oat_garden_v01/'
 ```
-
-...test text
