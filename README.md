@@ -12,7 +12,7 @@ pages, presented as a searchable, filterable, tag-grouped **card grid**.
 - **Deploy** — pushing to `main` triggers GitHub Actions, which re-indexes,
   builds, and publishes to Pages.
 
-Live site (after first deploy): https://hopezh.github.io/oat_garden_v01/
+Live site (after first deploy): <https://hopezh.github.io/oat_garden_v01/>
 
 ## Local development
 
@@ -76,3 +76,5 @@ src/
 build_index.py                 # the indexer (stdlib only)
 vite.config.js                 # base: '/oat_garden_v01/'
 ```
+
+...test text
