@@ -908,6 +908,41 @@ graphify install --platform windows
 
 <span class="cm"># Project-scoped (writes into this repo only):</span>
 graphify install --project</code></pre></div>
+                    <p>Running <code>graphify install --project</code> prints:</p>
+                    <div class="code-block"><div class="code-header"><span class="code-lang">output</span><button class="copy-btn" onclick="copyCode(this)">⎘ Copy</button></div>
+<pre><code>&gt; graphify install --project
+
+  ╭──◉──╮     ╭──◉──╮
+ ╱  ◉   ◉ ╲ ╱ ◉   ◉  ╲
+│   ◉─◉─◉  ◉  ◉─◉─◉   │
+│    ◉   ◉ │ ◉   ◉    │
+│   ◉─◉─◉  ◉  ◉─◉─◉   │
+ ╲  ◉   ◉ ╱ ╲ ◉   ◉  ╱
+  ╰──◉──╯     ╰──◉──╯
+           ◉
+
+  █▀▀ █▀█ ▄▀█ █▀█ █ █ █ █▀▀ █▄█
+  █▄█ █▀▄ █▀█ █▀▀ █▀█ █ █▀   █  0.8.39
+
+  references       -&gt;  .claude\skills\graphify\references
+  skill installed  -&gt;  .claude\skills\graphify\SKILL.md
+  CLAUDE.md        -&gt;  created at .claude\CLAUDE.md
+
+Project-scoped install. Add to version control:
+  git add .claude/
+
+Done. Open your AI coding assistant and type:
+
+  /graphify .
+
+graphify section written to &lt;your-project&gt;\CLAUDE.md
+  .claude/settings.json  -&gt;  PreToolUse hooks registered (Bash search + Read/Glob)
+
+Claude Code will now check the knowledge graph before answering
+codebase questions and rebuild it after code changes.
+
+Project-scoped install. Add to version control:
+  git add .claude/ CLAUDE.md</code></pre></div>
                     <h3>What it writes<a href="#ref3" class="cite">3</a></h3>
                     <ul class="body-list">
                         <li><code>~/.claude/skills/graphify/SKILL.md</code> (or <code>.claude/skills/graphify/</code> with <code>--project</code>) — the skill definition.</li>
