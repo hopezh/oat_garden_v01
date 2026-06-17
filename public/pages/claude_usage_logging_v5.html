@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- required metadata block -->
+<title>Claude Code Session Usage Logging</title>
+<meta name="description" content="How a SessionEnd hook rebuilds the Claude Code /status Usage panel from each session transcript and logs cost, duration and tokens.">
+<meta name="keywords" content="claude-code, usage-logging, sessionend-hook, token-cost, cli-tooling">
+<meta name="date" content="2026-06-17">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0e14; --surface:#121823; --surface-2:#0e141d; --raise:#172031;
+    --line:#222b3a; --line-soft:#1a2230;
+    --text:#e9e6dd; --muted:#8b95a7; --dim:#5c6677;
+    --accent:#ff9d3c; --accent-2:#5cd6e0; --green:#7fd18a; --red:#e2766f;
+    --code:#0b1019;
+    /* cover image tokens (dark) */
+    --cv-bg:#0c121c; --cv-grid:#1b2740; --cv-edge:#3a4a66;
+    --cv-face1:#1a2740; --cv-face2:#13203a; --cv-ghost:#2a3a58; --cv-accent:#ff9d3c; --cv-accent2:#5cd6e0;
+    --nav-h:58px; --sb-w:248px;
+    --mono:"JetBrains Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  [data-theme="light"]{
+    --bg:#f3f1ea; --surface:#ffffff; --surface-2:#faf8f1; --raise:#f0ece1;
+    --line:#e3ddcf; --line-soft:#ece6d8;
+    --text:#1b212b; --muted:#5d6675; --dim:#9aa0ad;
+    --accent:#cf6f17; --accent-2:#1f8d99; --green:#2f8f48; --red:#c0473e;
+    --code:#f4f1e8;
+    --cv-bg:#ece7da; --cv-grid:#d8d0bd; --cv-edge:#b7ad95;
+    --cv-face1:#e3dcc9; --cv-face2:#d3c9b1; --cv-ghost:#c9bfa6; --cv-accent:#cf6f17; --cv-accent2:#1f8d99;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    font-size:16px; line-height:1.62; -webkit-font-smoothing:antialiased;
+    transition:background .25s,color .25s}
+  a{color:var(--accent-2); text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono); font-size:.86em; background:var(--code);
+    border:1px solid var(--line-soft); border-radius:4px; padding:1px 6px; color:var(--accent-2)}
+
+  /* ---------- top nav ---------- */
+  .nav{position:fixed; top:0; left:0; right:0; height:var(--nav-h); z-index:60;
+    display:flex; align-items:center; gap:14px; padding:0 18px;
+    background:color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line-soft)}
+  .nav .brand{display:flex; align-items:center; gap:10px; font-family:var(--mono);
+    font-weight:700; font-size:14px; white-space:nowrap}
+  .nav .brand .dot{width:9px; height:9px; border-radius:2px; background:var(--accent);
+    box-shadow:0 0 10px var(--accent)}
+  .iconbtn{display:inline-flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border:1px solid var(--line); border-radius:7px;
+    background:var(--surface); color:var(--text); cursor:pointer; flex:none;
+    transition:border-color .15s, background .15s}
+  .iconbtn:hover{border-color:var(--accent)}
+  .iconbtn svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7}
+  .nav .center{flex:1; display:flex; justify-content:center; gap:6px}
+  .nav .center a{font-family:var(--mono); font-size:12.5px; letter-spacing:.04em;
+    color:var(--muted); padding:7px 12px; border-radius:6px; transition:color .15s,background .15s}
+  .nav .center a:hover{color:var(--text); text-decoration:none}
+  .nav .center a.active{color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  @media (max-width:860px){ .nav .center{display:none} }
+
+  /* ---------- sidebar (overlay; never shifts centered content) ---------- */
+  .sidebar{position:fixed; top:var(--nav-h); left:0; width:var(--sb-w);
+    height:calc(100vh - var(--nav-h)); overflow-y:auto; z-index:50;
+    background:var(--surface-2); border-right:1px solid var(--line-soft);
+    padding:18px 12px 60px; transition:transform .28s ease}
+  .sb-collapsed .sidebar{transform:translateX(-100%)}
+  .sb-backdrop{position:fixed; inset:var(--nav-h) 0 0 0; background:#0008; z-index:45;
+    opacity:0; pointer-events:none; transition:opacity .25s}
+  .sb-eyebrow{font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--dim); padding:6px 10px 10px}
+  .sb-group{margin-bottom:4px}
+  .sb-head{display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--text);
+    padding:8px 10px; border-radius:6px; cursor:pointer; user-select:none}
+  .sb-head:hover{background:var(--raise)}
+  .sb-head .car{transition:transform .2s; color:var(--dim)}
+  .sb-group.open .sb-head .car{transform:rotate(90deg)}
+  .sb-links{max-height:0; overflow:hidden; transition:max-height .25s ease}
+  .sb-group.open .sb-links{max-height:320px}
+  .sb-links a{display:block; font-size:13px; color:var(--muted); padding:5px 10px 5px 22px;
+    border-left:1px solid var(--line-soft); margin-left:14px}
+  .sb-links a:hover{color:var(--text); text-decoration:none}
+  .sb-links a.active{color:var(--accent); border-left-color:var(--accent)}
+
+  /* ---------- layout: centered main, independent of sidebar ---------- */
+  .cover{margin-top:var(--nav-h); width:100%; height:300px; overflow:hidden;
+    border-bottom:1px solid var(--line-soft); background:var(--cv-bg)}
+  .cover svg{display:block; width:100%; height:100%}
+  @media (max-width:680px){ .cover{height:210px} }
+
+  .main{max-width:820px; margin:0 auto; padding:40px 24px 90px}
+  .title-block{margin-bottom:26px}
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--accent); margin:0 0 12px}
+  h1{font-family:var(--mono); font-weight:700; font-size:clamp(27px,4.4vw,40px);
+    line-height:1.12; margin:0 0 12px; letter-spacing:-.01em}
+  .subtitle{font-size:18px; color:var(--muted); max-width:64ch; margin:0}
+
+  /* TLDR */
+  .tldr{border:1px solid var(--line); border-left:3px solid var(--accent);
+    background:var(--surface); border-radius:10px; padding:18px 20px; margin:0 0 14px}
+  .tldr h3{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 10px}
+  .tldr ul{margin:0; padding-left:18px}
+  .tldr li{margin:5px 0; color:var(--text)}
+  .tldr li::marker{color:var(--accent-2)}
+
+  section{margin-top:52px; scroll-margin-top:78px}
+  h2{font-family:var(--mono); font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 16px; padding-bottom:10px; border-bottom:1px solid var(--line-soft);
+    display:flex; align-items:baseline; gap:12px}
+  h2 .num{color:var(--dim); font-weight:400}
+  h3.sub{font-family:var(--mono); font-size:14px; color:var(--text); margin:30px 0 8px}
+  p{margin:0 0 15px}
+  .muted{color:var(--muted)}
+  .cite{font-family:var(--mono); font-size:11px; color:var(--accent-2); vertical-align:super;
+    text-decoration:none; padding:0 1px}
+  .cite:hover{text-decoration:underline}
+
+  /* tables */
+  .tbl{width:100%; border-collapse:collapse; font-size:14px; margin:6px 0}
+  .tbl th,.tbl td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  .tbl th{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:500}
+  .tbl td.f{font-family:var(--mono); color:var(--text)}
+  .pill{font-family:var(--mono); font-size:11px; padding:2px 9px; border-radius:20px; white-space:nowrap}
+  .pill.exact{color:var(--green); background:color-mix(in srgb,var(--green) 16%,transparent)}
+  .pill.est{color:var(--accent); background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  .pill.best{color:var(--accent-2); background:color-mix(in srgb,var(--accent-2) 16%,transparent)}
+
+  /* diagram + chart cards */
+  .figure{border:1px solid var(--line); background:var(--surface); border-radius:12px;
+    padding:18px; margin:16px 0}
+  .figure svg{display:block; width:100%; height:auto}
+  .figcap{font-family:var(--mono); font-size:11px; color:var(--dim); margin-top:10px; text-align:center}
+
+  /* file cards */
+  .files{display:grid; gap:14px}
+  .card{border:1px solid var(--line); border-radius:11px; background:var(--surface);
+    padding:18px 18px 16px; display:flex; flex-direction:column}
+  .card .role{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent)}
+  .card .fname{font-family:var(--mono); font-weight:700; font-size:15px; margin:3px 0 0}
+  .card p{margin:8px 0 14px; color:var(--muted); font-size:14px}
+  .card .foot{display:flex; align-items:center; gap:14px; margin-top:auto}
+  .btn{font-family:var(--mono); font-size:13px; font-weight:500; cursor:pointer; color:#101319;
+    background:var(--accent); border:0; border-radius:7px; padding:9px 16px; transition:filter .15s, transform .05s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent; color:var(--accent-2); border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--accent-2); filter:none}
+  .meta{font-family:var(--mono); font-size:12px; color:var(--dim)}
+  .downall{margin-top:18px}
+
+  /* steps */
+  ol.steps{list-style:none; counter-reset:s; padding:0; margin:8px 0 0}
+  ol.steps li{counter-increment:s; position:relative; padding:0 0 22px 44px}
+  ol.steps li::before{content:counter(s,decimal-leading-zero); position:absolute; left:0; top:-2px;
+    font-family:var(--mono); font-size:13px; color:var(--accent);
+    border:1px solid color-mix(in srgb,var(--accent) 40%,transparent); border-radius:6px; padding:3px 7px;
+    background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  ol.steps li::after{content:""; position:absolute; left:15px; top:27px; bottom:2px; width:1px; background:var(--line-soft)}
+  ol.steps li:last-child::after{display:none}
+  ol.steps strong{color:var(--text)}
+  pre{font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--text);
+    background:var(--code); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; margin:12px 0 0}
+  pre .c{color:var(--dim)} pre .s{color:var(--accent)}
+  .note{border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--surface);
+    padding:14px 18px; border-radius:0 10px 10px 0; color:var(--muted); font-size:14.5px}
+  .note b{color:var(--text)}
+
+  /* references */
+  ol.refs{font-size:13.5px; color:var(--muted); padding-left:22px; margin:0}
+  ol.refs li{margin:8px 0}
+  ol.refs li a{font-family:var(--mono); font-size:12.5px; word-break:break-all}
+
+  footer{max-width:820px; margin:64px auto 0; padding:18px 24px 40px;
+    border-top:1px solid var(--line-soft); font-family:var(--mono); font-size:12px; color:var(--dim);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px}
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+
+<!-- top nav: holds the persistent sidebar toggle (OUTSIDE the sidebar) + theme toggle -->
+<nav class="nav">
+  <button class="iconbtn" id="sbToggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+  </button>
+  <div class="brand"><span class="dot"></span>usage&#8202;log</div>
+  <div class="center">
+    <a href="#overview">Overview</a>
+    <a href="#capture">Capture</a>
+    <a href="#components">Components</a>
+    <a href="#setup">Setup</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <button class="iconbtn" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">
+    <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.8A8 8 0 1 1 11.2 3 6.3 6.3 0 0 0 21 12.8z"/></svg>
+  </button>
+</nav>
+
+<div class="sb-backdrop" id="sbBackdrop"></div>
+
+<!-- sidebar: detailed sections, each group vertically collapsible -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-eyebrow">Contents</div>
+
+  <div class="sb-group open">
+    <div class="sb-head">Overview <span class="car">&#8250;</span></div>
+    <div class="sb-links">
+      <a href="#overview">The mechanism</a>
+      <a href="#the-catch">The catch</a>
+      <a href="#architecture">Architecture</a>
+    </div>
+  </div>
+
+  <div class="sb-group open">
+    <div class="sb-head">Capture <span class="car">&#8250;</span></div>
+    <div class="sb-links">
+      <a href="#capture">Field mapping</a>
+      <a href="#api-est">API-duration estimate</a>
+      <a href="#cost-breakdown">Cost breakdown</a>
+      <a href="#accounts">Per-account tagging</a>
+    </div>
+  </div>
+
+  <div class="sb-group open">
+    <div class="sb-head">Components <span class="car">&#8250;</span></div>
+    <div class="sb-links">
+      <a href="#components">Three files</a>
+      <a href="#components">Downloads</a>
+    </div>
+  </div>
+
+  <div class="sb-group open">
+    <div class="sb-head">Setup <span class="car">&#8250;</span></div>
+    <div class="sb-links">
+      <a href="#setup">Install &amp; register</a>
+      <a href="#setup">Review</a>
+    </div>
+  </div>
+
+  <div class="sb-group open">
+    <div class="sb-head">Pricing &amp; refs <span class="car">&#8250;</span></div>
+    <div class="sb-links">
+      <a href="#pricing">Rate table</a>
+      <a href="#reference">Reference</a>
+    </div>
+  </div>
+</aside>
+
+<!-- full-width cover band ABOVE the title -->
+<div class="cover">
+  <svg viewBox="0 0 1600 300" preserveAspectRatio="xMidYMid slice" role="img"
+       aria-label="Axonometric illustration of session panels stacking into a usage log">
+    <defs>
+      <linearGradient id="cvbg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--cv-bg)"/>
+        <stop offset="1" stop-color="var(--bg)"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="1600" height="300" fill="url(#cvbg)"/>
+    <!-- ground grid (axonometric) -->
+    <g stroke="var(--cv-grid)" stroke-width="1" opacity="0.55">
+      <path d="M560 250 L1040 250"/><path d="M540 230 L1060 230"/><path d="M520 210 L1080 210"/>
+      <path d="M620 270 L620 150"/><path d="M720 280 L720 130"/><path d="M820 285 L820 120"/>
+      <path d="M920 280 L920 130"/><path d="M1000 270 L1000 150"/>
+    </g>
+    <!-- stacked plates: base solid -> upper ghost (wireframe). center 800 -->
+    <!-- plate D (base, solid accent edge) -->
+    <g>
+      <polygon points="800,206 950,256 800,306 650,256" fill="var(--cv-face1)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+      <polygon points="650,256 800,306 800,328 650,278" fill="var(--cv-face2)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+      <polygon points="950,256 800,306 800,328 950,278" fill="var(--cv-bg)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+    </g>
+    <!-- plate C -->
+    <g>
+      <polygon points="800,166 945,214 800,262 655,214" fill="var(--cv-face1)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+      <polygon points="655,214 800,262 800,282 655,234" fill="var(--cv-face2)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+      <polygon points="945,214 800,262 800,282 945,234" fill="var(--cv-bg)" stroke="var(--cv-edge)" stroke-width="1.5"/>
+    </g>
+    <!-- plate B (wireframe ghost) -->
+    <polygon points="800,128 940,174 800,220 660,174" fill="none" stroke="var(--cv-ghost)" stroke-width="1.5"/>
+    <!-- plate A (wireframe, accent top edge = the captured session) -->
+    <polygon points="800,92 935,136 800,180 665,136" fill="none" stroke="var(--cv-accent)" stroke-width="2"/>
+    <!-- vertical accent connector -->
+    <path d="M800 136 L800 92" stroke="var(--cv-accent)" stroke-width="2" opacity="0.7"/>
+    <circle cx="800" cy="92" r="4.5" fill="var(--cv-accent)"/>
+    <!-- token stream lines on the right -->
+    <g stroke="var(--cv-accent2)" stroke-width="2" opacity="0.85" stroke-linecap="round">
+      <path d="M1080 120 L1230 120"/><path d="M1080 140 L1300 140"/>
+      <path d="M1080 160 L1180 160"/><path d="M1080 180 L1260 180"/>
+    </g>
+    <g fill="var(--cv-accent2)" opacity="0.5">
+      <circle cx="1250" cy="120" r="3"/><circle cx="1320" cy="140" r="3"/>
+      <circle cx="1200" cy="160" r="3"/><circle cx="1280" cy="180" r="3"/>
+    </g>
+    <!-- ghost streams on the left -->
+    <g stroke="var(--cv-ghost)" stroke-width="1.5" opacity="0.7" stroke-linecap="round">
+      <path d="M300 130 L470 130"/><path d="M300 150 L420 150"/><path d="M300 170 L500 170"/>
+    </g>
+  </svg>
+</div>
+
+<main class="main">
+  <!-- title/subtitle: left-aligned, BELOW the cover band -->
+  <div class="title-block">
+    <p class="eyebrow">Claude Code &middot; session usage logging</p>
+    <h1>Logging the /status panel, automatically.</h1>
+    <p class="subtitle">A <code>SessionEnd</code> hook rebuilds the Usage panel from each session's
+    transcript and appends it to a local log &mdash; no copy-paste, with a manual
+    <code>/log-status</code> snapshot and weekly / monthly rollups alongside.</p>
+  </div>
+
+  <!-- TLDR card -->
+  <div class="tldr">
+    <h3>TL;DR</h3>
+    <ul>
+      <li>The Usage panel's numbers aren't handed to hooks &mdash; the hook gets the transcript path and the figures are rebuilt from that JSONL.<a class="cite" href="#reference">[1]</a></li>
+      <li>Cost, wall time and per-model tokens come back faithfully; API duration is a close timestamp estimate; the exact API counter is the only thing not recoverable.<a class="cite" href="#reference">[2]</a></li>
+      <li>Three files: a hook logger, a weekly/monthly rollup, and a manual <code>/log-status</code> command &mdash; all downloadable below.</li>
+      <li>Cost is computed from a local rate table (Opus $5/$25, Sonnet $3/$15, Haiku $1/$5).<a class="cite" href="#reference">[3]</a></li>
+      <li>Tag each session by account &mdash; <code>work</code> vs <code>personal</code> &mdash; from your launch wrapper, and the rollup breaks usage down per account.</li>
+    </ul>
+  </div>
+
+  <section id="overview">
+    <h2><span class="num">01</span> Overview</h2>
+    <p>Claude Code's <code>/status &rarr; Usage</code> panel reports a session's total cost,
+    API and wall duration, code changes, and per-model token usage. The goal: save those
+    figures automatically every time a session ends, instead of reading them off the screen.</p>
+    <p>The mechanism is the <code>SessionEnd</code> hook, which fires when a session
+    terminates.<a class="cite" href="#reference">[1]</a> It runs a script that reconstructs
+    the panel from the session transcript and appends a record to
+    <code>~/.claude/usage/sessions.jsonl</code> and a flat <code>sessions.csv</code>.</p>
+
+    <h3 class="sub" id="the-catch">The catch</h3>
+    <p>The hook's payload carries only <code>session_id</code>, <code>transcript_path</code>,
+    <code>cwd</code>, and <code>reason</code> &mdash; <strong>not</strong> the panel's computed
+    numbers.<a class="cite" href="#reference">[1]</a> So you don't capture the panel; you rebuild
+    it from the transcript JSONL, the same source <code>/cost</code> and ccusage read.<a class="cite" href="#reference">[5]</a></p>
+
+    <h3 class="sub" id="architecture">Architecture</h3>
+    <div class="figure">
+      <svg viewBox="0 0 920 150" role="img" aria-label="Pipeline: session end triggers the hook, which parses the transcript and appends to the log, which the report reads">
+        <defs>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0 0 L9 4.5 L0 9 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+        <g font-family="var(--mono)" font-size="12.5" fill="var(--text)" text-anchor="middle">
+          <!-- node 1 -->
+          <rect x="14" y="46" width="150" height="58" rx="9" fill="var(--surface-2)" stroke="var(--line)"/>
+          <text x="89" y="71">session ends</text>
+          <text x="89" y="89" fill="var(--muted)" font-size="11">/quit &middot; /clear</text>
+          <!-- node 2 -->
+          <rect x="220" y="46" width="170" height="58" rx="9" fill="var(--surface-2)" stroke="var(--accent)"/>
+          <text x="305" y="71">SessionEnd hook</text>
+          <text x="305" y="89" fill="var(--muted)" font-size="11">log_usage.py --hook</text>
+          <!-- node 3 -->
+          <rect x="446" y="46" width="180" height="58" rx="9" fill="var(--surface-2)" stroke="var(--line)"/>
+          <text x="536" y="71">parse transcript</text>
+          <text x="536" y="89" fill="var(--muted)" font-size="11">&lt;session&gt;.jsonl</text>
+          <!-- node 4 -->
+          <rect x="682" y="32" width="224" height="40" rx="9" fill="var(--surface-2)" stroke="var(--line)"/>
+          <text x="794" y="56">sessions.jsonl + .csv</text>
+          <rect x="682" y="82" width="224" height="40" rx="9" fill="var(--surface-2)" stroke="var(--line)"/>
+          <text x="794" y="106" fill="var(--accent-2)">usage_report.py</text>
+        </g>
+        <g stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#arr)">
+          <path d="M168 75 L214 75"/>
+          <path d="M394 75 L440 75"/>
+          <path d="M630 70 L676 52"/>
+          <path d="M630 80 L676 100"/>
+        </g>
+      </svg>
+      <div class="figcap">Fig 1 &middot; the path from a closed session to a queryable log</div>
+    </div>
+  </section>
+
+  <section id="capture">
+    <h2><span class="num">02</span> What gets captured</h2>
+    <p>Each Usage-panel field maps to a field in the log record, with a known fidelity:</p>
+    <table class="tbl">
+      <thead><tr><th>Panel field</th><th>Log field</th><th>Fidelity</th></tr></thead>
+      <tbody>
+        <tr><td>Total cost</td><td class="f">cost_usd_est</td><td><span class="pill est">rate table</span></td></tr>
+        <tr><td>Total duration (API)</td><td class="f">api_duration_s_est</td><td><span class="pill est">estimated</span></td></tr>
+        <tr><td>Total duration (wall)</td><td class="f">wall_duration_s</td><td><span class="pill exact">exact</span></td></tr>
+        <tr><td>Total code changes</td><td class="f">lines_added / lines_removed</td><td><span class="pill best">best-effort</span></td></tr>
+        <tr><td>Usage by model</td><td class="f">by_model</td><td><span class="pill exact">exact tokens</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="sub" id="api-est">API-duration estimate</h3>
+    <p>The exact API-duration counter is internal and isn't written to the transcript.<a class="cite" href="#reference">[2]</a>
+    It's reconstructed by summing each turn's request&rarr;response timestamp gap, which excludes
+    your idle time (after a response) and tool execution (before a tool result) &mdash; matching the
+    panel's definition closely, though not to the second.</p>
+
+    <h3 class="sub" id="cost-breakdown">Cost breakdown</h3>
+    <p>A worked example validates the rate table: an Opus 4.8 turn billing 3.1k input, 1.5k output,
+    127.6k cache read and 9.5k cache write reconciles to <strong>$0.176</strong> &mdash; matching the
+    real panel reading. Cache write bills at 1.25&times; input, cache read at 0.1&times;.<a class="cite" href="#reference">[4]</a></p>
+    <div class="figure">
+      <svg viewBox="0 0 820 120" role="img" aria-label="Stacked bar showing how input, output, cache write and cache read contribute to a 0.176 dollar Opus session">
+        <g font-family="var(--mono)" font-size="11">
+          <!-- scale: total 0.1762 -> width 760 starting x=30 -->
+          <!-- input 0.0155 -> 66.9 ; output 0.0375 -> 161.8 ; cache_w 0.0594 -> 256.3 ; cache_r 0.0638 -> 275.3 -->
+          <rect x="30" y="34" width="66.9"  height="34" fill="var(--accent)"/>
+          <rect x="96.9" y="34" width="161.8" height="34" fill="var(--accent-2)"/>
+          <rect x="258.7" y="34" width="256.3" height="34" fill="var(--green)"/>
+          <rect x="515" y="34" width="275.3" height="34" fill="var(--red)"/>
+          <g fill="var(--text)" text-anchor="middle">
+            <text x="63" y="55">$.016</text>
+            <text x="178" y="55" fill="#101319">$.038</text>
+            <text x="387" y="55" fill="#101319">$.059</text>
+            <text x="652" y="55" fill="#101319">$.064</text>
+          </g>
+          <g fill="var(--muted)" font-size="10.5" text-anchor="middle">
+            <text x="63" y="88">input</text>
+            <text x="178" y="88">output</text>
+            <text x="387" y="88">cache write</text>
+            <text x="652" y="88">cache read</text>
+          </g>
+          <text x="30" y="22" fill="var(--dim)" font-size="10.5">OPUS 4.8 SESSION &mdash; TOTAL $0.176</text>
+        </g>
+      </svg>
+      <div class="figcap">Fig 2 &middot; cache traffic, not generation, dominates the bill</div>
+    </div>
+
+    <h3 class="sub" id="accounts">Per-account tagging</h3>
+    <p>To separate subscription sessions from company-API-key sessions, stamp the account at
+    launch. The transcript has no reliable auth field, so set one environment variable in the
+    same wrapper you already use to switch auth &mdash; the hook inherits it and records an
+    <code>account</code> field.</p>
+<pre><span class="c"># PowerShell wrappers</span>
+function claude-work    { $env:CLAUDE_USAGE_ACCOUNT = <span class="s">"work"</span>;     claude @args }
+function claude-orion   { $env:CLAUDE_USAGE_ACCOUNT = <span class="s">"personal"</span>; claude @args }
+
+<span class="c"># macOS / Linux: export before launching claude</span>
+export CLAUDE_USAGE_ACCOUNT=<span class="s">work</span>   <span class="c"># or: personal</span></pre>
+    <p class="muted">Without the variable, the script falls back to sniffing for an API-key env
+    var (<code>api_key</code> vs <code>subscription</code>) &mdash; only accurate if the key is
+    exported into the environment, so the explicit label is the dependable path. The report then
+    prints a <strong>By&nbsp;account</strong> table, and <code>--account work</code> scopes the
+    weekly / monthly views.</p>
+    <p class="note"><b>Notional cost for subscription sessions.</b> Plan sessions aren't billed
+    per token, so their <code>cost_usd_est</code> is the equivalent API value &mdash; what those
+    tokens <em>would</em> have cost &mdash; not money owed. Token counts and durations are real
+    either way.</p>
+  </section>
+
+  <section id="components">
+    <h2><span class="num">03</span> Components</h2>
+    <div class="files">
+      <div class="card">
+        <span class="role">SessionEnd hook &middot; the engine</span>
+        <span class="fname">log_usage.py</span>
+        <p>Parses the transcript and appends one record per session to
+        <code>sessions.jsonl</code> and <code>sessions.csv</code>. Runs from the hook
+        (<code>--hook</code>), an explicit <code>--transcript</code>, or auto-discovery.</p>
+        <div class="foot"><button class="btn" data-dl="f_log" data-name="log_usage.py">Download .py</button><span class="meta" id="size_f_log"></span></div>
+      </div>
+      <div class="card">
+        <span class="role">Rollup &middot; the read-out</span>
+        <span class="fname">usage_report.py</span>
+        <p>Reads the log and prints weekly and monthly tables &mdash; sessions, cost, API/wall
+        hours, tokens, lines changed. Dedupes by session so manual snapshots never double-count.</p>
+        <div class="foot"><button class="btn" data-dl="f_report" data-name="usage_report.py">Download .py</button><span class="meta" id="size_f_report"></span></div>
+      </div>
+      <div class="card">
+        <span class="role">Slash command &middot; manual snapshot</span>
+        <span class="fname">log-status.md</span>
+        <p>Drop in <code>~/.claude/commands/</code>. Typing <code>/log-status</code> mid-session
+        snapshots usage-so-far without quitting.</p>
+        <div class="foot"><button class="btn" data-dl="f_cmd" data-name="log-status.md">Download .md</button><span class="meta" id="size_f_cmd"></span></div>
+      </div>
+    </div>
+    <div class="downall"><button class="btn ghost" id="dlall">Download all three</button></div>
+  </section>
+
+  <section id="setup">
+    <h2><span class="num">04</span> Setup</h2>
+    <ol class="steps">
+      <li><strong>Place the files.</strong> <code>log_usage.py</code> and <code>usage_report.py</code>
+      into <code>~/.claude/hooks/</code>; <code>log-status.md</code> into <code>~/.claude/commands/</code>.</li>
+      <li><strong>Register the hook</strong> in <code>~/.claude/settings.json</code> (every project; effective next session).
+<pre><span class="c">// macOS / Linux</span>
+{
+  "hooks": {
+    "SessionEnd": [
+      { "hooks": [ { "type": "command",
+        "command": <span class="s">"python3 ~/.claude/hooks/log_usage.py --hook"</span>,
+        "timeout": 30 } ] }
+    ]
+  }
+}
+
+<span class="c">// Windows (exec form)</span>
+{
+  "hooks": {
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "python",
+        "args": [<span class="s">"C:\\Users\\UserName\\.claude\\hooks\\log_usage.py"</span>, "--hook"],
+        "timeout": 30 } ] }
+    ]
+  }
+}</pre></li>
+      <li><strong>Quit a session</strong> &mdash; a record lands in <code>sessions.jsonl</code> and <code>sessions.csv</code>.</li>
+      <li><strong>Review anytime.</strong>
+<pre>python3 ~/.claude/hooks/usage_report.py            <span class="c"># last 8 weeks + 6 months</span>
+python3 ~/.claude/hooks/usage_report.py --months 12
+python3 ~/.claude/hooks/usage_report.py --all</pre></li>
+    </ol>
+  </section>
+
+  <section id="pricing">
+    <h2><span class="num">05</span> Pricing</h2>
+    <table class="tbl">
+      <thead><tr><th>Model</th><th>Input / 1M</th><th>Output / 1M</th><th>Cache write</th><th>Cache read</th></tr></thead>
+      <tbody>
+        <tr><td class="f">Opus 4.8</td><td class="f">$5</td><td class="f">$25</td><td class="f">$6.25 (1.25&times;)</td><td class="f">$0.50 (0.1&times;)</td></tr>
+        <tr><td class="f">Sonnet 4.6</td><td class="f">$3</td><td class="f">$15</td><td class="f">$3.75</td><td class="f">$0.30</td></tr>
+        <tr><td class="f">Haiku 4.5</td><td class="f">$1</td><td class="f">$5</td><td class="f">$1.25</td><td class="f">$0.10</td></tr>
+      </tbody>
+    </table>
+    <p class="note"><b>Cost is computed locally</b> from this table in <code>log_usage.py</code>, set to
+    current standard rates.<a class="cite" href="#reference">[3]</a><a class="cite" href="#reference">[4]</a>
+    It does not model Fast Mode (Opus $10/$50) or the US-only-inference 1.1&times; surcharge, so enabling
+    either makes the logged cost read low until the table is updated. Models match by substring, so point
+    releases keep working without edits.</p>
+  </section>
+
+  <section id="reference">
+    <h2><span class="num">06</span> Reference</h2>
+    <ol class="refs">
+      <li>Claude Code &mdash; Hooks reference (SessionEnd event, hook input fields). <a href="https://code.claude.com/docs/en/hooks">code.claude.com/docs/en/hooks</a></li>
+      <li>Claude Code &mdash; Manage costs (<code>/cost</code>, API vs wall duration). <a href="https://code.claude.com/docs/en/costs">code.claude.com/docs/en/costs</a></li>
+      <li>Anthropic API pricing &mdash; Opus 4.8 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5. <a href="https://www.finout.io/blog/anthropic-api-pricing">finout.io/blog/anthropic-api-pricing</a></li>
+      <li>Claude API pricing card &mdash; Opus 4.8 cache write $5/M, cache read $0.50/M. <a href="https://claudeapi.com/en/blog/pricing/claude-api-pricing-guide/">claudeapi.com/&hellip;/claude-api-pricing-guide</a></li>
+      <li>ccusage &mdash; per-session cost from local <code>~/.claude/projects</code> JSONL. <a href="https://github.com/ryoppippi/ccusage">github.com/ryoppippi/ccusage</a></li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  <span>~/.claude/usage/ &middot; self-contained reference</span>
+  <span>UserName &middot; 2026-06-17</span>
+</footer>
+
+<script type="text/plain" id="f_log">#!/usr/bin/env python3
+"""
+Claude Code SessionEnd usage logger.
+
+Reads the SessionEnd hook payload from stdin, parses the session transcript
+(JSONL pointed to by `transcript_path`), and appends one usage record to
+~/.claude/usage/sessions.jsonl (full detail) and ~/.claude/usage/sessions.csv
+(flattened, spreadsheet-friendly).
+
+Runs in three modes:
+  - Hook mode:    python3 log_usage.py --hook   (SessionEnd hook pipes JSON on
+                  stdin; automatic on quit). Only this mode reads stdin.
+  - Explicit:     python3 log_usage.py --transcript /path/to/<session>.jsonl
+  - Auto-discover python3 log_usage.py   (newest transcript for the current
+                  project; used by a manual /log-status command).
+Each record carries trigger="session_end" (--hook) or "manual" (the others).
+
+Captured per session:
+  - cost_usd_est        estimated from RATES below (verify against billing, or
+                        cross-check with `npx ccusage@latest session`)
+  - account             which account/auth the session used (see detect_account):
+                        set CLAUDE_USAGE_ACCOUNT in your launcher, else sniffed.
+  - api_duration_s_est  estimated model/API time: sum of per-turn request->response
+                        timestamp gaps. Approximates /cost's "duration (API)";
+                        not the exact internal counter.
+  - by_model            input / output / cache-write / cache-read tokens per model
+  - wall_duration_s     first -> last transcript timestamp
+  - assistant_turns, tool_calls
+  - edits, writes, lines_added, lines_removed   (best-effort)
+  - final_context_tokens  size of the context window on the last turn
+
+Note on /cost parity: the exact "total duration (API)" is an internal Claude Code
+counter and is not written to the transcript. This script approximates it from
+per-turn timestamp gaps (api_duration_s_est); it tracks the real figure closely
+but won't match it to the second. Wall duration comes from first/last timestamps.
+"""
+
+import sys, os, re, json, csv, argparse
+from datetime import datetime, timezone
+from pathlib import Path
+
+# --- Pricing, USD per 1M tokens. Standard (global) rates; verify periodically.
+# Matched by substring, so new point releases (opus-4-9, etc.) keep working.
+# Cache-write billed ~1.25x input; cache-read ~0.1x input.
+# Note: Fast Mode (Opus $10/$50) and US-only inference (1.1x) are NOT modeled.
+RATES = {
+    "opus":   {"in": 5.0, "out": 25.0},   # Opus 4.7 / 4.8
+    "sonnet": {"in": 3.0, "out": 15.0},
+    "haiku":  {"in": 1.0, "out": 5.0},
+}
+CACHE_WRITE_MULT = 1.25
+CACHE_READ_MULT  = 0.10
+
+LOG_DIR  = Path.home() / ".claude" / "usage"
+LOG_FILE = LOG_DIR / "sessions.jsonl"
+CSV_FILE = LOG_DIR / "sessions.csv"
+
+CSV_FIELDS = [
+    "ended_at", "session_id", "account", "trigger", "reason", "cwd",
+    "cost_usd_est", "api_duration_s_est", "wall_duration_s",
+    "assistant_turns", "tool_calls",
+    "edits", "writes", "lines_added", "lines_removed", "final_context_tokens",
+    "input_tokens", "output_tokens", "cache_write_tokens", "cache_read_tokens",
+    "models",
+]
+
+
+def rate_for(model: str):
+    m = (model or "").lower()
+    for key, r in RATES.items():
+        if key in m:
+            return r
+    return None
+
+
+def parse_ts(s):
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def discover_transcript(cwd):
+    """Best-effort: find the active session's transcript for manual runs.
+
+    Looks under ~/.claude/projects/<project>/<session_id>.jsonl and returns the
+    most recently modified file, preferring the project dir matching `cwd`.
+    """
+    base = Path.home() / ".claude" / "projects"
+    if not base.is_dir():
+        return None
+    candidates = list(base.glob("*/*.jsonl"))
+    if not candidates:
+        return None
+    if cwd:
+        slug = re.sub(r"[^A-Za-z0-9]", "-", str(cwd))
+        narrowed = [p for p in candidates if p.parent.name == slug or slug in p.parent.name]
+        if narrowed:
+            candidates = narrowed
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+def detect_account():
+    """Which account/auth a session used.
+
+    Priority 1: an explicit label you set at launch, e.g. in your claude-work /
+    claude-orion wrappers:  export CLAUDE_USAGE_ACCOUNT=work   (or "personal").
+    This is the reliable path and can be any label you like.
+
+    Priority 2 (fallback): sniff for an API-key env var. Only correct if your
+    wrapper exports the key into the environment; if the key lives in Claude
+    Code's own config/keychain instead, this will read "subscription".
+    """
+    label = os.environ.get("CLAUDE_USAGE_ACCOUNT")
+    if label:
+        return label.strip()
+    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+        return "api_key"
+    return "subscription"
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Log Claude Code session usage (SessionEnd hook or manual snapshot).")
+    ap.add_argument("--hook", action="store_true",
+                    help="Read the SessionEnd hook JSON from stdin. Set this ONLY "
+                         "in the hook config; manual runs must omit it.")
+    ap.add_argument("--transcript", type=Path, default=None,
+                    help="Explicit transcript .jsonl path (manual runs).")
+    args = ap.parse_args()
+
+    hook = {}
+    if args.hook:                       # only the hook pipes JSON; never block otherwise
+        try:
+            hook = json.load(sys.stdin)
+        except Exception:
+            hook = {}
+
+    session_id = hook.get("session_id", "")
+    reason     = hook.get("reason", "")
+    cwd        = hook.get("cwd", "") or os.getcwd()
+    account    = detect_account()
+
+    if args.transcript:
+        transcript = args.transcript
+    elif hook.get("transcript_path"):
+        transcript = Path(hook["transcript_path"])
+    else:
+        transcript = discover_transcript(cwd)
+
+    if not (transcript and Path(transcript).exists()):
+        print("[usage] no transcript found; nothing logged")
+        return
+
+    transcript = Path(transcript)
+    if not session_id:
+        session_id = transcript.stem           # transcript is named <session_id>.jsonl
+    trigger = "session_end" if args.hook else "manual"
+
+    by_model = {}
+    first_ts = last_ts = None
+    assistant_turns = tool_calls = 0
+    edits = writes = 0
+    lines_added = lines_removed = 0
+    final_context = 0
+    api_duration = 0.0   # est: sum of per-turn (request -> response) gaps
+    prev_ts = None       # timestamp of the previous event in file order
+    API_GAP_CAP = 3600.0 # ignore gaps larger than this (clock jumps / resumes)
+
+    def bucket(model):
+        return by_model.setdefault(
+            model or "unknown",
+            {"input": 0, "output": 0, "cache_write": 0, "cache_read": 0},
+        )
+
+    with transcript.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+
+            ts = parse_ts(ev.get("timestamp"))
+            if ts:
+                first_ts = ts if first_ts is None else min(first_ts, ts)
+                last_ts  = ts if last_ts  is None else max(last_ts, ts)
+
+            msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
+
+            usage = msg.get("usage")
+            if isinstance(usage, dict):
+                assistant_turns += 1
+                # Estimated API time for this turn: gap from the preceding event
+                # (user prompt or tool result) to this model response. Excludes
+                # idle time (sits after a response) and tool execution (sits
+                # before a tool result), matching /cost's API-duration definition.
+                if ts and prev_ts:
+                    gap = (ts - prev_ts).total_seconds()
+                    if 0 < gap < API_GAP_CAP:
+                        api_duration += gap
+                b   = bucket(msg.get("model", "unknown"))
+                inp = usage.get("input_tokens", 0) or 0
+                out = usage.get("output_tokens", 0) or 0
+                cw  = usage.get("cache_creation_input_tokens", 0) or 0
+                cr  = usage.get("cache_read_input_tokens", 0) or 0
+                b["input"]       += inp
+                b["output"]      += out
+                b["cache_write"] += cw
+                b["cache_read"]  += cr
+                final_context = inp + cw + cr  # context fed in on this turn
+
+            content = msg.get("content")
+            if isinstance(content, list):
+                for blk in content:
+                    if isinstance(blk, dict) and blk.get("type") == "tool_use":
+                        tool_calls += 1
+                        name = blk.get("name", "")
+                        if name in ("Edit", "MultiEdit"):
+                            edits += 1
+                        elif name == "Write":
+                            writes += 1
+
+            tur = ev.get("toolUseResult")
+            if isinstance(tur, dict):
+                patch = tur.get("structuredPatch")
+                if isinstance(patch, list):
+                    for hunk in patch:
+                        for l in (hunk.get("lines") or []):
+                            if l.startswith("+"):
+                                lines_added += 1
+                            elif l.startswith("-"):
+                                lines_removed += 1
+
+            if ts:
+                prev_ts = ts
+
+    cost = 0.0
+    for model, b in by_model.items():
+        r = rate_for(model)
+        if not r:
+            continue
+        cost += (
+            b["input"]                          * r["in"]
+            + b["cache_write"] * CACHE_WRITE_MULT * r["in"]
+            + b["cache_read"]  * CACHE_READ_MULT  * r["in"]
+            + b["output"]                        * r["out"]
+        ) / 1_000_000
+
+    wall = round((last_ts - first_ts).total_seconds(), 1) if first_ts and last_ts else None
+
+    record = {
+        "ended_at": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "account": account,
+        "trigger": trigger,
+        "reason": reason,
+        "cwd": cwd,
+        "cost_usd_est": round(cost, 4),
+        "api_duration_s_est": round(api_duration, 1),
+        "wall_duration_s": wall,
+        "assistant_turns": assistant_turns,
+        "tool_calls": tool_calls,
+        "edits": edits,
+        "writes": writes,
+        "lines_added": lines_added,
+        "lines_removed": lines_removed,
+        "final_context_tokens": final_context,
+        "by_model": by_model,
+    }
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with LOG_FILE.open("a", encoding="utf-8") as out:
+        out.write(json.dumps(record) + "\n")
+
+    # Flattened CSV row (per-model totals summed; model names listed).
+    totals = {"input": 0, "output": 0, "cache_write": 0, "cache_read": 0}
+    for b in by_model.values():
+        for k in totals:
+            totals[k] += b[k]
+    csv_row = {
+        "ended_at": record["ended_at"],
+        "session_id": session_id,
+        "account": account,
+        "trigger": trigger,
+        "reason": reason,
+        "cwd": cwd,
+        "cost_usd_est": record["cost_usd_est"],
+        "api_duration_s_est": record["api_duration_s_est"],
+        "wall_duration_s": wall,
+        "assistant_turns": assistant_turns,
+        "tool_calls": tool_calls,
+        "edits": edits,
+        "writes": writes,
+        "lines_added": lines_added,
+        "lines_removed": lines_removed,
+        "final_context_tokens": final_context,
+        "input_tokens": totals["input"],
+        "output_tokens": totals["output"],
+        "cache_write_tokens": totals["cache_write"],
+        "cache_read_tokens": totals["cache_read"],
+        "models": ";".join(sorted(by_model)),
+    }
+    write_header = not CSV_FILE.exists()
+    with CSV_FILE.open("a", encoding="utf-8", newline="") as cf:
+        w = csv.DictWriter(cf, fieldnames=CSV_FIELDS)
+        if write_header:
+            w.writeheader()
+        w.writerow(csv_row)
+
+    print(f"[usage] {session_id[:8]} [{account}] ${cost:.3f} api~{api_duration:.0f}s wall={wall}s "
+          f"turns={assistant_turns} +{lines_added}/-{lines_removed}")
+
+
+if __name__ == "__main__":
+    main()
+</script>
+<script type="text/plain" id="f_report">#!/usr/bin/env python3
+"""
+Rolling usage rollup for the SessionEnd usage log.
+
+Reads ~/.claude/usage/sessions.jsonl and prints weekly and monthly summaries
+(sessions, estimated cost, wall hours, tokens, code-change lines). Stdlib only.
+
+Usage:
+  python3 usage_report.py                 # last 8 weeks + last 6 months
+  python3 usage_report.py --weeks 12      # last 12 weeks
+  python3 usage_report.py --months 12     # last 12 months
+  python3 usage_report.py --all           # every period on record
+  python3 usage_report.py --account work   # scope weekly/monthly to one account
+  python3 usage_report.py --file /path/to/sessions.jsonl
+"""
+
+import sys, json, argparse
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+DEFAULT_LOG = Path.home() / ".claude" / "usage" / "sessions.jsonl"
+
+
+def load(path):
+    rows = []
+    if not path.exists():
+        return rows
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except Exception:
+                continue
+    return dedupe(rows)
+
+
+def dedupe(rows):
+    """Keep only the latest record per session_id (a session-end snapshot
+    supersedes any earlier manual snapshots of the same session). Records with
+    no session_id are kept as-is."""
+    latest, anon = {}, []
+    for r in rows:
+        sid = r.get("session_id")
+        if not sid:
+            anon.append(r)
+            continue
+        cur = latest.get(sid)
+        if cur is None or str(r.get("ended_at", "")) >= str(cur.get("ended_at", "")):
+            latest[sid] = r
+    return list(latest.values()) + anon
+
+
+def period_keys(iso_ts):
+    """Return (week_key, month_key) for an ISO timestamp, or (None, None)."""
+    try:
+        dt = datetime.fromisoformat(str(iso_ts).replace("Z", "+00:00"))
+    except Exception:
+        return None, None
+    y, w, _ = dt.isocalendar()
+    return f"{y}-W{w:02d}", dt.strftime("%Y-%m")
+
+
+def blank():
+    return {
+        "sessions": 0, "cost": 0.0, "wall_s": 0.0, "api_s": 0.0,
+        "input": 0, "output": 0, "cache_write": 0, "cache_read": 0,
+        "added": 0, "removed": 0,
+    }
+
+
+def accumulate(rows):
+    weekly, monthly = defaultdict(blank), defaultdict(blank)
+    accounts = defaultdict(blank)
+    for r in rows:
+        wk, mo = period_keys(r.get("ended_at"))
+        if wk is None:
+            continue
+        acct = r.get("account") or "unlabeled"
+        tok = {"input": 0, "output": 0, "cache_write": 0, "cache_read": 0}
+        for b in (r.get("by_model") or {}).values():
+            for k in tok:
+                tok[k] += b.get(k, 0) or 0
+        for key, bucket in ((wk, weekly), (mo, monthly), (acct, accounts)):
+            d = bucket[key]
+            d["sessions"] += 1
+            d["cost"]     += r.get("cost_usd_est") or 0.0
+            d["wall_s"]   += r.get("wall_duration_s") or 0.0
+            d["api_s"]    += r.get("api_duration_s_est") or 0.0
+            d["added"]    += r.get("lines_added") or 0
+            d["removed"]  += r.get("lines_removed") or 0
+            for k in tok:
+                d[k] += tok[k]
+    return weekly, monthly, accounts
+
+
+def fmt_tokens(n):
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n/1_000:.0f}k"
+    return str(n)
+
+
+def print_table(title, data, limit, col0="period"):
+    keys = sorted(data)
+    if limit:
+        keys = keys[-limit:]
+    print(f"\n{title}")
+    if not keys:
+        print("  (no data)")
+        return
+    header = f"{col0:<13} {'sess':>5} {'cost($)':>9} {'api(h)':>7} {'wall(h)':>8} " \
+             f"{'in':>7} {'out':>7} {'cache_r':>8} {'lines':>11}"
+    print(header)
+    print("-" * len(header))
+    tot = blank()
+    for k in keys:
+        d = data[k]
+        for f in tot:
+            tot[f] += d[f]
+        print(f"{k:<13} {d['sessions']:>5} {d['cost']:>9.2f} "
+              f"{d['api_s']/3600:>7.1f} {d['wall_s']/3600:>8.1f} "
+              f"{fmt_tokens(d['input']):>7} {fmt_tokens(d['output']):>7} "
+              f"{fmt_tokens(d['cache_read']):>8} "
+              f"{('+'+str(d['added'])+'/-'+str(d['removed'])):>11}")
+    print("-" * len(header))
+    print(f"{'total':<13} {tot['sessions']:>5} {tot['cost']:>9.2f} "
+          f"{tot['api_s']/3600:>7.1f} {tot['wall_s']/3600:>8.1f} "
+          f"{fmt_tokens(tot['input']):>7} {fmt_tokens(tot['output']):>7} "
+          f"{fmt_tokens(tot['cache_read']):>8} "
+          f"{('+'+str(tot['added'])+'/-'+str(tot['removed'])):>11}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--file", type=Path, default=DEFAULT_LOG)
+    ap.add_argument("--weeks", type=int, default=8)
+    ap.add_argument("--months", type=int, default=6)
+    ap.add_argument("--account", default=None,
+                    help="Scope weekly/monthly tables to one account label.")
+    ap.add_argument("--all", action="store_true")
+    args = ap.parse_args()
+
+    rows = load(args.file)
+    if not rows:
+        print(f"No usage records found at {args.file}")
+        return
+
+    # By-account summary reflects the whole log, regardless of --account filter.
+    _, _, accounts = accumulate(rows)
+    print_table("By account", accounts, 0, col0="account")
+
+    if args.account:
+        rows = [r for r in rows if (r.get("account") or "unlabeled") == args.account]
+        if not rows:
+            print(f"\nNo sessions for account '{args.account}'.")
+            return
+        label = f" — account: {args.account}"
+    else:
+        label = ""
+
+    weekly, monthly, _ = accumulate(rows)
+    wlim = 0 if args.all else args.weeks
+    mlim = 0 if args.all else args.months
+    print_table("Weekly" + label, weekly, wlim)
+    print_table("Monthly" + label, monthly, mlim)
+
+
+if __name__ == "__main__":
+    main()
+</script>
+<script type="text/plain" id="f_cmd">---
+description: Snapshot the current session's usage to the local usage log
+allowed-tools: Bash(python3:*), Bash(python:*)
+---
+
+Run the usage logger to snapshot the current session's usage (cost, API/wall
+duration, code changes, by-model tokens) into the local log, then report back
+the single line it saved.
+
+On macOS/Linux:
+
+```
+python3 ~/.claude/hooks/log_usage.py
+```
+
+On Windows, run instead:
+
+```
+python %USERPROFILE%\.claude\hooks\log_usage.py
+```
+
+After it runs, show me the `[usage] ...` summary line it printed. Do not do
+anything else.
+</script>
+
+<script>
+(function(){
+  var root = document.documentElement;
+  var body = document.body;
+
+  /* ---- theme toggle (in-memory only; no storage) ---- */
+  var sun = "M12 4V2 M12 22v-2 M4 12H2 M22 12h-2 M5.6 5.6 4.2 4.2 M19.8 19.8l-1.4-1.4 M18.4 5.6l1.4-1.4 M4.2 19.8l1.4-1.4 M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z";
+  var moon = "M21 12.8A8 8 0 1 1 11.2 3 6.3 6.3 0 0 0 21 12.8z";
+  document.getElementById("themeToggle").addEventListener("click", function(){
+    var light = root.getAttribute("data-theme") === "light";
+    root.setAttribute("data-theme", light ? "dark" : "light");
+    document.getElementById("themeIcon").setAttribute("d", light ? moon : sun);
+  });
+
+  /* ---- sidebar: external toggle (always visible in nav) ---- */
+  var bd = document.getElementById("sbBackdrop");
+  function isOverlayMode(){ return window.innerWidth < 1180; }
+  function setCollapsed(c){
+    body.classList.toggle("sb-collapsed", c);
+    var show = !c && isOverlayMode();
+    bd.style.opacity = show ? "1" : "0";
+    bd.style.pointerEvents = show ? "auto" : "none";
+  }
+  // default: open on wide screens, collapsed otherwise
+  setCollapsed(isOverlayMode());
+  document.getElementById("sbToggle").addEventListener("click", function(){
+    setCollapsed(!body.classList.contains("sb-collapsed"));
+  });
+  bd.addEventListener("click", function(){ setCollapsed(true); });
+  window.addEventListener("resize", function(){
+    if(!isOverlayMode()){ bd.style.opacity="0"; bd.style.pointerEvents="none"; }
+  });
+
+  /* ---- sidebar groups: vertical collapse ---- */
+  document.querySelectorAll(".sb-head").forEach(function(h){
+    h.addEventListener("click", function(){ h.parentElement.classList.toggle("open"); });
+  });
+  // close sidebar after navigating, on overlay widths
+  document.querySelectorAll(".sb-links a").forEach(function(a){
+    a.addEventListener("click", function(){ if(isOverlayMode()) setCollapsed(true); });
+  });
+
+  /* ---- scroll-spy for nav + sidebar ---- */
+  var ids = ["overview","capture","components","setup","pricing","reference"];
+  var navLinks = document.querySelectorAll(".nav .center a");
+  function spy(){
+    var y = window.scrollY + 120, cur = ids[0];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el && el.offsetTop <= y) cur = id;
+    });
+    navLinks.forEach(function(a){
+      a.classList.toggle("active", a.getAttribute("href") === "#"+cur);
+    });
+    document.querySelectorAll(".sb-links a").forEach(function(a){
+      a.classList.toggle("active", a.getAttribute("href") === "#"+cur);
+    });
+  }
+  window.addEventListener("scroll", spy, {passive:true});
+  spy();
+
+  /* ---- downloads ---- */
+  function textOf(id){ var e=document.getElementById(id); var t=e?e.textContent:""; return t.replace(/^\n/,""); }
+  function download(id,name){
+    var b=new Blob([textOf(id)],{type:"text/plain;charset=utf-8"});
+    var u=URL.createObjectURL(b), a=document.createElement("a");
+    a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(u);},1500);
+  }
+  document.querySelectorAll("[data-dl]").forEach(function(btn){
+    btn.addEventListener("click", function(){ download(btn.getAttribute("data-dl"), btn.getAttribute("data-name")); });
+  });
+  var all=[["f_log","log_usage.py"],["f_report","usage_report.py"],["f_cmd","log-status.md"]];
+  document.getElementById("dlall").addEventListener("click", function(){
+    all.forEach(function(f,i){ setTimeout(function(){download(f[0],f[1]);}, i*350); });
+  });
+  all.forEach(function(f){
+    var n=textOf(f[0]).split("\n").length, el=document.getElementById("size_"+f[0]);
+    if(el) el.textContent=n+" lines";
+  });
+})();
+</script>
+</body>
+</html>
