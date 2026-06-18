@@ -171,6 +171,17 @@
   pre{font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--text);
     background:var(--code); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; margin:12px 0 0}
   pre .c{color:var(--dim)} pre .s{color:var(--accent)}
+  .flabel{display:block; font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--accent-2); margin:18px 0 -2px}
+  .codetabs{margin:18px 0}
+  .tab-btns{display:flex; gap:6px}
+  .tab-btn{font-family:var(--mono); font-size:12px; letter-spacing:.03em; cursor:pointer;
+    color:var(--muted); background:var(--surface-2); border:1px solid var(--line); border-bottom:none;
+    padding:8px 15px; border-radius:8px 8px 0 0; transition:color .15s, background .15s}
+  .tab-btn:hover{color:var(--text)}
+  .tab-btn.active{color:var(--accent); background:var(--code)}
+  .codetabs pre{margin:0; border-top-left-radius:0}
+  .tab-panel.hidden{display:none}
   .note{border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--surface);
     padding:14px 18px; border-radius:0 10px 10px 0; color:var(--muted); font-size:14.5px}
   .note b{color:var(--text)}
@@ -401,10 +412,12 @@
     </table>
 
     <h3 class="sub" id="api-est">API-duration estimate</h3>
-    <p>The exact API-duration counter is internal and isn't written to the transcript.<a class="cite" href="#reference">[2]</a>
-    It's reconstructed by summing each turn's request&rarr;response timestamp gap, which excludes
-    your idle time (after a response) and tool execution (before a tool result) &mdash; matching the
-    panel's definition closely, though not to the second.</p>
+    <p>Claude Code logs a real per-turn duration in the transcript (a
+    <code>turn_duration</code> system entry), so the script sums those when present and
+    only falls back to a timestamp-gap estimate otherwise &mdash; landing within a couple
+    of seconds of the panel. Usage is also de-duplicated per response id, because a single
+    API response can be split across several transcript lines (thinking + tool_use), each
+    carrying the full usage; counting them once avoids doubling that turn's tokens.</p>
 
     <h3 class="sub" id="cost-breakdown">Cost breakdown</h3>
     <p>A worked example validates the rate table: an Opus 4.8 turn billing 3.1k input, 1.5k output,
@@ -439,15 +452,75 @@
 
     <h3 class="sub" id="accounts">Per-account tagging</h3>
     <p>To separate subscription sessions from company-API-key sessions, stamp the account at
-    launch. The transcript has no reliable auth field, so set one environment variable in the
-    same wrapper you already use to switch auth &mdash; the hook inherits it and records an
+    launch &mdash; the transcript carries no reliable auth field. The two highlighted lines slot
+    into the Claude Context Switcher functions you already use, keeping the switcher's scoped,
+    per-call style (no global export); the hook inherits the variable and records an
     <code>account</code> field.</p>
-<pre><span class="c"># PowerShell wrappers</span>
-function claude-work    { $env:CLAUDE_USAGE_ACCOUNT = <span class="s">"work"</span>;     claude @args }
-function claude-orion   { $env:CLAUDE_USAGE_ACCOUNT = <span class="s">"personal"</span>; claude @args }
 
-<span class="c"># macOS / Linux: export before launching claude</span>
-export CLAUDE_USAGE_ACCOUNT=<span class="s">work</span>   <span class="c"># or: personal</span></pre>
+    <div class="codetabs">
+      <div class="tab-btns" role="tablist">
+        <button class="tab-btn active" data-tab="zsh">macOS &middot; ~/.zshrc</button>
+        <button class="tab-btn" data-tab="ps">Windows &middot; $PROFILE</button>
+      </div>
+      <div class="tab-panel" data-panel="zsh"><pre># ── Claude Code: work (API key) vs personal (Pro subscription) ──
+
+claude-work() {
+  local api_key
+  api_key=$(security find-generic-password \
+              -a "$USER" -s "anthropic-api-key" -w 2&gt;/dev/null)
+
+  if [[ -z "$api_key" ]]; then
+    echo "Error: API key not found in Keychain." &gt;&amp;2
+    echo 'Run: security add-generic-password -a "$USER" -s "anthropic-api-key" -w' &gt;&amp;2
+    return 1
+  fi
+
+  <span class="s">CLAUDE_USAGE_ACCOUNT="work"</span> ANTHROPIC_API_KEY="$api_key" claude "$@"
+}
+
+claude-personal() {
+  local _saved="$ANTHROPIC_API_KEY"
+  unset ANTHROPIC_API_KEY
+
+  <span class="s">CLAUDE_USAGE_ACCOUNT="personal"</span> claude "$@"
+  local _rc=$?
+
+  [[ -n "$_saved" ]] &amp;&amp; export ANTHROPIC_API_KEY="$_saved"
+  return $_rc
+}</pre></div>
+      <div class="tab-panel hidden" data-panel="ps"><pre># ── Claude Code: work (company API key) vs personal (Pro subscription) ──
+$Global:ClaudeKeyFile = "$HOME\.config\claude\anthropic-key.xml"
+
+function claude-work {
+    if (-not (Test-Path $Global:ClaudeKeyFile)) {
+        Write-Error "Encrypted key not found at $Global:ClaudeKeyFile"
+        return
+    }
+    $sec = Import-Clixml $Global:ClaudeKeyFile
+    $env:ANTHROPIC_API_KEY =
+        [System.Net.NetworkCredential]::new("", $sec).Password
+    <span class="s">$env:CLAUDE_USAGE_ACCOUNT = "work"</span>
+    try {
+        claude @args
+    } finally {
+        Remove-Item Env:\ANTHROPIC_API_KEY    -ErrorAction SilentlyContinue
+        <span class="s">Remove-Item Env:\CLAUDE_USAGE_ACCOUNT -ErrorAction SilentlyContinue</span>
+    }
+}
+
+function claude-personal {
+    $saved = $env:ANTHROPIC_API_KEY
+    Remove-Item Env:\ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
+    <span class="s">$env:CLAUDE_USAGE_ACCOUNT = "personal"</span>
+    try {
+        claude @args
+    } finally {
+        <span class="s">Remove-Item Env:\CLAUDE_USAGE_ACCOUNT -ErrorAction SilentlyContinue</span>
+        if ($saved) { $env:ANTHROPIC_API_KEY = $saved }
+    }
+}</pre></div>
+    </div>
+
     <p class="muted">Without the variable, the script falls back to sniffing for an API-key env
     var (<code>api_key</code> vs <code>subscription</code>) &mdash; only accurate if the key is
     exported into the environment, so the explicit label is the dependable path. The report then
@@ -494,8 +567,12 @@ export CLAUDE_USAGE_ACCOUNT=<span class="s">work</span>   <span class="c"># or: 
       <li><strong>Place the files.</strong> <code>log_usage.py</code> and <code>usage_report.py</code>
       into <code>~/.claude/hooks/</code>; <code>log-status.md</code> into <code>~/.claude/commands/</code>.</li>
       <li><strong>Register the hook</strong> in <code>~/.claude/settings.json</code> (every project; effective next session).
-<pre><span class="c">// macOS / Linux</span>
-{
+    <div class="codetabs">
+      <div class="tab-btns" role="tablist">
+        <button class="tab-btn active" data-tab="unix">macOS / Linux</button>
+        <button class="tab-btn" data-tab="win">Windows</button>
+      </div>
+      <div class="tab-panel" data-panel="unix"><pre>{
   "hooks": {
     "SessionEnd": [
       { "hooks": [ { "type": "command",
@@ -503,10 +580,8 @@ export CLAUDE_USAGE_ACCOUNT=<span class="s">work</span>   <span class="c"># or: 
         "timeout": 30 } ] }
     ]
   }
-}
-
-<span class="c">// Windows (exec form)</span>
-{
+}</pre></div>
+      <div class="tab-panel hidden" data-panel="win"><pre>{
   "hooks": {
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "python",
@@ -514,7 +589,8 @@ export CLAUDE_USAGE_ACCOUNT=<span class="s">work</span>   <span class="c"># or: 
         "timeout": 30 } ] }
     ]
   }
-}</pre></li>
+}</pre></div>
+    </div></li>
       <li><strong>Quit a session</strong> &mdash; a record lands in <code>sessions.jsonl</code> and <code>sessions.csv</code>.</li>
       <li><strong>Review anytime.</strong>
 <pre>python3 ~/.claude/hooks/usage_report.py            <span class="c"># last 8 weeks + 6 months</span>
@@ -579,9 +655,10 @@ Captured per session:
                         cross-check with `npx ccusage@latest session`)
   - account             which account/auth the session used (see detect_account):
                         set CLAUDE_USAGE_ACCOUNT in your launcher, else sniffed.
-  - api_duration_s_est  estimated model/API time: sum of per-turn request->response
-                        timestamp gaps. Approximates /cost's "duration (API)";
-                        not the exact internal counter.
+  - api_duration_s_est  per-turn durations Claude Code logs (system turn_duration
+                        entries) when present; else a timestamp-gap estimate.
+                        Usage is de-duplicated per response id (a single API
+                        response can span several transcript lines).
   - by_model            input / output / cache-write / cache-read tokens per model
   - wall_duration_s     first -> last transcript timestamp
   - assistant_turns, tool_calls
@@ -724,8 +801,10 @@ def main():
     edits = writes = 0
     lines_added = lines_removed = 0
     final_context = 0
-    api_duration = 0.0   # est: sum of per-turn (request -> response) gaps
+    api_gap_est = 0.0    # fallback: sum of per-turn (request -> response) gaps
+    turn_dur_ms = 0      # preferred: real per-turn durations from system entries
     prev_ts = None       # timestamp of the previous event in file order
+    seen_msgs = set()    # dedupe usage: one response can span several entries
     API_GAP_CAP = 3600.0 # ignore gaps larger than this (clock jumps / resumes)
 
     def bucket(model):
@@ -751,27 +830,36 @@ def main():
 
             msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
 
+            # Real per-turn duration, when Claude Code logs it (preferred over gaps).
+            if ev.get("type") == "system" and ev.get("subtype") == "turn_duration":
+                dms = ev.get("durationMs")
+                if isinstance(dms, (int, float)) and dms > 0:
+                    turn_dur_ms += dms
+
             usage = msg.get("usage")
             if isinstance(usage, dict):
-                assistant_turns += 1
-                # Estimated API time for this turn: gap from the preceding event
-                # (user prompt or tool result) to this model response. Excludes
-                # idle time (sits after a response) and tool execution (sits
-                # before a tool result), matching /cost's API-duration definition.
-                if ts and prev_ts:
-                    gap = (ts - prev_ts).total_seconds()
-                    if 0 < gap < API_GAP_CAP:
-                        api_duration += gap
-                b   = bucket(msg.get("model", "unknown"))
-                inp = usage.get("input_tokens", 0) or 0
-                out = usage.get("output_tokens", 0) or 0
-                cw  = usage.get("cache_creation_input_tokens", 0) or 0
-                cr  = usage.get("cache_read_input_tokens", 0) or 0
-                b["input"]       += inp
-                b["output"]      += out
-                b["cache_write"] += cw
-                b["cache_read"]  += cr
-                final_context = inp + cw + cr  # context fed in on this turn
+                # One API response (msg id / requestId) may be split across several
+                # transcript lines (e.g. thinking + tool_use), each carrying the full
+                # usage. Count it once, or the turn's tokens/cost are doubled.
+                mid = msg.get("id") or ev.get("requestId")
+                if mid is None or mid not in seen_msgs:
+                    if mid is not None:
+                        seen_msgs.add(mid)
+                    assistant_turns += 1
+                    if ts and prev_ts:
+                        gap = (ts - prev_ts).total_seconds()
+                        if 0 < gap < API_GAP_CAP:
+                            api_gap_est += gap
+                    b   = bucket(msg.get("model", "unknown"))
+                    inp = usage.get("input_tokens", 0) or 0
+                    out = usage.get("output_tokens", 0) or 0
+                    cw  = usage.get("cache_creation_input_tokens", 0) or 0
+                    cr  = usage.get("cache_read_input_tokens", 0) or 0
+                    b["input"]       += inp
+                    b["output"]      += out
+                    b["cache_write"] += cw
+                    b["cache_read"]  += cr
+                    final_context = inp + cw + cr  # context fed in on this turn
 
             content = msg.get("content")
             if isinstance(content, list):
@@ -810,10 +898,25 @@ def main():
             + b["output"]                        * r["out"]
         ) / 1_000_000
 
-    wall = round((last_ts - first_ts).total_seconds(), 1) if first_ts and last_ts else None
+    # Prefer Claude Code's logged per-turn durations; fall back to timestamp gaps.
+    api_duration = (turn_dur_ms / 1000.0) if turn_dur_ms > 0 else api_gap_est
+
+    # Wall time. When the hook fires at quit, `now` is the true session end and
+    # includes the tail after the last message (reading output, /status, etc.).
+    # For manual/stale runs we must NOT assume now == end, so use the session's
+    # own first->last span instead.
+    now = datetime.now(timezone.utc)
+    if first_ts is None:
+        wall = None
+    elif args.hook and last_ts and 0 <= (now - last_ts).total_seconds() <= 1800:
+        wall = round((now - first_ts).total_seconds(), 1)
+    elif last_ts:
+        wall = round((last_ts - first_ts).total_seconds(), 1)
+    else:
+        wall = round((now - first_ts).total_seconds(), 1)
 
     record = {
-        "ended_at": datetime.now(timezone.utc).isoformat(),
+        "ended_at": now.isoformat(),
         "session_id": session_id,
         "account": account,
         "trigger": trigger,
@@ -1138,6 +1241,19 @@ anything else.
   }
   window.addEventListener("scroll", spy, {passive:true});
   spy();
+
+  /* ---- code tabs ---- */
+  document.querySelectorAll(".codetabs").forEach(function(group){
+    var btns = group.querySelectorAll(".tab-btn");
+    var panels = group.querySelectorAll(".tab-panel");
+    btns.forEach(function(b){
+      b.addEventListener("click", function(){
+        var t = b.getAttribute("data-tab");
+        btns.forEach(function(x){ x.classList.toggle("active", x === b); });
+        panels.forEach(function(p){ p.classList.toggle("hidden", p.getAttribute("data-panel") !== t); });
+      });
+    });
+  });
 
   /* ---- downloads ---- */
   function textOf(id){ var e=document.getElementById(id); var t=e?e.textContent:""; return t.replace(/^\n/,""); }
