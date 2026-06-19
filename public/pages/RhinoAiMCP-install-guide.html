@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Installing RhinoAiMCP Globally for Claude Code — Step-by-Step Plan</title>
+<meta name="description" content="A step-by-step plan to register the RhinoAiMCP HTTP server as a global user-scope MCP server in Claude Code, with verification and rollback.">
+<meta name="keywords" content="rhinoaimcp, claude-code, mcp-server, http-transport, global-install, rhino-3d">
+<meta name="date" content="2026-06-18">
+<style>
+:root{
+  --bg:#0e1116; --bg-2:#151b23; --bg-3:#1b232d; --fg:#e6edf3; --fg-dim:#9aa7b4;
+  --accent:#4cc2ff; --accent-2:#7ee787; --border:#27313c; --code-bg:#0a0e13;
+  --shadow:0 8px 30px rgba(0,0,0,.45); --warn:#ffb454;
+}
+html[data-theme="light"]{
+  --bg:#f6f8fa; --bg-2:#ffffff; --bg-3:#eef2f6; --fg:#1c2530; --fg-dim:#5b6b7b;
+  --accent:#0969da; --accent-2:#1a7f37; --border:#d8e0e8; --code-bg:#0e1116;
+  --shadow:0 8px 30px rgba(140,160,180,.25); --warn:#9a6700;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  line-height:1.6;transition:background .3s,color .3s}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:"SF Mono",Consolas,"Liberation Mono",Menlo,monospace;font-size:.9em}
+
+/* TOP NAV */
+.topnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:1rem;
+  padding:.6rem 1rem;background:color-mix(in srgb,var(--bg-2) 85%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.topnav .brand{font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.topnav .brand .dot{color:var(--accent)}
+.topnav .links{display:flex;gap:.4rem;flex:1;justify-content:center;flex-wrap:wrap}
+.topnav .links a{padding:.35rem .7rem;border-radius:7px;color:var(--fg-dim);font-size:.9rem}
+.topnav .links a:hover,.topnav .links a.active{color:var(--fg);background:var(--bg-3);text-decoration:none}
+.iconbtn{cursor:pointer;border:1px solid var(--border);background:var(--bg-3);color:var(--fg);
+  width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-size:1.1rem;
+  transition:background .2s,transform .1s}
+.iconbtn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.iconbtn:active{transform:scale(.93)}
+
+/* LAYOUT */
+.shell{display:flex;align-items:flex-start}
+.sidebar{position:sticky;top:57px;align-self:flex-start;height:calc(100vh - 57px);
+  width:260px;flex:0 0 260px;overflow-y:auto;padding:1.2rem .8rem;
+  background:var(--bg-2);border-right:1px solid var(--border);
+  transition:width .25s,padding .25s,opacity .2s}
+.sidebar.collapsed{width:0;flex-basis:0;padding:0;opacity:0;overflow:hidden;border-right:none}
+.sidebar h4{margin:.2rem .6rem .6rem;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--fg-dim)}
+.sidebar .group{margin-bottom:1rem}
+.sidebar a{display:block;padding:.4rem .6rem;border-radius:7px;color:var(--fg-dim);
+  font-size:.88rem;border-left:2px solid transparent}
+.sidebar a:hover{background:var(--bg-3);color:var(--fg);text-decoration:none}
+.sidebar a.active{color:var(--accent);border-left-color:var(--accent);background:var(--bg-3)}
+.sidebar .sub{padding-left:1.3rem;font-size:.82rem}
+
+.content-wrap{flex:1;min-width:0;display:flex;justify-content:center}
+.content{width:100%;max-width:860px;padding:0 1.4rem 5rem}
+
+/* COVER */
+.cover{width:100%;height:300px;overflow:hidden;border-bottom:1px solid var(--border);position:relative}
+.cover svg{width:100%;height:100%;display:block}
+.cover .light-art{display:none}
+html[data-theme="light"] .cover .dark-art{display:none}
+html[data-theme="light"] .cover .light-art{display:block}
+
+/* TITLE */
+.titleblock{padding:2rem 0 1rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.titleblock .eyebrow{color:var(--accent);font-size:.78rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase}
+.titleblock h1{margin:.5rem 0 .4rem;font-size:2.1rem;line-height:1.15}
+.titleblock .sub{color:var(--fg-dim);font-size:1.05rem;margin:0;max-width:60ch}
+
+/* TLDR */
+.tldr{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--bg-2)),var(--bg-2));
+  border:1px solid var(--border);border-left:4px solid var(--accent);
+  border-radius:12px;padding:1.1rem 1.3rem;margin:0 0 2rem;box-shadow:var(--shadow)}
+.tldr h3{margin:0 0 .5rem;font-size:.95rem;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.tldr p{margin:.3rem 0}
+.tldr ul{margin:.4rem 0 0;padding-left:1.2rem}
+
+section{margin:2.4rem 0;scroll-margin-top:75px}
+section h2{font-size:1.45rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+section h3{font-size:1.1rem;margin-top:1.6rem}
+
+/* CODE */
+pre{background:var(--code-bg);color:#e6edf3;border:1px solid var(--border);border-radius:10px;
+  padding:1rem 1.1rem;overflow-x:auto;position:relative;font-size:.86rem;line-height:1.55}
+pre code{color:#e6edf3}
+.tok-cmd{color:#7ee787}.tok-flag{color:#4cc2ff}.tok-str{color:#ffab70}.tok-cmt{color:#7d8896}
+.copybtn{position:absolute;top:.5rem;right:.5rem;font-size:.7rem;padding:.25rem .55rem;
+  border:1px solid var(--border);background:var(--bg-3);color:var(--fg-dim);border-radius:6px;cursor:pointer}
+.copybtn:hover{color:var(--fg);border-color:var(--accent)}
+
+/* CARDS / TABLE */
+.grid{display:grid;gap:1rem}
+@media(min-width:640px){.grid.c3{grid-template-columns:repeat(3,1fr)}}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem}
+.card .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--fg-dim)}
+.card .v{font-size:1.15rem;font-weight:700;margin-top:.2rem}
+.card .v.ok{color:var(--accent-2)}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.92rem}
+th,td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid var(--border)}
+th{color:var(--fg-dim);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em}
+.pill{display:inline-block;padding:.1rem .55rem;border-radius:99px;font-size:.78rem;font-weight:600}
+.pill.ok{background:color-mix(in srgb,var(--accent-2) 22%,transparent);color:var(--accent-2)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+
+.note{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--bg-2));
+  padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:1rem 0}
+.note strong{color:var(--warn)}
+
+/* STEP FLOW DIAGRAM */
+.flow{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:1.2rem 0;justify-content:center}
+.flow .node{background:var(--bg-3);border:1px solid var(--border);border-radius:10px;
+  padding:.6rem .8rem;font-size:.82rem;text-align:center;min-width:96px}
+.flow .node b{display:block;color:var(--accent);font-size:.72rem}
+.flow .arr{color:var(--fg-dim);font-size:1.2rem}
+
+.step{display:flex;gap:1rem;margin:1.4rem 0}
+.step .num{flex:0 0 34px;height:34px;border-radius:50%;background:var(--accent);color:#04121c;
+  font-weight:700;display:grid;place-items:center}
+html[data-theme="light"] .step .num{color:#fff}
+.step .body{flex:1;min-width:0}
+.step .body h3{margin:.2rem 0 .5rem}
+
+.cite{font-size:.7em;vertical-align:super;color:var(--accent);font-weight:700;cursor:pointer;
+  padding:0 .15rem;text-decoration:none}
+.cite:hover{text-decoration:underline}
+.refs{font-size:.9rem}
+.refs li{margin:.4rem 0}
+
+footer{border-top:1px solid var(--border);padding:1.6rem 0;color:var(--fg-dim);
+  font-size:.85rem;text-align:center}
+
+@media(max-width:860px){
+  .sidebar{position:fixed;z-index:40;box-shadow:var(--shadow)}
+  .sidebar.collapsed{box-shadow:none}
+  .titleblock h1{font-size:1.7rem}
+  .cover{height:200px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <button class="iconbtn" id="sideToggle" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
+  <span class="brand">Rhino<span class="dot">Ai</span>MCP <span style="color:var(--fg-dim);font-weight:400">× Claude Code</span></span>
+  <div class="links">
+    <a href="#overview">Overview</a>
+    <a href="#prereqs">Prerequisites</a>
+    <a href="#steps">Install Steps</a>
+    <a href="#verify">Verify</a>
+    <a href="#rollback">Rollback</a>
+  </div>
+  <button class="iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌙</button>
+</nav>
+
+<!-- COVER IMAGE -->
+<div class="cover" aria-hidden="true">
+  <!-- DARK -->
+  <svg class="dark-art" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#0e1116"/><stop offset="1" stop-color="#15212e"/>
+      </linearGradient>
+      <linearGradient id="da" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#4cc2ff"/><stop offset="1" stop-color="#7ee787"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="300" fill="url(#dg)"/>
+    <g stroke="#27313c" stroke-width="1" opacity=".5">
+      <path d="M0 220 L1200 120"/><path d="M0 250 L1200 150"/><path d="M0 190 L1200 90"/>
+    </g>
+    <!-- axonometric wireframe cube (Rhino model) -->
+    <g transform="translate(210,150)" stroke="url(#da)" stroke-width="2.2" fill="none" stroke-linejoin="round">
+      <path d="M0 -70 L90 -25 L90 65 L0 110 L-90 65 L-90 -25 Z"/>
+      <path d="M0 -70 L0 40 M0 40 L90 65 M0 40 L-90 65"/>
+      <path d="M-90 -25 L0 20 L90 -25 M0 20 L0 110" opacity=".55"/>
+    </g>
+    <!-- HTTP bridge link -->
+    <g transform="translate(0,150)">
+      <line x1="320" y1="0" x2="860" y2="0" stroke="url(#da)" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+      <circle cx="430" cy="0" r="4" fill="#4cc2ff"/><circle cx="600" cy="0" r="4" fill="#62d0c0"/><circle cx="760" cy="0" r="4" fill="#7ee787"/>
+      <text x="590" y="-16" fill="#9aa7b4" font-size="13" font-family="monospace" text-anchor="middle">http://localhost:3001/mcp</text>
+    </g>
+    <!-- axonometric AI node -->
+    <g transform="translate(960,150)" stroke="url(#da)" stroke-width="2.2" fill="none">
+      <rect x="-60" y="-55" width="120" height="110" rx="10" transform="skewY(-12)"/>
+      <circle cx="0" cy="-6" r="22" transform="skewY(-12)"/>
+      <path d="M-30 30 L30 30" transform="skewY(-12)" opacity=".6"/>
+    </g>
+  </svg>
+  <!-- LIGHT -->
+  <svg class="light-art" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#eef3f8"/><stop offset="1" stop-color="#dce7f0"/>
+      </linearGradient>
+      <linearGradient id="la" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0969da"/><stop offset="1" stop-color="#1a7f37"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="300" fill="url(#lg)"/>
+    <g stroke="#c2d2e0" stroke-width="1" opacity=".7">
+      <path d="M0 220 L1200 120"/><path d="M0 250 L1200 150"/><path d="M0 190 L1200 90"/>
+    </g>
+    <g transform="translate(210,150)" stroke="url(#la)" stroke-width="2.2" fill="none" stroke-linejoin="round">
+      <path d="M0 -70 L90 -25 L90 65 L0 110 L-90 65 L-90 -25 Z"/>
+      <path d="M0 -70 L0 40 M0 40 L90 65 M0 40 L-90 65"/>
+      <path d="M-90 -25 L0 20 L90 -25 M0 20 L0 110" opacity=".55"/>
+    </g>
+    <g transform="translate(0,150)">
+      <line x1="320" y1="0" x2="860" y2="0" stroke="url(#la)" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+      <circle cx="430" cy="0" r="4" fill="#0969da"/><circle cx="600" cy="0" r="4" fill="#168f6b"/><circle cx="760" cy="0" r="4" fill="#1a7f37"/>
+      <text x="590" y="-16" fill="#5b6b7b" font-size="13" font-family="monospace" text-anchor="middle">http://localhost:3001/mcp</text>
+    </g>
+    <g transform="translate(960,150)" stroke="url(#la)" stroke-width="2.2" fill="none">
+      <rect x="-60" y="-55" width="120" height="110" rx="10" transform="skewY(-12)"/>
+      <circle cx="0" cy="-6" r="22" transform="skewY(-12)"/>
+      <path d="M-30 30 L30 30" transform="skewY(-12)" opacity=".6"/>
+    </g>
+  </svg>
+</div>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="group">
+      <h4>Contents</h4>
+      <a href="#overview">Overview</a>
+      <a href="#prereqs">Prerequisites</a>
+      <a href="#prereqs" class="sub">Machine check</a>
+      <a href="#prereqs" class="sub">Rhino-side setup</a>
+    </div>
+    <div class="group">
+      <h4>Installation</h4>
+      <a href="#steps">Step-by-step plan</a>
+      <a href="#steps" class="sub">1 · Register globally</a>
+      <a href="#steps" class="sub">2 · Verify registration</a>
+      <a href="#steps" class="sub">3 · Verify live link</a>
+      <a href="#steps" class="sub">4 · Confirm</a>
+    </div>
+    <div class="group">
+      <h4>Operations</h4>
+      <a href="#verify">Fallback (bridge)</a>
+      <a href="#rollback">Rollback</a>
+      <a href="#decisions">Decisions needed</a>
+      <a href="#refs">References</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="content-wrap">
+  <main class="content">
+    <div class="titleblock">
+      <div class="eyebrow">Claude Code · MCP · User Scope</div>
+      <h1>Installing RhinoAiMCP Globally for Claude Code</h1>
+      <p class="sub">A step-by-step plan to register the Rhino-hosted MCP HTTP server as a global, user-scope tool — available in every project, with verification and one-line rollback.</p>
+    </div>
+
+    <div class="tldr">
+      <h3>TL;DR</h3>
+      <p>RhinoAiMCP embeds an <strong>HTTP MCP server</strong> inside Rhino at <code>http://localhost:3001/mcp</code>.<span class="cite" data-ref="1">[1]</span> Claude Code speaks HTTP transport natively, so it installs globally in one command — no <code>mcp-remote</code> bridge required.</p>
+      <ul>
+        <li><strong>One command:</strong> <code>claude mcp add --transport http --scope user rhinoceros3d http://localhost:3001/mcp</code></li>
+        <li><strong>Scope:</strong> <code>--scope user</code> = global, available across all projects.</li>
+        <li><strong>Catch:</strong> the endpoint only exists while Rhino is open and the <code>RhinoAiMCP</code> command is running.<span class="cite" data-ref="1">[1]</span></li>
+        <li><strong>Rollback:</strong> <code>claude mcp remove --scope user rhinoceros3d</code></li>
+      </ul>
+    </div>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>RhinoAiMCP is a lightweight Rhino 3D plugin that embeds a local MCP (Model Context Protocol) server directly into Rhino, enabling bidirectional communication between your modeling session and local AI assistants.<span class="cite" data-ref="1">[1]</span> The official instructions target Claude Desktop via an <code>npx mcp-remote</code> bridge; Claude Code can connect to the same endpoint <em>directly</em> over HTTP.</p>
+      <div class="flow">
+        <div class="node"><b>RHINO</b>Plugin +<br><code>RhinoAiMCP</code></div>
+        <span class="arr">→</span>
+        <div class="node"><b>HTTP SERVER</b>localhost<br>:3001/mcp</div>
+        <span class="arr">→</span>
+        <div class="node"><b>CLAUDE CODE</b>http transport<br>user scope</div>
+        <span class="arr">→</span>
+        <div class="node"><b>YOU</b>Natural-language<br>3D modeling</div>
+      </div>
+    </section>
+
+    <section id="prereqs">
+      <h2>Prerequisites</h2>
+      <h3>Machine check — all present on this computer</h3>
+      <div class="grid c3">
+        <div class="card"><div class="k">Claude Code</div><div class="v ok">v2.1.181 ✓</div></div>
+        <div class="card"><div class="k">Rhino 8</div><div class="v ok">Installed ✓</div></div>
+        <div class="card"><div class="k">Node.js / npx</div><div class="v ok">v24.13.0 ✓</div></div>
+      </div>
+      <table>
+        <tr><th>Requirement</th><th>Why</th><th>Status</th></tr>
+        <tr><td>Claude Code CLI</td><td>Host that registers the server</td><td><span class="pill ok">Ready</span></td></tr>
+        <tr><td>Rhino 8 (Windows-only plugin; R7 WIP)<span class="cite" data-ref="1">[1]</span></td><td>Hosts the MCP server</td><td><span class="pill ok">Ready</span></td></tr>
+        <tr><td>Node.js / npx</td><td>Only needed for the fallback bridge</td><td><span class="pill ok">Ready</span></td></tr>
+      </table>
+
+      <h3>Rhino-side setup (manual — done by you, in Rhino)</h3>
+      <div class="step">
+        <div class="num">A</div>
+        <div class="body">
+          <h3>Install the plugin</h3>
+          <p>In Rhino 8: <strong>Tools → Package Manager</strong>, search <strong>"RhinoAiMCP"</strong>, install, then restart Rhino. (Windows only.)<span class="cite" data-ref="1">[1]</span></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">B</div>
+        <div class="body">
+          <h3>Start the server</h3>
+          <p>In Rhino's command line, run <code>RhinoAiMCP</code>. Confirm you see:</p>
+          <pre><code><span class="tok-cmt">MCP server started: http://localhost:3001</span></code></pre>
+        </div>
+      </div>
+      <div class="note"><strong>Note:</strong> Registration in Claude Code does not require the server to be live — but <em>using</em> it does. If Rhino is closed, Claude Code will show the server as unavailable. That's expected, not a misconfiguration.</div>
+    </section>
+
+    <section id="steps">
+      <h2>Step-by-step install plan</h2>
+      <p>These are the exact commands I would run. Nothing executes until you approve.</p>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div class="body">
+          <h3>Register the server globally</h3>
+          <p>Direct HTTP transport, user scope (= global, every project). Writes to your global config.</p>
+          <pre><code><span class="tok-cmd">claude</span> mcp add <span class="tok-flag">--transport</span> http <span class="tok-flag">--scope</span> user rhinoceros3d <span class="tok-str">http://localhost:3001/mcp</span></code></pre>
+          <ul>
+            <li><code>--scope user</code> → global config, available in all projects.</li>
+            <li><code>--transport http</code> → talks straight to the endpoint, no <code>npx</code> bridge.</li>
+            <li><code>rhinoceros3d</code> → the server name (matches the source doc; renamable).<span class="cite" data-ref="1">[1]</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="body">
+          <h3>Verify it's registered</h3>
+          <pre><code><span class="tok-cmd">claude</span> mcp list
+<span class="tok-cmd">claude</span> mcp get rhinoceros3d</code></pre>
+          <p><code>list</code> should show <code>rhinoceros3d</code> with its HTTP URL; <code>get</code> confirms scope = <strong>user</strong>. This works even with Rhino closed.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="body">
+          <h3>Verify the live connection</h3>
+          <p>With Rhino open and <code>RhinoAiMCP</code> running, inside a Claude Code session run <code>/mcp</code> to confirm the server shows <strong>connected</strong> and lists its tools. If Rhino is closed, it shows failed — expected.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">4</div>
+        <div class="body">
+          <h3>Confirm and report</h3>
+          <p>I'll show you the final config entry and connection status, and note that the server only works while Rhino is running with the plugin active.</p>
+        </div>
+      </div>
+
+      <div class="note"><strong>Reminder:</strong> Claude Code loads MCP servers <em>at session startup</em>. After registering the server, <strong>start a new Claude Code session</strong> (quit and relaunch <code>claude</code>) for the <code>rhino</code> server to appear under <code>/mcp</code> — it will not show up in a session that was already running when it was added.</div>
+    </section>
+
+    <section id="verify">
+      <h2>Fallback — the <code>mcp-remote</code> bridge</h2>
+      <p>If direct HTTP fails to connect (some plugins use a quirky SSE/HTTP handshake), re-add using the bridge from the official instructions, which routes through your installed <code>npx</code>:<span class="cite" data-ref="1">[1]</span></p>
+      <pre><code><span class="tok-cmd">claude</span> mcp remove <span class="tok-flag">--scope</span> user rhinoceros3d
+<span class="tok-cmd">claude</span> mcp add <span class="tok-flag">--scope</span> user rhinoceros3d <span class="tok-flag">--</span> npx mcp-remote <span class="tok-str">http://localhost:3001/mcp</span></code></pre>
+    </section>
+
+    <section id="rollback">
+      <h2>Rollback</h2>
+      <p>Removing the global registration is a single command:</p>
+      <pre><code><span class="tok-cmd">claude</span> mcp remove <span class="tok-flag">--scope</span> user rhinoceros3d</code></pre>
+    </section>
+
+    <section id="decisions">
+      <h2>Decisions before I run anything</h2>
+      <table>
+        <tr><th>Choice</th><th>Options</th><th>My recommendation</th></tr>
+        <tr><td>Server name</td><td><code>rhinoceros3d</code> / <code>rhino</code></td><td>Either — <code>rhino</code> is shorter</td></tr>
+        <tr><td>Transport</td><td>Direct HTTP / mcp-remote bridge</td><td>Start with direct HTTP; fall back only if it won't connect</td></tr>
+      </table>
+    </section>
+
+    <section id="refs">
+      <h2>References</h2>
+      <ol class="refs">
+        <li id="ref-1"><strong>[1]</strong> RhinoAiMCP — plugin description &amp; Claude Desktop install instructions. Source: <code>RhinoAIMCP.md</code> (working directory), from <a href="https://www.food4rhino.com/en/app/rhinoaimcp" target="_blank" rel="noopener">food4rhino.com/en/app/rhinoaimcp</a>.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Generated 2026-06-18 · Plan only — no changes applied. Verify command behavior in your own terminal before relying on it.
+    </footer>
+  </main>
+  </div>
+</div>
+
+<script>
+// THEME
+const root=document.documentElement, tBtn=document.getElementById('themeToggle');
+function setTheme(t){root.setAttribute('data-theme',t);tBtn.textContent=t==='dark'?'🌙':'☀️';localStorage.setItem('rhmcp-theme',t);}
+setTheme(localStorage.getItem('rhmcp-theme')|| (matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));
+tBtn.onclick=()=>setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark');
+
+// SIDEBAR (toggle lives in top nav, always visible)
+const sb=document.getElementById('sidebar'), sBtn=document.getElementById('sideToggle');
+function setSide(c){sb.classList.toggle('collapsed',c);localStorage.setItem('rhmcp-side',c?'1':'0');}
+if(innerWidth<=860) setSide(true);
+else setSide(localStorage.getItem('rhmcp-side')==='1');
+sBtn.onclick=()=>setSide(!sb.classList.contains('collapsed'));
+
+// COPY BUTTONS
+document.querySelectorAll('pre').forEach(pre=>{
+  const b=document.createElement('button');b.className='copybtn';b.textContent='Copy';
+  b.onclick=()=>{navigator.clipboard.writeText(pre.innerText.replace(/Copy$/,'').trim());
+    b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1400);};
+  pre.appendChild(b);
+});
+
+// CITATION JUMP
+document.querySelectorAll('.cite').forEach(c=>c.onclick=()=>{
+  const el=document.getElementById('ref-'+c.dataset.ref);
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.style.transition='background .3s';el.style.background='color-mix(in srgb,var(--accent) 25%,transparent)';
+  setTimeout(()=>el.style.background='',1200);
+});
+
+// SCROLLSPY
+const secs=[...document.querySelectorAll('section[id]')];
+const navlinks=[...document.querySelectorAll('.topnav .links a')];
+addEventListener('scroll',()=>{
+  let cur=secs[0]?.id;
+  for(const s of secs){if(scrollY>=s.offsetTop-90)cur=s.id;}
+  navlinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur));
+},{passive:true});
+</script>
+</body>
+</html>
