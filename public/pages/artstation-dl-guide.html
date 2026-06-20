@@ -213,6 +213,7 @@
       <a href="#config">Config</a>
       <a href="#running">Running</a>
       <a href="#output">Output</a>
+      <a href="#batch">List input</a>
       <a href="#reference">Reference</a>
     </div>
     <div class="nav-right">
@@ -326,6 +327,13 @@
         <a href="#output">6 · Folder & JSON</a>
         <a href="#tree">Folder layout</a>
         <a href="#sidecars">JSON sidecars</a>
+      </div>
+    </div>
+    <div class="side-group" data-g>
+      <button>Batch list <span class="chev">▾</span></button>
+      <div class="side-links">
+        <a href="#batch">7 · List of URLs</a>
+        <a href="#batch-file">urls.txt &amp; -i</a>
       </div>
     </div>
     <div class="side-group" data-g>
@@ -648,6 +656,89 @@ uv run gallery-dl -c gallery-dl.conf "https://www.artstation.com/search?tags=The
         </svg>
         <div class="figcap">Figure 5 — The extractor aims highest first; bar length is illustrative of relative pixel size, not exact.</div>
       </div>
+    </section>
+
+    <!-- 7 BATCH LIST -->
+    <section id="batch">
+      <h2 class="sec"><span class="num">07</span>Downloading from a list of URLs</h2>
+      <p><code>gallery-dl</code> has a built-in input-file feature (<code>-i</code> / <code>--input-file</code>), so you needn't invoke it once per URL.<a class="cite" href="#ref-1">[1]</a> Two approaches:</p>
+
+      <h3>Option A — URLs on the command line</h3>
+      <p>Positional URLs are processed in order:</p>
+<pre><code>uv run gallery-dl -c gallery-dl.conf \
+  "https://www.artstation.com/artwork/rlbxmm" \
+  "https://www.artstation.com/artwork/y4wVnn"</code></pre>
+
+      <h3 id="batch-file">Option B — a urls.txt file (recommended)</h3>
+      <p>One URL per line. Lines starting with <code>#</code> are comments and blank lines are ignored, so you can annotate and group freely.</p>
+<pre><code><span class="cmt"># Marathon single posts</span>
+https://www.artstation.com/artwork/rlbxmm
+https://www.artstation.com/artwork/y4wVnn
+
+https://www.artstation.com/artwork/abcdEf</code></pre>
+<pre><code>uv run gallery-dl -c gallery-dl.conf -i urls.txt</code></pre>
+      <p><code>-i</code> can be repeated (<code>-i posts.txt -i artists.txt</code>) and accepts <code>-</code> for stdin — handy for piping straight from your clipboard:</p>
+
+      <div class="ostabs" data-ostabs>
+        <div class="ostab-bar" role="tablist" aria-label="Operating system">
+          <button role="tab" data-os="macos" id="t-clip-macos" aria-controls="p-clip-macos">macOS</button>
+          <button role="tab" data-os="linux" id="t-clip-linux" aria-controls="p-clip-linux">Linux</button>
+          <button role="tab" data-os="windows" id="t-clip-windows" aria-controls="p-clip-windows">Windows</button>
+        </div>
+        <div class="ostab-panel" data-os="macos" id="p-clip-macos" role="tabpanel" aria-labelledby="t-clip-macos"><pre><code>pbpaste | uv run gallery-dl -c gallery-dl.conf -i -</code></pre></div>
+        <div class="ostab-panel" data-os="linux" id="p-clip-linux" role="tabpanel" aria-labelledby="t-clip-linux"><pre><code>xclip -selection clipboard -o | uv run gallery-dl -c gallery-dl.conf -i -</code></pre></div>
+        <div class="ostab-panel" data-os="windows" id="p-clip-windows" role="tabpanel" aria-labelledby="t-clip-windows"><pre><code>Get-Clipboard | uv run gallery-dl -c gallery-dl.conf -i -</code></pre></div>
+      </div>
+
+      <h3>Self-updating variants</h3>
+      <table class="tbl">
+        <thead><tr><th>Flag</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><code>-i FILE</code></td><td>Read URLs; file left untouched (rely on the archive for dedup).</td></tr>
+          <tr><td><code>-I FILE</code></td><td>Comments out each line once its URL finishes.</td></tr>
+          <tr><td><code>-x FILE</code></td><td>Deletes each line after it completes.</td></tr>
+          <tr><td><code>-e FILE</code></td><td>Appends URLs that errored to FILE — a ready-made retry list.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="figure">
+        <svg viewBox="0 0 760 175" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+          <!-- urls.txt file -->
+          <g>
+            <rect class="diag-box" x="14" y="38" width="170" height="92" rx="10"/>
+            <text class="diag-text mono" x="30" y="34" font-size="11" font-weight="700">urls.txt</text>
+            <g class="diag-muted mono" font-size="10">
+              <text x="30" y="62">artwork/rlbxmm</text>
+              <text x="30" y="82">artwork/y4wVnn</text>
+              <text x="30" y="102">artwork/abcdEf</text>
+            </g>
+            <line x1="26" y1="50" x2="172" y2="50" stroke="var(--border)"/>
+          </g>
+          <!-- engine -->
+          <g>
+            <rect x="300" y="56" width="170" height="56" rx="11" fill="color-mix(in srgb,var(--accent) 13%,transparent)" stroke="var(--accent)"/>
+            <text class="diag-text mono" x="385" y="80" text-anchor="middle" font-size="12" font-weight="700">gallery-dl</text>
+            <text class="diag-muted mono" x="385" y="98" text-anchor="middle" font-size="11">-i urls.txt</text>
+          </g>
+          <!-- folders -->
+          <g>
+            <rect class="diag-box" x="586" y="40" width="160" height="40" rx="9"/>
+            <text class="diag-text mono" x="600" y="64" font-size="10.5">artstation/&lt;artist&gt;/</text>
+            <rect class="diag-box" x="586" y="92" width="160" height="40" rx="9"/>
+            <text class="diag-text mono" x="600" y="116" font-size="10.5">artstation/&lt;artist&gt;/</text>
+          </g>
+          <g class="diag-stroke" stroke-width="2" fill="var(--accent)">
+            <path d="M184 84 L298 84"/><path d="M291 79 l9 5 l-9 5 z"/>
+            <path d="M470 78 L584 60"/><path d="M577 56 l9 3 l-6 8 z"/>
+            <path d="M470 90 L584 110"/><path d="M578 102 l6 8 l-9 3 z"/>
+          </g>
+          <text class="diag-muted" x="385" y="150" text-anchor="middle" font-size="10.5">archive skips already-downloaded entries → append URLs and re-run safely</text>
+          <path d="M385 132 C 385 142, 385 142, 385 144" stroke="var(--accent)" stroke-width="1.3" fill="none" opacity="0.6" stroke-dasharray="3 4"/>
+        </svg>
+        <div class="figcap">Figure 6 — One input file fans out to many posts; the archive keeps re-runs idempotent.</div>
+      </div>
+
+      <div class="note"><strong>Pairs with the archive.</strong> Re-running the same <code>-i urls.txt</code> skips everything already downloaded, so you can keep appending URLs and re-run. These single-post URLs run through the <span class="badge">image</span> subcategory (1.0&nbsp;s spacing).</div>
     </section>
 
     <!-- REFERENCES -->
@@ -999,6 +1090,56 @@ On resolution: gallery-dl's ArtStation extractor automatically requests the larg
 building the `/8k/` (original) URL and falling back through `/4k/` → `/large/` → `/medium/`
 → `/small/` if a tier 404s. The real ceiling is whatever the artist uploaded; the sidecar
 dimensions are your receipt.
+
+## 7. Downloading from a list of URLs
+
+`gallery-dl` has a built-in input-file feature (`-i` / `--input-file`), so you don't
+need to invoke it once per URL.
+
+**Option A — URLs on the command line** (processed in order):
+
+```bash
+uv run gallery-dl -c gallery-dl.conf \
+  "https://www.artstation.com/artwork/rlbxmm" \
+  "https://www.artstation.com/artwork/y4wVnn"
+```
+
+**Option B — a `urls.txt` file, one URL per line (recommended):**
+
+```text
+# Marathon single posts
+https://www.artstation.com/artwork/rlbxmm
+https://www.artstation.com/artwork/y4wVnn
+
+https://www.artstation.com/artwork/abcdEf
+```
+
+Lines starting with `#` are comments; blank lines are ignored. Then:
+
+```bash
+uv run gallery-dl -c gallery-dl.conf -i urls.txt
+```
+
+`-i` can be repeated (`-i posts.txt -i artists.txt`) and accepts `-` for stdin, e.g.
+piping from the clipboard:
+
+- **macOS** — `pbpaste | uv run gallery-dl -c gallery-dl.conf -i -`
+- **Linux** — `xclip -selection clipboard -o | uv run gallery-dl -c gallery-dl.conf -i -`
+- **Windows (PowerShell)** — `Get-Clipboard | uv run gallery-dl -c gallery-dl.conf -i -`
+
+**Self-updating variants:**
+
+| Flag | Behaviour |
+| --- | --- |
+| `-i FILE` | Read URLs; file left untouched (rely on the archive for dedup). |
+| `-I FILE` | Comments out each line once its URL finishes. |
+| `-x FILE` | Deletes each line after it completes. |
+| `-e FILE` | Appends URLs that errored to FILE — a ready-made retry list. |
+
+This pairs with the archive: re-running the same `-i urls.txt` skips everything already
+downloaded, so you can keep appending URLs and re-run. Single-post URLs run through the
+`image` subcategory (1.0 s spacing).
+
 
 ---
 
