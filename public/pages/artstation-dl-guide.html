@@ -356,7 +356,7 @@
 
     <div class="tldr">
       <h2>⚡ TL;DR</h2>
-      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar.</p>
+      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar. Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4.</p>
     </div>
 
     <!-- 1 + 2 SETUP -->
@@ -411,6 +411,22 @@ cd artstation-dl</code></pre>
         </svg>
         <div class="figcap">Figure 1 — The three-command setup pipeline, all contained in the project venv.</div>
       </div>
+
+      <h3 id="install-deno">A JavaScript runtime (Deno) — only for YouTube / Vimeo embeds</h3>
+      <p>When a post embeds a YouTube / Vimeo player, <code>external: true</code> (see §4) hands it to <code>yt-dlp</code>. Modern YouTube wraps its player logic in JavaScript that <code>yt-dlp</code> must execute to (a) see the full list of formats and (b) solve the <code>n</code>-parameter <em>challenge</em> that unlocks the media URLs. With no JS runtime available, <code>yt-dlp</code> prints a deprecation warning and — for some videos — fails the download outright with <code>HTTP Error 403: Forbidden</code>.<a class="cite" href="#ref-3">[3]</a></p>
+      <p><code>yt-dlp</code> looks for <strong>Deno</strong> by default, so install it once — <strong>system-wide</strong>, not inside the venv:</p>
+      <div class="ostabs" data-ostabs>
+        <div class="ostab-bar" role="tablist" aria-label="Operating system">
+          <button role="tab" data-os="macos" id="t-deno-macos" aria-controls="p-deno-macos">macOS</button>
+          <button role="tab" data-os="linux" id="t-deno-linux" aria-controls="p-deno-linux">Linux</button>
+          <button role="tab" data-os="windows" id="t-deno-windows" aria-controls="p-deno-windows">Windows</button>
+        </div>
+        <div class="ostab-panel" data-os="macos" id="p-deno-macos" role="tabpanel" aria-labelledby="t-deno-macos"><pre><code>brew install deno</code></pre></div>
+        <div class="ostab-panel" data-os="linux" id="p-deno-linux" role="tabpanel" aria-labelledby="t-deno-linux"><pre><code>curl -fsSL https://deno.land/install.sh | sh</code></pre></div>
+        <div class="ostab-panel" data-os="windows" id="p-deno-windows" role="tabpanel" aria-labelledby="t-deno-windows"><pre><code>winget install DenoLand.Deno</code></pre></div>
+      </div>
+      <p>Open a <em>new</em> terminal (so PATH refreshes), then confirm with <code>deno --version</code>. <code>yt-dlp</code> picks it up automatically — but Deno alone isn't always enough: pair it with the <strong>EJS</strong> solver wired into the config in §4.</p>
+      <div class="note"><strong>System-wide, by necessity.</strong> Unlike <code>gallery-dl</code> / <code>yt-dlp</code>, Deno can't be project-scoped — <code>yt-dlp</code> needs a real JS runtime on your PATH, not a Python package. Skip this entirely if you never grab posts with embedded videos.</div>
     </section>
 
     <!-- 3 SCENARIOS -->
@@ -503,6 +519,11 @@ uv run gallery-dl -c gallery-dl.conf "https://www.artstation.com/search?tags=The
         "directory": ["{category}", "{user[username]}"]
       }
     }
+  },
+  "downloader": {
+    "ytdl": {
+      "cmdline-args": ["--remote-components", "ejs:github"]
+    }
   }
 }</code></pre>
       <div class="dlrow"><button class="dlbtn secondary" id="dl-conf" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download gallery-dl.conf</button></div>
@@ -521,6 +542,7 @@ uv run gallery-dl -c gallery-dl.conf "https://www.artstation.com/search?tags=The
           <tr><td><code>postprocessors</code></td><td><code>metadata / json</code> → writes a <code>.json</code> sidecar beside every file.</td></tr>
           <tr><td>per-subcategory<br><code>sleep-request</code></td><td>The channel-vs-artist timing, baked in: <code>image</code> 1.0s · <code>user</code> 1.5s · <code>search</code> 2.5s. Subcategory blocks override the base; shared keys like <code>external</code> are inherited.</td></tr>
           <tr><td><code>search.directory</code></td><td>Overrides the default <code>Searches/&lt;query&gt;</code> folder so the collection <strong>still sorts per-artist</strong> via each post's author <code>{user[username]}</code>.</td></tr>
+          <tr><td><code>downloader.ytdl</code><br><code>cmdline-args</code></td><td>Flags passed straight to <code>yt-dlp</code>. <code>--remote-components ejs:github</code> fetches the <strong>EJS</strong> challenge-solver script and runs it (via the Deno runtime from §2) to solve YouTube's <code>n</code>-parameter challenge — without it some embedded videos fail with <code>HTTP Error 403: Forbidden</code>. Downloads once, then cached; harmless when not needed.<a class="cite" href="#ref-7">[7]</a></td></tr>
         </tbody>
       </table>
     </section>
@@ -751,6 +773,7 @@ https://www.artstation.com/artwork/abcdEf</code></pre>
         <li id="ref-4">uv (Astral) documentation: <a class="ext" href="https://docs.astral.sh/uv/" target="_blank" rel="noopener">docs.astral.sh/uv</a></li>
         <li id="ref-5">ArtStation <code>/8k/</code> original-resolution note — gallery-dl issue #9003: <a class="ext" href="https://github.com/mikf/gallery-dl/issues/9003" target="_blank" rel="noopener">github.com/mikf/gallery-dl/issues/9003</a></li>
         <li id="ref-6">Resolution tier / URL-segment behaviour — gallery-dl issue #1422: <a class="ext" href="https://github.com/mikf/gallery-dl/issues/1422" target="_blank" rel="noopener">github.com/mikf/gallery-dl/issues/1422</a></li>
+        <li id="ref-7">yt-dlp EJS — JavaScript challenge solver: <a class="ext" href="https://github.com/yt-dlp/yt-dlp/wiki/EJS" target="_blank" rel="noopener">github.com/yt-dlp/yt-dlp/wiki/EJS</a></li>
       </ol>
       <p class="foot-meta">Consolidated from this conversation · for personal study &amp; reference use · 2026-06-20. Downloaded artwork remains the copyright of Bungie and the individual artists.</p>
     </footer>
@@ -891,6 +914,11 @@ https://www.artstation.com/artwork/abcdEf</code></pre>
                 "directory": ["{category}", "{user[username]}"]
             }
         }
+    },
+    "downloader": {
+        "ytdl": {
+            "cmdline-args": ["--remote-components", "ejs:github"]
+        }
     }
 }
 </script>
@@ -905,6 +933,7 @@ with per-scenario settings handled by a single config file.
 > three URL shapes (a single post, a whole artist, or a tag collection via *search*).
 > Always dry-run with `-s` first, then a capped `--range 1-50` batch, then the full run.
 > Every file lands in `downloads/artstation/<artist>/` next to a `.json` metadata sidecar.
+> Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4.
 
 ---
 
@@ -944,6 +973,28 @@ to it. Keep it current as a hedge against ArtStation video changes: `uv lock --u
 
 > Note: `uv add` is project-scoped (venv + `uv run`). This is different from
 > `uv tool install` / `uvx`, which deliberately expose a command globally — not what we want here.
+
+### Install a JavaScript runtime (Deno) — only for YouTube/Vimeo embeds
+
+When a post embeds a YouTube/Vimeo player, `external: true` (see §4) hands it to `yt-dlp`.
+Modern YouTube wraps its player logic in JavaScript that `yt-dlp` must execute to (a) see
+the full list of formats and (b) solve the `n`-parameter *challenge* that unlocks the media
+URLs. With no JS runtime available, `yt-dlp` prints a deprecation warning and — for some
+videos — fails the download outright with `HTTP Error 403: Forbidden`.
+
+`yt-dlp` looks for **Deno** by default, so install it once (system-wide):
+
+- **macOS** — `brew install deno`
+- **Linux** — `curl -fsSL https://deno.land/install.sh | sh`
+- **Windows** — `winget install DenoLand.Deno`
+
+Open a **new** terminal afterward (so PATH refreshes) and confirm with `deno --version`.
+`yt-dlp` then finds it automatically. Deno alone isn't always enough, though — pair it with
+the EJS solver wired into the config in §4.
+
+> Unlike `gallery-dl`/`yt-dlp`, Deno is **system-wide**, not project-scoped: `yt-dlp` needs a
+> real JS runtime on your PATH, not a Python package. If you never download posts with
+> embedded videos, you can skip this step.
 
 ## 3. The three download scenarios
 
@@ -999,6 +1050,11 @@ Pointing at the file explicitly with `-c gallery-dl.conf` is therefore what keep
                 "directory": ["{category}", "{user[username]}"]
             }
         }
+    },
+    "downloader": {
+        "ytdl": {
+            "cmdline-args": ["--remote-components", "ejs:github"]
+        }
     }
 }
 ```
@@ -1014,6 +1070,7 @@ What each setting does:
 - **`postprocessors` → metadata/json** — write a `.json` sidecar next to every file.
 - **Per-subcategory `sleep-request`** — the channel-vs-artist timing you asked for, baked in: `image` 1.0s, `user` 1.5s, `search` 2.5s (gentlest pace for the largest crawl). Subcategory blocks override the base; shared keys like `external` are inherited.
 - **`search.directory`** — overrides the default `Searches/<query>` folder so the collection **still sorts into per-artist folders** via each post's author (`{user[username]}`).
+- **`downloader.ytdl.cmdline-args`** — flags passed straight through to `yt-dlp`. `--remote-components ejs:github` tells it to fetch the **EJS** challenge-solver script from GitHub and run it (via the Deno runtime from §2) to solve YouTube's `n`-parameter challenge. Without it, some embedded YouTube videos fail with `HTTP Error 403: Forbidden`. The script downloads once and is cached; it's harmless for videos that don't need it. *(Companion to the Deno install in §2 — the runtime executes the solver.)*
 
 Config files are **strict JSON** — no comments allowed.
 
@@ -1151,6 +1208,7 @@ downloaded, so you can keep appending URLs and re-run. Single-post URLs run thro
 4. uv (Astral) documentation: <https://docs.astral.sh/uv/>
 5. ArtStation `/8k/` original-resolution note (gallery-dl issue #9003)
 6. Resolution tier / URL-segment behaviour (gallery-dl issue #1422)
+7. yt-dlp EJS — JavaScript challenge solver: <https://github.com/yt-dlp/yt-dlp/wiki/EJS>
 </script>
 <script>
 (function(){
