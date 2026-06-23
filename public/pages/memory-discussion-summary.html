@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Memory: How It Works, Where It Lives, and Whether It Travels</title>
+<meta name="description" content="A summary of how Claude Code's file-based memory feature works, where it is stored locally, and whether it follows you across computers.">
+<meta name="keywords" content="claude-code, memory, package-manager, yarn-vs-npm, local-storage, cross-machine-sync">
+<meta name="date" content="2026-06-23">
+<style>
+:root{
+  --bg:#f7f8fa; --surface:#ffffff; --surface-2:#eef1f5; --text:#1a1d23; --text-soft:#525a66;
+  --border:#e0e4ea; --accent:#4f6df5; --accent-soft:#e6ebff; --ok:#1f9d6b; --warn:#d98a00; --err:#d24a4a;
+  --code-bg:#f0f2f6; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+  --nav-h:58px;
+}
+html[data-theme="dark"]{
+  --bg:#0e1116; --surface:#161b22; --surface-2:#1c232d; --text:#e6edf3; --text-soft:#9aa6b2;
+  --border:#2a313c; --accent:#7b93ff; --accent-soft:#1e2740; --ok:#3fd093; --warn:#f0b44a; --err:#f07474;
+  --code-bg:#1a212b; --shadow:0 1px 3px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.65;transition:background .3s,color .3s}
+code,pre{font-family:"SF Mono",ui-monospace,Menlo,Consolas,"Courier New",monospace}
+
+/* ---------- Top Nav ---------- */
+.topnav{position:sticky;top:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;
+  gap:14px;padding:0 18px;background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.topnav .brand{font-weight:700;font-size:15px;letter-spacing:.2px;white-space:nowrap}
+.topnav .brand .dot{color:var(--accent)}
+.topnav .links{display:flex;gap:6px;flex:1;justify-content:center;flex-wrap:wrap}
+.topnav .links a{color:var(--text-soft);text-decoration:none;font-size:13.5px;font-weight:500;
+  padding:7px 13px;border-radius:8px;transition:.18s;white-space:nowrap}
+.topnav .links a:hover{color:var(--text);background:var(--surface-2)}
+.topnav .links a.active{color:var(--accent);background:var(--accent-soft)}
+.iconbtn{cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  width:38px;height:38px;border-radius:9px;display:grid;place-items:center;font-size:16px;transition:.18s}
+.iconbtn:hover{background:var(--surface-2);border-color:var(--accent)}
+
+/* ---------- Layout ---------- */
+.shell{display:flex}
+.sidebar{width:260px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);
+  position:sticky;top:var(--nav-h);height:calc(100vh - var(--nav-h));overflow-y:auto;
+  transition:width .25s,padding .25s,opacity .2s;padding:20px 14px}
+.sidebar.collapsed{width:0;padding:0;opacity:0;overflow:hidden;border-right:none}
+.sidebar h4{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-soft);
+  margin:14px 8px 8px}
+.sidebar a{display:block;color:var(--text-soft);text-decoration:none;font-size:13px;padding:7px 10px;
+  border-radius:7px;transition:.15s;border-left:2px solid transparent}
+.sidebar a:hover{color:var(--text);background:var(--surface-2)}
+.sidebar a.active{color:var(--accent);background:var(--accent-soft);border-left-color:var(--accent)}
+.sidebar a.sub{padding-left:22px;font-size:12.5px}
+
+.main{flex:1;min-width:0}
+.content{max-width:820px;margin:0 auto;padding:0 24px 90px}
+
+/* ---------- Cover band ---------- */
+.cover{width:100%;height:300px;overflow:hidden;position:relative;border-bottom:1px solid var(--border);
+  background:var(--surface-2)}
+.cover svg{width:100%;height:100%;display:block}
+.cover .light-c{display:block}.cover .dark-c{display:none}
+html[data-theme="dark"] .cover .light-c{display:none}
+html[data-theme="dark"] .cover .dark-c{display:block}
+
+/* ---------- Title ---------- */
+.titleblock{max-width:820px;margin:0 auto;padding:38px 24px 0;text-align:left}
+.titleblock .eyebrow{color:var(--accent);font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase}
+.titleblock h1{font-size:33px;line-height:1.2;margin:10px 0 8px;letter-spacing:-.5px}
+.titleblock .sub{color:var(--text-soft);font-size:16.5px;max-width:640px}
+.titleblock .meta{margin-top:14px;font-size:12.5px;color:var(--text-soft)}
+
+/* ---------- TLDR ---------- */
+.tldr{max-width:820px;margin:26px auto 0;padding:0 24px}
+.tldr-card{background:linear-gradient(135deg,var(--accent-soft),var(--surface));
+  border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:var(--shadow)}
+.tldr-card .tag{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:700;
+  letter-spacing:1px;padding:3px 10px;border-radius:20px;margin-bottom:10px}
+.tldr-card ul{margin:6px 0 0 18px}
+.tldr-card li{margin:5px 0;font-size:14.5px}
+
+/* ---------- Sections ---------- */
+section{padding-top:42px;scroll-margin-top:calc(var(--nav-h) + 14px)}
+section h2{font-size:23px;letter-spacing:-.3px;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+section h2 .num{font-size:13px;color:var(--accent);font-weight:700;background:var(--accent-soft);
+  width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex-shrink:0}
+section h3{font-size:16.5px;margin:22px 0 6px}
+p{margin:10px 0;color:var(--text)}
+.content p, .content li{color:var(--text)}
+.muted{color:var(--text-soft)}
+
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+  overflow-x:auto;font-size:13px;margin:12px 0;line-height:1.55}
+:not(pre)>code{background:var(--code-bg);border:1px solid var(--border);border-radius:5px;
+  padding:1px 6px;font-size:12.5px}
+
+.cite{cursor:pointer;color:var(--accent);font-size:11px;font-weight:700;vertical-align:super;
+  text-decoration:none;background:var(--accent-soft);padding:1px 5px;border-radius:5px;margin-left:2px}
+.cite:hover{background:var(--accent);color:#fff}
+
+.callout{border-left:4px solid var(--accent);background:var(--surface);border:1px solid var(--border);
+  border-left-width:4px;border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;box-shadow:var(--shadow)}
+.callout.warn{border-left-color:var(--warn)}
+.callout.ok{border-left-color:var(--ok)}
+.callout b{font-size:13.5px}
+
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;background:var(--surface);
+  border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-soft)}
+tr:last-child td{border-bottom:none}
+
+/* ---------- Diagram ---------- */
+.diagram{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;
+  margin:18px 0;box-shadow:var(--shadow)}
+.diagram svg{width:100%;height:auto;display:block}
+.dg-text{fill:var(--text)}.dg-soft{fill:var(--text-soft)}.dg-stroke{stroke:var(--border)}
+.dg-box{fill:var(--surface-2)}.dg-acc{fill:var(--accent)}.dg-acc-soft{fill:var(--accent-soft)}
+.dg-line{stroke:var(--accent);stroke-width:2;fill:none}
+
+.flow{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin:18px 0}
+.flow .step{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);position:relative}
+.flow .step .n{font-size:11px;font-weight:700;color:var(--accent)}
+.flow .step h4{font-size:14px;margin:4px 0 4px}
+.flow .step p{font-size:12.5px;color:var(--text-soft);margin:0}
+
+/* ---------- Footer / refs ---------- */
+.refs li{margin:9px 0;font-size:13.5px;color:var(--text-soft)}
+.refs li b{color:var(--text)}
+footer{border-top:1px solid var(--border);margin-top:50px;padding-top:20px;font-size:12.5px;color:var(--text-soft)}
+.flash{animation:fl 1.4s ease}
+@keyframes fl{0%,100%{background:transparent}25%{background:var(--accent-soft)}}
+
+/* ---------- Responsive ---------- */
+@media(max-width:880px){
+  .sidebar{position:fixed;z-index:90;left:0;box-shadow:var(--shadow)}
+  .sidebar.collapsed{box-shadow:none}
+  .topnav .links{display:none}
+  .titleblock h1{font-size:27px}
+  .cover{height:210px}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== TOP NAV ===== -->
+<nav class="topnav">
+  <button class="iconbtn" id="sidebarToggle" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
+  <span class="brand">memory<span class="dot">.</span>notes</span>
+  <div class="links">
+    <a href="#start" class="navlink">How it started</a>
+    <a href="#mechanism" class="navlink">The mechanism</a>
+    <a href="#location" class="navlink">Where it lives</a>
+    <a href="#portability" class="navlink">Portability</a>
+    <a href="#references" class="navlink">References</a>
+  </div>
+  <button class="iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌙</button>
+</nav>
+
+<div class="shell">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <h4>Contents</h4>
+    <a href="#start" class="slink">1 · The yarn/npm mistake</a>
+    <a href="#start-detail" class="slink sub">What went wrong</a>
+    <a href="#start-fix" class="slink sub">The correction</a>
+    <a href="#mechanism" class="slink">2 · How memory was saved</a>
+    <a href="#mech-files" class="slink sub">The two files</a>
+    <a href="#mech-flow" class="slink sub">How it's used later</a>
+    <a href="#location" class="slink">3 · Where it lives</a>
+    <a href="#portability" class="slink">4 · Does it travel?</a>
+    <a href="#port-why" class="slink sub">Why it's lost</a>
+    <a href="#port-options" class="slink sub">Options to sync</a>
+    <a href="#references" class="slink">References</a>
+  </aside>
+
+  <main class="main">
+    <!-- ===== COVER ===== -->
+    <div class="cover">
+      <!-- LIGHT -->
+      <svg class="light-c" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bgL" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#eef1f8"/><stop offset="1" stop-color="#dfe6f5"/>
+          </linearGradient>
+        </defs>
+        <rect width="1200" height="300" fill="url(#bgL)"/>
+        <g stroke="#c3cde6" stroke-width="1" opacity="0.5">
+          <path d="M0 230 L1200 230"/><path d="M0 200 L1200 200"/><path d="M0 260 L1200 260"/>
+        </g>
+        <!-- axonometric stacked "memory files" -->
+        <g transform="translate(180,150)">
+          <g stroke="#4f6df5" stroke-width="2" fill="#e6ebff" fill-opacity="0.55">
+            <path d="M0 0 L70 -40 L140 0 L70 40 Z"/>
+            <path d="M0 -30 L70 -70 L140 -30 L70 10 Z"/>
+            <path d="M0 -60 L70 -100 L140 -60 L70 -20 Z"/>
+          </g>
+          <path d="M0 0 L0 -60 M140 0 L140 -60 M70 40 L70 -20" stroke="#4f6df5" stroke-width="1.5" opacity="0.4"/>
+        </g>
+        <!-- index node connecting out -->
+        <g transform="translate(620,140)">
+          <rect x="0" y="-26" width="150" height="52" rx="8" fill="#ffffff" stroke="#4f6df5" stroke-width="2"/>
+          <text x="75" y="5" text-anchor="middle" font-family="monospace" font-size="15" fill="#4f6df5">MEMORY.md</text>
+        </g>
+        <g stroke="#4f6df5" stroke-width="2" fill="none" opacity="0.7">
+          <path d="M770 140 C 860 140, 880 90, 970 90"/>
+          <path d="M770 150 C 880 150, 900 160, 980 160"/>
+          <path d="M770 160 C 860 160, 890 220, 980 225"/>
+        </g>
+        <g fill="#4f6df5">
+          <circle cx="978" cy="90" r="6"/><circle cx="988" cy="160" r="6"/><circle cx="988" cy="225" r="6"/>
+        </g>
+        <g transform="translate(1010,160)" fill="#7884a8" font-family="monospace" font-size="13">
+          <text x="0" y="-66">fact.md</text><text x="0" y="4">fact.md</text><text x="0" y="68">fact.md</text>
+        </g>
+      </svg>
+      <!-- DARK -->
+      <svg class="dark-c" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bgD" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#10151e"/><stop offset="1" stop-color="#161f30"/>
+          </linearGradient>
+        </defs>
+        <rect width="1200" height="300" fill="url(#bgD)"/>
+        <g stroke="#2a364d" stroke-width="1" opacity="0.6">
+          <path d="M0 230 L1200 230"/><path d="M0 200 L1200 200"/><path d="M0 260 L1200 260"/>
+        </g>
+        <g transform="translate(180,150)">
+          <g stroke="#7b93ff" stroke-width="2" fill="#7b93ff" fill-opacity="0.14">
+            <path d="M0 0 L70 -40 L140 0 L70 40 Z"/>
+            <path d="M0 -30 L70 -70 L140 -30 L70 10 Z"/>
+            <path d="M0 -60 L70 -100 L140 -60 L70 -20 Z"/>
+          </g>
+          <path d="M0 0 L0 -60 M140 0 L140 -60 M70 40 L70 -20" stroke="#7b93ff" stroke-width="1.5" opacity="0.45"/>
+        </g>
+        <g transform="translate(620,140)">
+          <rect x="0" y="-26" width="150" height="52" rx="8" fill="#161b22" stroke="#7b93ff" stroke-width="2"/>
+          <text x="75" y="5" text-anchor="middle" font-family="monospace" font-size="15" fill="#7b93ff">MEMORY.md</text>
+        </g>
+        <g stroke="#7b93ff" stroke-width="2" fill="none" opacity="0.8">
+          <path d="M770 140 C 860 140, 880 90, 970 90"/>
+          <path d="M770 150 C 880 150, 900 160, 980 160"/>
+          <path d="M770 160 C 860 160, 890 220, 980 225"/>
+        </g>
+        <g fill="#7b93ff">
+          <circle cx="978" cy="90" r="6"/><circle cx="988" cy="160" r="6"/><circle cx="988" cy="225" r="6"/>
+        </g>
+        <g transform="translate(1010,160)" fill="#8b97b8" font-family="monospace" font-size="13">
+          <text x="0" y="-66">fact.md</text><text x="0" y="4">fact.md</text><text x="0" y="68">fact.md</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ===== TITLE ===== -->
+    <div class="titleblock">
+      <div class="eyebrow">Session Summary</div>
+      <h1>Claude Code Memory: How It Works, Where It Lives, and Whether It Travels</h1>
+      <p class="sub">A walkthrough of a chat that began with a yarn-vs-npm slip and turned into a tour of the file-based memory feature — what gets written, to which local files, and what happens on a different computer.</p>
+      <div class="meta">Topic recap · 23 June 2026 · 4 parts</div>
+    </div>
+
+    <!-- ===== TLDR ===== -->
+    <div class="tldr">
+      <div class="tldr-card">
+        <span class="tag">TL;DR</span>
+        <ul>
+          <li>The discussion started when I recommended <code>npm install</code> for a project that actually uses <b>Yarn</b> (it has a <code>yarn.lock</code>) — I assumed instead of checking. <a class="cite" data-ref="1">[1]</a></li>
+          <li>I saved that lesson as a <b>memory</b>: plain Markdown files under <code>~/.claude\projects\…\memory\</code>, one fact per file, indexed by <code>MEMORY.md</code>. <a class="cite" data-ref="2">[2]</a></li>
+          <li>The index loads each session; the full fact is read only when its one-liner looks relevant. It's a note-to-self, not an enforced setting. <a class="cite" data-ref="2">[2]</a></li>
+          <li>This memory is <b>local to this machine</b> and tied to the absolute project path — it is not in git and won't follow you to another computer unless you sync <code>~/.claude</code> or move the fact into a committed <code>CLAUDE.md</code>. <a class="cite" data-ref="3">[3]</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== 1 ===== -->
+      <section id="start">
+        <h2><span class="num">1</span> How it started: the yarn / npm mistake</h2>
+        <p>The thread didn't begin as a question about memory at all. It began with a wrong recommendation. <a class="cite" data-ref="1">[1]</a></p>
+
+        <h3 id="start-detail">What went wrong</h3>
+        <p>Asked how to run a React Three Fiber starter project, I read its <code>package.json</code>, saw standard Vite scripts (<code>"dev": "vite"</code>), checked the installed Node/npm versions, and then handed over <code>npm install</code> / <code>npm run dev</code>. I never looked for a lockfile.</p>
+        <div class="callout warn">
+          <b>The catch.</b> The folder contained a <code>yarn.lock</code> and <i>no</i> <code>package-lock.json</code> — so the project uses <b>Yarn</b>. Using <code>npm install</code> would have generated a competing <code>package-lock.json</code> and an inconsistent dependency tree. The fix was a one-line directory listing I skipped. <a class="cite" data-ref="1">[1]</a>
+        </div>
+
+        <h3 id="start-fix">The correction</h3>
+        <p>The right commands respect the lockfile. Since this project's lockfile is Yarn's, the install/run is OS-agnostic:</p>
+        <pre><code>cd "...\r3f_ultimate_guide\Ch03_22_physics\22-physics-starter"
+yarn install     # installs deps from yarn.lock
+yarn dev         # starts the Vite dev server (http://localhost:5173)</code></pre>
+        <p class="muted">When the user asked how I'd "forgotten" to use yarn, the honest answer was: I let <code>package.json</code>'s scripts stand in for the whole picture and assumed rather than verified. That correction is what got written to memory. <a class="cite" data-ref="1">[1]</a></p>
+      </section>
+
+      <!-- ===== 2 ===== -->
+      <section id="mechanism">
+        <h2><span class="num">2</span> How the lesson was "saved to memory"</h2>
+        <p>Memory here is not a database or a cloud service — it is just plain Markdown files written to local disk with the ordinary <code>Write</code> tool. <a class="cite" data-ref="2">[2]</a></p>
+
+        <h3 id="mech-files">The two files written</h3>
+        <table>
+          <tr><th>File</th><th>Role</th><th>Contents</th></tr>
+          <tr>
+            <td><code>detect-package-manager-from-lockfile.md</code></td>
+            <td>The memory itself — one fact per file</td>
+            <td>YAML frontmatter (<code>name</code> slug, <code>description</code> for relevance, <code>type: feedback</code>) then the fact with <b>Why</b> and <b>How to apply</b> lines</td>
+          </tr>
+          <tr>
+            <td><code>MEMORY.md</code></td>
+            <td>The index / table of contents</td>
+            <td>One line per memory, loaded into context at the start of every session</td>
+          </tr>
+        </table>
+        <p>The fact file's frontmatter looked like this:</p>
+        <pre><code>---
+name: detect-package-manager-from-lockfile
+description: Before giving install/run commands for a JS
+  project, detect the package manager from its lockfile
+metadata:
+  type: feedback
+---
+
+Before recommending install/run commands ... check for a lockfile
+(yarn.lock → yarn, pnpm-lock.yaml → pnpm, package-lock.json → npm ...).
+Do NOT default to npm just because package.json has standard scripts.
+
+**Why:** ... recommended npm install for a project that had a yarn.lock.
+**How to apply:** list the directory for a lockfile in the same step
+as reading package.json, then give matching commands.</code></pre>
+
+        <h3 id="mech-flow">How it gets used later</h3>
+        <div class="flow">
+          <div class="step"><div class="n">STEP 1</div><h4>Session start</h4><p><code>MEMORY.md</code> index loads automatically into context.</p></div>
+          <div class="step"><div class="n">STEP 2</div><h4>Relevance check</h4><p>If a one-liner looks relevant to the request, the full <code>.md</code> is read.</p></div>
+          <div class="step"><div class="n">STEP 3</div><h4>Apply</h4><p>The fact's guidance is followed — e.g. check the lockfile first.</p></div>
+        </div>
+        <div class="callout ok">
+          <b>Key nuance.</b> The actual fact stays out of context until needed — only the index is always loaded. And it's a note-to-self for future sessions, <i>not</i> a live setting; nothing enforces it automatically. It works by being surfaced back and then followed. <a class="cite" data-ref="2">[2]</a>
+        </div>
+      </section>
+
+      <!-- ===== 3 ===== -->
+      <section id="location">
+        <h2><span class="num">3</span> Where it lives on disk</h2>
+        <p>Everything sits under the user home directory, in a per-project folder whose name is derived from the project's absolute path: <a class="cite" data-ref="2">[2]</a></p>
+        <pre><code>C:\Users\hopez\.claude\projects\C--Users-hopez-Downloads-dev\memory\
+        │                        │
+        │                        └─ working dir "C:\Users\hopez\Downloads\dev"
+        │                           with separators flattened to dashes
+        └─ user home, NOT inside the project repo</code></pre>
+
+        <div class="diagram">
+          <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+            <!-- home -->
+            <rect class="dg-box dg-stroke" x="20" y="20" width="720" height="210" rx="12" stroke-width="1.5"/>
+            <text class="dg-soft" x="38" y="46" font-family="monospace" font-size="13">~/.claude/   (user home — outside any git repo)</text>
+            <!-- projects -->
+            <rect class="dg-acc-soft dg-stroke" x="44" y="62" width="676" height="150" rx="10" stroke-width="1.5"/>
+            <text class="dg-soft" x="60" y="86" font-family="monospace" font-size="12">projects/C--Users-hopez-Downloads-dev/memory/</text>
+            <!-- index -->
+            <rect x="66" y="104" width="200" height="46" rx="8" class="dg-stroke" fill="none" stroke-width="2" style="stroke:var(--accent)"/>
+            <text class="dg-acc" x="166" y="125" text-anchor="middle" font-family="monospace" font-size="13" style="fill:var(--accent)">MEMORY.md</text>
+            <text class="dg-soft" x="166" y="142" text-anchor="middle" font-size="10">always loaded · index</text>
+            <!-- fact -->
+            <rect x="320" y="104" width="360" height="46" rx="8" class="dg-box dg-stroke" stroke-width="1.5"/>
+            <text class="dg-text" x="500" y="125" text-anchor="middle" font-family="monospace" font-size="12">detect-package-manager-from-lockfile.md</text>
+            <text class="dg-soft" x="500" y="142" text-anchor="middle" font-size="10">read on demand · one fact</text>
+            <!-- arrow -->
+            <path d="M266 127 L312 127" class="dg-line" marker-end="url(#ah)"/>
+            <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0 0 L9 4.5 L0 9 Z" fill="var(--accent)"/></marker></defs>
+            <text class="dg-soft" x="289" y="118" text-anchor="middle" font-size="10">links to</text>
+            <text class="dg-soft" x="60" y="196" font-size="11">▲ The repo at C:\Users\hopez\Downloads\dev is elsewhere — this folder is never committed.</text>
+          </svg>
+        </div>
+        <p>Two consequences flow directly from this location: it is <b>not part of the git repo</b>, and its folder name is <b>tied to this machine's absolute path</b>. Both matter for the next question. <a class="cite" data-ref="3">[3]</a></p>
+      </section>
+
+      <!-- ===== 4 ===== -->
+      <section id="portability">
+        <h2><span class="num">4</span> Does it travel to another computer?</h2>
+        <p>Short answer: <b>no, not by default.</b> <a class="cite" data-ref="3">[3]</a></p>
+
+        <h3 id="port-why">Why it's lost</h3>
+        <table>
+          <tr><th>Reason</th><th>Effect</th></tr>
+          <tr><td>It's under <code>~/.claude\</code>, outside the project</td><td>Never committed or pushed — cloning the repo elsewhere brings none of it.</td></tr>
+          <tr><td>Folder name is path-derived</td><td>On a machine where the project lives at e.g. <code>D:\code\dev</code>, the harness looks under a different folder name and finds nothing — even copied files would need the matching path-derived folder.</td></tr>
+        </table>
+
+        <h3 id="port-options">Options if you want it to follow you</h3>
+        <table>
+          <tr><th>Approach</th><th>How</th><th>Trade-off</th></tr>
+          <tr><td>Cloud-sync <code>~/.claude</code></td><td>Put it in OneDrive / Dropbox / git</td><td>Simplest; syncs all projects. Path-derived folder names must still match.</td></tr>
+          <tr><td>Commit into the repo</td><td>Move the fact into a project <code>CLAUDE.md</code></td><td>Travels with <code>git push/pull</code>, works at any path. Best for project-specific facts.</td></tr>
+          <tr><td>Manual copy</td><td>Copy the <code>memory\</code> folder when switching</td><td>Tedious; folder name must match the new machine's path.</td></tr>
+        </table>
+        <div class="callout">
+          <b>Recommendation given.</b> For this particular "use yarn / detect from the lockfile" fact, the cleanest home is a <code>CLAUDE.md</code> at the repo root — it's project-specific, gets pushed, and works on any machine at any path. Memory under <code>~/.claude</code> is better for cross-project habits and things you don't want in the repo. (The user chose to leave it as-is.) <a class="cite" data-ref="3">[3]</a>
+        </div>
+      </section>
+
+      <!-- ===== REFERENCES ===== -->
+      <section id="references">
+        <h2><span class="num">§</span> References</h2>
+        <ol class="refs">
+          <li id="ref-1"><b>[1] The yarn/npm exchange.</b> Chat turns where <code>npm install</code> was recommended for the <code>22-physics-starter</code> project, the user noted it uses Yarn, and the presence of <code>yarn.lock</code> (and absence of <code>package-lock.json</code>) was confirmed.</li>
+          <li id="ref-2"><b>[2] Explanation of the memory mechanism.</b> Chat turn describing the local Markdown files, the <code>detect-package-manager-from-lockfile.md</code> fact, the <code>MEMORY.md</code> index, frontmatter fields, and how the index loads each session.</li>
+          <li id="ref-3"><b>[3] Cross-machine portability discussion.</b> Chat turn explaining that memory lives under <code>~/.claude</code>, is path-derived and not in git, and the options (cloud-sync, commit to <code>CLAUDE.md</code>, manual copy) to make it travel.</li>
+        </ol>
+      </section>
+
+      <footer>
+        Generated summary of an in-session discussion · theme &amp; layout are interactive · all source is the conversation itself.
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+// ---- Theme ----
+const root=document.documentElement, tt=document.getElementById('themeToggle');
+function setTheme(t){root.setAttribute('data-theme',t);tt.textContent=t==='dark'?'☀️':'🌙';
+  try{localStorage.setItem('mem_theme',t)}catch(e){}}
+setTheme((()=>{try{return localStorage.getItem('mem_theme')}catch(e){return null}})()
+  || (window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+tt.addEventListener('click',()=>setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark'));
+
+// ---- Sidebar (toggle lives in top nav, always reachable) ----
+const sb=document.getElementById('sidebar'), st=document.getElementById('sidebarToggle');
+function applySb(c){sb.classList.toggle('collapsed',c);try{localStorage.setItem('mem_sb',c?'1':'0')}catch(e){}}
+applySb(window.innerWidth<880 ? true : (()=>{try{return localStorage.getItem('mem_sb')==='1'}catch(e){return false}})());
+st.addEventListener('click',()=>applySb(!sb.classList.contains('collapsed')));
+
+// ---- Citations ----
+document.querySelectorAll('.cite').forEach(c=>c.addEventListener('click',()=>{
+  const el=document.getElementById('ref-'+c.dataset.ref);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('flash');
+    void el.offsetWidth;el.classList.add('flash');}
+}));
+
+// ---- Scroll spy ----
+const secs=[...document.querySelectorAll('section[id]')];
+const topLinks=[...document.querySelectorAll('.navlink')], side=[...document.querySelectorAll('.slink')];
+const obs=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    const id=e.target.id;
+    topLinks.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
+    side.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
+  }});
+},{rootMargin:'-40% 0px -55% 0px'});
+secs.forEach(s=>obs.observe(s));
+// also light up sub-links on direct click
+side.forEach(a=>a.addEventListener('click',()=>{if(window.innerWidth<880)applySb(true);}));
+</script>
+</body>
+</html>
