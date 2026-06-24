@@ -244,6 +244,7 @@ footer{border-top:1px solid var(--border);color:var(--muted);font-size:.85rem;pa
       <a href="#agents-md">3 · Use the AGENTS.md file</a>
       <a href="#agents-template">3.1 · The template</a>
       <a href="#agents-tips">3.2 · Tips from the team</a>
+      <a href="#agents-claude-code">3.3 · How Claude Code handles AGENTS.md</a>
     </div>
   </div>
   <div class="grp">
@@ -512,7 +513,7 @@ plotly-dash-documentation: https://dash.plotly.com/_mcp (HTTP) - ! Needs authent
   <section id="agents-md">
     <h2><span class="secnum">3</span>Use the <code>AGENTS.md</code> file</h2>
     <p><code>AGENTS.md</code> is a file in your project root that is <b>automatically fed into your agent's prompts as system context</b>. Think of it as a README written for your coding agent: it states your architecture, tech stack, preferred libraries, and the patterns you want enforced. It layers <i>on top of</i> the Docs MCP — the MCP supplies general Dash knowledge, <code>AGENTS.md</code> supplies <i>your</i> project's conventions.<a class="cite" href="#ref-1">1</a></p>
-    <blockquote>Claude Code, the Claude desktop/web app, the Gemini CLI, Cursor, and Windsurf all read an <code>AGENTS.md</code> automatically. (Some setups also use <code>CLAUDE.md</code> / <code>GEMINI.md</code>; <code>AGENTS.md</code> is the cross-tool convention.)</blockquote>
+    <blockquote>The Gemini CLI, Cursor, and Windsurf read an <code>AGENTS.md</code> automatically. Claude Code is the exception — it reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code>, and needs a small bridge (see 3.3). <code>AGENTS.md</code> is the cross-tool convention; some setups also use <code>CLAUDE.md</code> / <code>GEMINI.md</code>.</blockquote>
 
     <h3 id="agents-template">3.1 · A ready-to-use template</h3>
     <p>Copy this into <code>AGENTS.md</code>, then <b>delete anything that doesn't apply</b> (e.g., drop the Dash Enterprise or caching sections if you aren't using them):</p>
@@ -599,6 +600,16 @@ my-dash-app/
       <li><b>Encode the hallucinations you actually see.</b> If your agent keeps reaching for an old pattern, add an explicit "never do X" line.</li>
       <li><b>Prune ruthlessly.</b> Start from the template and delete every section you aren't using.</li>
     </ul>
+
+    <h3 id="agents-claude-code">3.3 · How Claude Code handles <code>AGENTS.md</code></h3>
+    <p>Claude Code is the odd one out: <b>it reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code></b>, and will not pick up an <code>AGENTS.md</code> on its own. If your project standardizes on <code>AGENTS.md</code>, bridge it into Claude Code one of three ways:</p>
+    <ul>
+      <li><b>Import it — keeps a single source of truth.</b> Put one line — <code>@AGENTS.md</code> — in a <code>CLAUDE.md</code> at your project root. Claude Code expands the import into context at session start, so later edits to <code>AGENTS.md</code> flow through automatically. Add any Claude-specific notes below the import line. Imports can nest up to 4 levels deep, but load in full every session (no token savings over inlining).</li>
+      <li><b>Generate from it — <code>/init</code>.</b> Running <code>/init</code> reads an existing <code>AGENTS.md</code> (plus <code>.cursorrules</code>, <code>.windsurfrules</code>, and similar) and folds the relevant parts into a freshly generated <code>CLAUDE.md</code>. This is a one-time extraction, <i>not</i> a live link — later <code>AGENTS.md</code> edits won't propagate.</li>
+      <li><b><code>.claude/rules/</code> — auto-loaded and path-scoped.</b> Markdown files dropped in <code>.claude/rules/</code> are discovered automatically and recursively at session start, with no import needed. Add a <code>paths:</code> frontmatter field to scope a rule to matching files (e.g. <code>src/**/*.py</code>) so it only loads when the agent touches them — the one mechanism here that actually saves context.</li>
+    </ul>
+    <p>On Windows, prefer the <code>@AGENTS.md</code> import over the <code>ln -s AGENTS.md CLAUDE.md</code> symlink trick — symlinks need Administrator or Developer Mode.</p>
+    <blockquote>Source: Claude Code memory docs — <a href="https://code.claude.com/docs/en/memory">code.claude.com/docs/en/memory</a>.</blockquote>
   </section>
 
   <!-- 4 structure -->
