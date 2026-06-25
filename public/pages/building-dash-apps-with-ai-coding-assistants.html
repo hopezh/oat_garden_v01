@@ -243,8 +243,9 @@ footer{border-top:1px solid var(--border);color:var(--muted);font-size:.85rem;pa
     <div class="gbody">
       <a href="#agents-md">3 · Use the AGENTS.md file</a>
       <a href="#agents-template">3.1 · The template</a>
-      <a href="#agents-tips">3.2 · Tips from the team</a>
-      <a href="#agents-claude-code">3.3 · How Claude Code handles AGENTS.md</a>
+      <a href="#agents-uv">3.2 · Using uv instead of requirements.txt</a>
+      <a href="#agents-tips">3.3 · Tips from the team</a>
+      <a href="#agents-claude-code">3.4 · How Claude Code handles AGENTS.md</a>
     </div>
   </div>
   <div class="grp">
@@ -513,7 +514,7 @@ plotly-dash-documentation: https://dash.plotly.com/_mcp (HTTP) - ! Needs authent
   <section id="agents-md">
     <h2><span class="secnum">3</span>Use the <code>AGENTS.md</code> file</h2>
     <p><code>AGENTS.md</code> is a file in your project root that is <b>automatically fed into your agent's prompts as system context</b>. Think of it as a README written for your coding agent: it states your architecture, tech stack, preferred libraries, and the patterns you want enforced. It layers <i>on top of</i> the Docs MCP — the MCP supplies general Dash knowledge, <code>AGENTS.md</code> supplies <i>your</i> project's conventions.<a class="cite" href="#ref-1">1</a></p>
-    <blockquote>The Gemini CLI, Cursor, and Windsurf read an <code>AGENTS.md</code> automatically. Claude Code is the exception — it reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code>, and needs a small bridge (see 3.3). <code>AGENTS.md</code> is the cross-tool convention; some setups also use <code>CLAUDE.md</code> / <code>GEMINI.md</code>.</blockquote>
+    <blockquote>The Gemini CLI, Cursor, and Windsurf read an <code>AGENTS.md</code> automatically. Claude Code is the exception — it reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code>, and needs a small bridge (see 3.4). <code>AGENTS.md</code> is the cross-tool convention; some setups also use <code>CLAUDE.md</code> / <code>GEMINI.md</code>.</blockquote>
 
     <h3 id="agents-template">3.1 · A ready-to-use template</h3>
     <p>Copy this into <code>AGENTS.md</code>, then <b>delete anything that doesn't apply</b> (e.g., drop the Dash Enterprise or caching sections if you aren't using them):</p>
@@ -591,7 +592,43 @@ my-dash-app/
 - Never use `dash_table.DataTable`; use `dash.AgGrid()`.
 - Never put secrets, API keys, or credentials in layout code or `dcc.Store`.</code></pre></div>
 
-    <h3 id="agents-tips">3.2 · Tips from the Plotly team</h3>
+    <h3 id="agents-uv">3.2 · If you use <code>uv</code> instead of <code>requirements.txt</code></h3>
+    <p>The template above assumes pip and a <code>requirements.txt</code>. If you manage the project with <a href="https://docs.astral.sh/uv/"><code>uv</code></a> (<code>uv init</code>, <code>uv add</code>), your dependency source of truth changes — and so should the file structure you hand the agent, or it will keep trying to hand-edit a <code>requirements.txt</code> that no longer exists.</p>
+    <p><b>What changes.</b> <code>uv</code> splits the single <code>requirements.txt</code> into two files:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>pip world</th><th>uv world</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>requirements.txt</code></td><td><code>pyproject.toml</code></td><td>Declares <i>direct</i> deps + Python version (<code>[project.dependencies]</code>)</td></tr>
+        <tr><td><i>(manual pinning)</i></td><td><code>uv.lock</code></td><td>Fully-resolved, hash-pinned lockfile — commit it</td></tr>
+      </tbody>
+    </table></div>
+    <p><b>Update the file structure block</b> in your <code>AGENTS.md</code> so the agent reaches for uv instead of editing a text file:</p>
+    <div class="codeblock"><button class="copy">Copy</button><pre><code>## File Structure
+my-dash-app/
+├── app.py                # Main application file
+├── assets/               # Static files (CSS, images, favicon)
+├── pages/                # Multi-page app routes
+├── pyproject.toml        # Dependencies + Python version (managed by uv)
+├── uv.lock               # Pinned lockfile — commit this
+└── AGENTS.md             # This file
+
+## Dependency Management
+- This project uses `uv`. Add dependencies with `uv add &lt;pkg&gt;` and run the app
+  with `uv run app.py` — never hand-edit a requirements.txt.
+- The "Pin Dependencies" rule is satisfied by `uv.lock`, which pins every
+  package (including transitive deps) exactly.</code></pre></div>
+    <p>This replaces the <code>requirements.txt</code> line in the §3.1 template; you can also drop the "Pin Dependencies" bullet from <b>General Architecture</b>, since <code>uv.lock</code> now covers it.</p>
+    <p><b>Deploying a uv project to Plotly Cloud.</b> No <code>requirements.txt</code> needed — Plotly Cloud reads <code>pyproject.toml</code> directly:</p>
+    <blockquote>(Optional) List your app dependencies in a <code>pyproject.toml</code> <b>or</b> <code>requirements.txt</code> file… If you do not upload [one], Plotly Cloud will examine your app code and install the latest versions of the packages that it depends on. — <a href="https://dash.plotly.com/plotly-cloud/publish">Publishing from Local Files</a></blockquote>
+    <p>Two caveats worth knowing:</p>
+    <ul>
+      <li><b><code>uv.lock</code> is not consumed.</b> Plotly Cloud installs from the <i>declared</i> dependencies in <code>pyproject.toml</code>, not from the lockfile. For exact, reproducible pins on the hosted build, either pin versions in <code>pyproject.toml</code> or export a lockfile-exact <code>requirements.txt</code> at deploy time:
+      <div class="codeblock"><button class="copy">Copy</button><pre><code>uv export --frozen --no-hashes --no-dev -o requirements.txt</code></pre></div></li>
+      <li><b><code>.venv</code> is auto-ignored.</b> The Cloud CLI strips virtual environments and Python cache files (and respects <code>.gitignore</code>), so uv's <code>.venv/</code> won't bloat your upload.</li>
+    </ul>
+    <div class="note"><b>Dash Enterprise:</b> <code>pyproject.toml</code> support isn't documented in the Dash docs — if that's your target, the <code>uv export</code> step above gives you a <code>requirements.txt</code> any builder accepts, alongside the required <code>Procfile</code> (§7).</div>
+
+    <h3 id="agents-tips">3.3 · Tips from the Plotly team</h3>
     <p>From Plotly's own webinar walkthrough — practical gotchas when writing an <code>AGENTS.md</code>:<a class="cite" href="#ref-6">6</a></p>
     <ul>
       <li><b>Keep it short — aim for ~100 lines max.</b> Every prompt re-sends the file, so a long file burns tokens on every turn. Keep it concise and non-repetitive.</li>
@@ -601,7 +638,7 @@ my-dash-app/
       <li><b>Prune ruthlessly.</b> Start from the template and delete every section you aren't using.</li>
     </ul>
 
-    <h3 id="agents-claude-code">3.3 · How Claude Code handles <code>AGENTS.md</code></h3>
+    <h3 id="agents-claude-code">3.4 · How Claude Code handles <code>AGENTS.md</code></h3>
     <p>Claude Code is the odd one out: <b>it reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code></b>, and will not pick up an <code>AGENTS.md</code> on its own. If your project standardizes on <code>AGENTS.md</code>, bridge it into Claude Code one of three ways:</p>
     <ul>
       <li><b>Import it — keeps a single source of truth.</b> Put one line — <code>@AGENTS.md</code> — in a <code>CLAUDE.md</code> at your project root. Claude Code expands the import into context at session start, so later edits to <code>AGENTS.md</code> flow through automatically. Add any Claude-specific notes below the import line. Imports can nest up to 4 levels deep, but load in full every session (no token savings over inlining).</li>
