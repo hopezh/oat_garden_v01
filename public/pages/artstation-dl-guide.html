@@ -50,6 +50,7 @@
   .cover{width:100%;height:clamp(190px,26vw,320px);background:var(--cover-bg);
     border-bottom:1px solid var(--border);overflow:hidden;display:block}
   .cover svg{width:100%;height:100%;display:block}
+  .cover img{width:100%;height:100%;display:block;object-fit:cover;object-position:left top}
 
   /* ---------- layout ---------- */
   .shell{position:relative}
@@ -225,68 +226,8 @@
   </nav>
 
   <!-- ===== COVER IMAGE (full-width, above title) ===== -->
-  <div class="cover" role="img" aria-label="Abstract axonometric illustration of image tiles streaming into an archive stack">
-    <svg viewBox="0 0 1200 320" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="var(--cover-1)" stop-opacity="0.85"/>
-          <stop offset="1" stop-color="var(--cover-2)" stop-opacity="0.85"/>
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="320" fill="var(--cover-bg)"/>
-      <!-- subtle iso floor grid -->
-      <g stroke="var(--cover-line)" stroke-width="1" opacity="0.5">
-        <path d="M0 180 L600 30"/><path d="M0 220 L720 40"/><path d="M120 280 L840 50"/>
-        <path d="M1200 180 L600 30"/><path d="M1200 220 L480 40"/><path d="M1080 280 L360 50"/>
-      </g>
-      <!-- floating wireframe art frames (left) -->
-      <g stroke="var(--cover-2)" fill="none" stroke-width="2" opacity="0.9">
-        <path d="M150 120 l70 -40 l70 40 l-70 40 z"/>
-        <path d="M150 120 l0 34 l70 40 l0 -34"/>
-        <path d="M290 120 l0 34 l-70 40 l0 -34"/>
-        <path d="M120 175 l70 -40 l70 40 l-70 40 z" opacity="0.55"/>
-      </g>
-      <!-- streaming image tiles (solid, axonometric) -->
-      <g>
-        <g transform="translate(430,90)">
-          <path d="M0 30 l70 -40 l70 40 l-70 40 z" fill="url(#gA)"/>
-          <path d="M0 30 l0 26 l70 40 l0 -26 z" fill="var(--cover-1)" opacity="0.55"/>
-          <path d="M140 30 l0 26 l-70 40 l0 -26 z" fill="var(--cover-1)" opacity="0.35"/>
-        </g>
-        <g transform="translate(560,140)">
-          <path d="M0 30 l70 -40 l70 40 l-70 40 z" fill="url(#gA)"/>
-          <path d="M0 30 l0 26 l70 40 l0 -26 z" fill="var(--cover-2)" opacity="0.5"/>
-          <path d="M140 30 l0 26 l-70 40 l0 -26 z" fill="var(--cover-2)" opacity="0.32"/>
-        </g>
-        <g transform="translate(690,80)">
-          <path d="M0 30 l70 -40 l70 40 l-70 40 z" fill="url(#gA)"/>
-          <path d="M0 30 l0 26 l70 40 l0 -26 z" fill="var(--cover-1)" opacity="0.55"/>
-          <path d="M140 30 l0 26 l-70 40 l0 -26 z" fill="var(--cover-1)" opacity="0.35"/>
-        </g>
-      </g>
-      <!-- flow lines toward archive -->
-      <g stroke="var(--cover-1)" stroke-width="1.6" fill="none" opacity="0.7" stroke-dasharray="2 7" stroke-linecap="round">
-        <path d="M360 140 C 700 60, 820 120, 940 150"/>
-        <path d="M420 180 C 720 150, 830 170, 940 175"/>
-        <path d="M380 110 C 690 40, 820 90, 940 130"/>
-      </g>
-      <!-- archive stack (right) -->
-      <g transform="translate(930,120)">
-        <g>
-          <path d="M0 60 l90 -50 l90 50 l-90 50 z" fill="var(--cover-fill)" stroke="var(--cover-1)" stroke-width="2"/>
-          <path d="M0 60 l0 22 l90 50 l0 -22 z" fill="var(--cover-1)" opacity="0.45"/>
-          <path d="M180 60 l0 22 l-90 50 l0 -22 z" fill="var(--cover-1)" opacity="0.28"/>
-        </g>
-        <g transform="translate(0,-26)">
-          <path d="M0 60 l90 -50 l90 50 l-90 50 z" fill="var(--cover-fill)" stroke="var(--cover-2)" stroke-width="2"/>
-          <path d="M0 60 l0 22 l90 50 l0 -22 z" fill="var(--cover-2)" opacity="0.4"/>
-          <path d="M180 60 l0 22 l-90 50 l0 -22 z" fill="var(--cover-2)" opacity="0.25"/>
-        </g>
-        <g transform="translate(0,-52)">
-          <path d="M0 60 l90 -50 l90 50 l-90 50 z" fill="url(#gA)" stroke="var(--cover-1)" stroke-width="2"/>
-        </g>
-      </g>
-    </svg>
+  <div class="cover">
+    <img src="assets/theartofmarathon.jpg" alt="The Art of Marathon cover">
   </div>
 
   <!-- ===== SIDEBAR ===== -->
