@@ -147,7 +147,7 @@ a { color: inherit; text-decoration: none; }
   margin: 0.55rem 0 0;
   color: var(--text-muted);
   font-size: 1rem;
-  max-width: 66ch;
+  max-width: 92ch;
 }
 
 /* The header passes pointer events through to the canvas, so re-enable them

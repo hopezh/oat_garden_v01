@@ -158,7 +158,7 @@ export default function App() {
                     <div>
                         <h1 className="site-title">Oat Garden</h1>
                         <p className="site-tagline">
-                            A collection of knowledge cards distilled by Claude ·{' '}
+                            A collection of knowledge cards distilled from chats with Claude by Claude ·{' '}
                             <a
                                 className="site-tagline__credit"
                                 href="https://rive.app/marketplace/14866-28064-sparkle-grid/"
