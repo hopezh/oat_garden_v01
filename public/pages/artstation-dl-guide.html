@@ -214,6 +214,7 @@
       <a href="#running">Running</a>
       <a href="#output">Output</a>
       <a href="#batch">List input</a>
+      <a href="#troubleshooting">Fixes</a>
       <a href="#reference">Reference</a>
     </div>
     <div class="nav-right">
@@ -337,6 +338,13 @@
       </div>
     </div>
     <div class="side-group" data-g>
+      <button>Fixes <span class="chev">▾</span></button>
+      <div class="side-links">
+        <a href="#troubleshooting">8 · Troubleshooting</a>
+        <a href="#deno-path">Deno on PATH</a>
+      </div>
+    </div>
+    <div class="side-group" data-g>
       <button>End <span class="chev">▾</span></button>
       <div class="side-links">
         <a href="#reference">References</a>
@@ -356,7 +364,7 @@
 
     <div class="tldr">
       <h2>⚡ TL;DR</h2>
-      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar. Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4.</p>
+      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar. Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4. Hit a warning mid-run? The troubleshooting table in §8 maps each message to its fix.</p>
     </div>
 
     <!-- 1 + 2 SETUP -->
@@ -368,10 +376,11 @@ cd artstation-dl</code></pre>
 
       <h2 class="sec" id="install"><span class="num">02</span>Install gallery-dl &amp; yt-dlp — project scope only</h2>
       <p><code>uv add</code> installs both packages into <code>./.venv</code> and records them as dependencies. The executables live <em>inside</em> the venv and don't exist on your PATH outside this folder — exactly the isolation we want.<a class="cite" href="#ref-1">[1]</a></p>
-<pre><code>uv add gallery-dl yt-dlp</code></pre>
+<pre><code>uv add gallery-dl "yt-dlp[default]"</code></pre>
+      <div class="note"><strong>Cloning this repo from GitHub?</strong> Skip the <code>uv add</code> above — the dependencies are already pinned in <code>pyproject.toml</code> / <code>uv.lock</code>. Just run <code>uv sync</code> to recreate the exact environment in <code>./.venv</code>.</div>
       <p>You run tools <em>through</em> <code>uv run</code>, which puts the project venv on the path for just that one invocation:</p>
 <pre><code>uv run gallery-dl --version</code></pre>
-      <p><code>yt-dlp</code> is paired in because gallery-dl hands embedded video players (YouTube / Vimeo) off to it.<a class="cite" href="#ref-3">[3]</a> Keep it current as a hedge against ArtStation video changes: <code>uv lock --upgrade-package yt-dlp</code>.</p>
+      <p><code>yt-dlp</code> is paired in because gallery-dl hands embedded video players (YouTube / Vimeo) off to it.<a class="cite" href="#ref-3">[3]</a> The <code>[default]</code> extra covers <code>yt-dlp</code>'s core dependencies but <em>not</em> <code>curl_cffi</code>, which <code>yt-dlp</code> needs to impersonate a browser for <strong>Vimeo</strong> embeds — without it, Vimeo downloads warn (<code>no impersonate target is available</code>) and often fail. Add it only if you hit that (see §8). Keep <code>yt-dlp</code> current as a hedge against ArtStation video changes: <code>uv lock --upgrade-package yt-dlp</code>.</p>
 
       <p>Where the installed executable actually lands differs by OS:</p>
       <div class="ostabs" data-ostabs>
@@ -425,7 +434,7 @@ cd artstation-dl</code></pre>
         <div class="ostab-panel" data-os="linux" id="p-deno-linux" role="tabpanel" aria-labelledby="t-deno-linux"><pre><code>curl -fsSL https://deno.land/install.sh | sh</code></pre></div>
         <div class="ostab-panel" data-os="windows" id="p-deno-windows" role="tabpanel" aria-labelledby="t-deno-windows"><pre><code>winget install DenoLand.Deno</code></pre></div>
       </div>
-      <p>Open a <em>new</em> terminal (so PATH refreshes), then confirm with <code>deno --version</code>. <code>yt-dlp</code> picks it up automatically — but Deno alone isn't always enough: pair it with the <strong>EJS</strong> solver wired into the config in §4.</p>
+      <p>Open a <em>new</em> terminal (so PATH refreshes), then confirm with <code>deno --version</code>. <code>yt-dlp</code> picks it up automatically — but Deno alone isn't always enough: pair it with the <strong>EJS</strong> solver wired into the config in §4. Still seeing <code>No supported JavaScript runtime</code> after installing? The terminal was likely opened <em>before</em> the install — see the <a href="#deno-path">PATH check in §8</a>.</p>
       <div class="note"><strong>System-wide, by necessity.</strong> Unlike <code>gallery-dl</code> / <code>yt-dlp</code>, Deno can't be project-scoped — <code>yt-dlp</code> needs a real JS runtime on your PATH, not a Python package. Skip this entirely if you never grab posts with embedded videos.</div>
     </section>
 
@@ -763,6 +772,31 @@ https://www.artstation.com/artwork/abcdEf</code></pre>
       <div class="note"><strong>Pairs with the archive.</strong> Re-running the same <code>-i urls.txt</code> skips everything already downloaded, so you can keep appending URLs and re-run. These single-post URLs run through the <span class="badge">image</span> subcategory (1.0&nbsp;s spacing).</div>
     </section>
 
+    <!-- 8 TROUBLESHOOTING -->
+    <section id="troubleshooting">
+      <h2 class="sec"><span class="num">08</span>Troubleshooting embedded-video warnings &amp; errors</h2>
+      <p>Everything here concerns <strong>external videos embedded in posts</strong> (YouTube / Vimeo), which <code>external: true</code> (§4) hands to <code>yt-dlp</code>. <strong>None of it affects your ArtStation images or native ArtStation videos</strong> — those download regardless. And because the <code>archive</code> makes runs idempotent, the fix for any of these is the same: apply it, then <strong>re-run the exact same command</strong> — finished files are skipped and only the failed videos are retried.</p>
+      <table class="tbl">
+        <thead><tr><th>Log line you saw</th><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td><code>No supported JavaScript runtime could be found</code> · <code>n challenge solving failed</code></td><td>Deno isn't visible on the PATH of the shell you launched the download from</td><td>Install Deno (§2), then make sure it's actually on PATH — see below.</td></tr>
+          <tr><td><code>[vimeo] attempting impersonation, but no impersonate target is available</code> (often with <code>Failed to parse XML</code>)</td><td><code>yt-dlp</code> needs the <code>curl_cffi</code> library to impersonate a browser for Vimeo</td><td><code>uv add "yt-dlp[default,curl-cffi]"</code> — the <code>[curl-cffi]</code> extra pulls in <code>curl_cffi</code> (the <code>[default]</code> extra does <em>not</em>).</td></tr>
+          <tr><td><code>Unsupported URL</code> · <code>Falling back on generic information extractor</code></td><td><code>external: true</code> forwards <em>every</em> embedded link (e.g. <code>youtube-nocookie.com</code> players), including ones <code>yt-dlp</code> has no extractor for</td><td>Harmless noise. Ignore it, or set <code>"external": false</code> to stop following embeds entirely.</td></tr>
+          <tr><td><code>[youtube] This video is not available</code> · <code>[vimeo] HTTP Error 401: Unauthorized</code></td><td>Source-side: the video was deleted, made private, region-locked, or embed-restricted</td><td>Not fixable — the content is gone or access-restricted on the host.</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="deno-path">Make sure Deno is actually on PATH</h3>
+      <p>The most common gotcha: you install Deno, but the <strong>terminal you launch the download from was opened before the install</strong>, so it still holds the old PATH and <code>yt-dlp</code> can't see Deno. The <code>No supported JavaScript runtime</code> warning then keeps appearing even though <code>winget</code> (or <code>brew</code>) reports Deno as installed.</p>
+      <ul>
+        <li><strong>Cleanest fix:</strong> open a <strong>new</strong> terminal, confirm <code>deno --version</code>, then re-run the same command.</li>
+        <li><strong>Without opening a new terminal (Windows PowerShell):</strong></li>
+      </ul>
+<pre><code>$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+deno --version</code></pre>
+      <div class="note"><strong>It's all embedded-video only.</strong> These warnings come from off-ArtStation players, never from ArtStation's own art or video. The <span class="badge">archive</span> means re-running after a fix costs almost nothing — already-downloaded files are skipped.</div>
+    </section>
+
     <!-- REFERENCES -->
     <footer id="reference">
       <h2 class="sec"><span class="num">★</span>References</h2>
@@ -933,7 +967,7 @@ with per-scenario settings handled by a single config file.
 > three URL shapes (a single post, a whole artist, or a tag collection via *search*).
 > Always dry-run with `-s` first, then a capped `--range 1-50` batch, then the full run.
 > Every file lands in `downloads/artstation/<artist>/` next to a `.json` metadata sidecar.
-> Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4.
+> Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4. Hit a warning mid-run? The troubleshooting table in §8 maps each message to its fix.
 
 ---
 
@@ -951,8 +985,12 @@ touches your global Python.
 ## 2. Install gallery-dl and yt-dlp — project scope only
 
 ```bash
-uv add gallery-dl yt-dlp
+uv add gallery-dl "yt-dlp[default]"
 ```
+
+> **Cloning this repo from GitHub?** Skip the `uv add` above — the dependencies are already
+> pinned in `pyproject.toml` / `uv.lock`. Just run `uv sync` to recreate the exact
+> environment in `./.venv`.
 
 `uv add` installs both packages into `./.venv` and records them as dependencies in
 `pyproject.toml`. The executables land inside the project venv and do **not** exist on
@@ -969,7 +1007,11 @@ uv run gallery-dl --version
 ```
 
 `yt-dlp` is paired in because gallery-dl hands embedded video players (YouTube/Vimeo) off
-to it. Keep it current as a hedge against ArtStation video changes: `uv lock --upgrade-package yt-dlp`.
+to it. The `[default]` extra covers `yt-dlp`'s core dependencies but **not** `curl_cffi`,
+which `yt-dlp` needs to impersonate a browser for **Vimeo** embeds — without it, Vimeo
+downloads warn (`no impersonate target is available`) and often fail. Add it only if you hit
+that (see §8). Keep `yt-dlp` current as a hedge against ArtStation video changes:
+`uv lock --upgrade-package yt-dlp`.
 
 > Note: `uv add` is project-scoped (venv + `uv run`). This is different from
 > `uv tool install` / `uvx`, which deliberately expose a command globally — not what we want here.
@@ -990,7 +1032,8 @@ videos — fails the download outright with `HTTP Error 403: Forbidden`.
 
 Open a **new** terminal afterward (so PATH refreshes) and confirm with `deno --version`.
 `yt-dlp` then finds it automatically. Deno alone isn't always enough, though — pair it with
-the EJS solver wired into the config in §4.
+the EJS solver wired into the config in §4. (Still seeing `No supported JavaScript runtime`
+after installing? The terminal was likely opened *before* the install — see the PATH check in §8.)
 
 > Unlike `gallery-dl`/`yt-dlp`, Deno is **system-wide**, not project-scoped: `yt-dlp` needs a
 > real JS runtime on your PATH, not a Python package. If you never download posts with
@@ -1197,6 +1240,35 @@ This pairs with the archive: re-running the same `-i urls.txt` skips everything 
 downloaded, so you can keep appending URLs and re-run. Single-post URLs run through the
 `image` subcategory (1.0 s spacing).
 
+## 8. Troubleshooting embedded-video warnings & errors
+
+Everything here concerns **external videos embedded in posts** (YouTube/Vimeo), which
+`external: true` (§4) hands to `yt-dlp`. **None of it affects your ArtStation images or
+native ArtStation videos** — those download regardless. And because the `archive` makes runs
+idempotent, the fix for any of these is the same: apply it, then **re-run the exact same
+command** — finished files are skipped and only the failed videos are retried.
+
+| Log line you saw | Cause | Fix |
+| --- | --- | --- |
+| `No supported JavaScript runtime could be found` · `n challenge solving failed` | Deno isn't visible on the PATH of the shell you launched the download from | Install Deno (§2), then make sure it's actually on PATH — see below. |
+| `[vimeo] attempting impersonation, but no impersonate target is available` (often with `Failed to parse XML`) | `yt-dlp` needs the `curl_cffi` library to impersonate a browser for Vimeo | `uv add "yt-dlp[default,curl-cffi]"` — the `[curl-cffi]` extra pulls in `curl_cffi` (the `[default]` extra does *not*). |
+| `Unsupported URL` · `Falling back on generic information extractor` | `external: true` forwards *every* embedded link (e.g. `youtube-nocookie.com` players), including ones `yt-dlp` has no extractor for | Harmless noise. Ignore it, or set `"external": false` to stop following embeds entirely. |
+| `[youtube] This video is not available` · `[vimeo] HTTP Error 401: Unauthorized` | Source-side: the video was deleted, made private, region-locked, or embed-restricted | Not fixable — the content is gone or access-restricted on the host. |
+
+### Make sure Deno is actually on PATH
+
+The most common gotcha: you install Deno, but the **terminal you launch the download from
+was opened before the install**, so it still holds the old PATH and `yt-dlp` can't see Deno.
+The `No supported JavaScript runtime` warning then keeps appearing even though `winget`
+(or `brew`) reports Deno as installed.
+
+- **Cleanest fix:** open a **new** terminal, confirm `deno --version`, then re-run the same command.
+- **Without opening a new terminal (Windows PowerShell):**
+
+  ```powershell
+  $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+  deno --version
+  ```
 
 ---
 
