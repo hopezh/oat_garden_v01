@@ -315,6 +315,49 @@ a { color: inherit; text-decoration: none; }
   margin-right: 0.25rem;
 }
 
+/* The tag list collapses on narrow screens, where the sidebar stacks above the
+   cards; the toggle reveals it. On desktop the sidebar has its own column, so
+   the list is always shown and the toggle reads as a plain "Tags" label. */
+.tag-filter__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.tag-filter__chevron {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--text-faint);
+  border-bottom: 2px solid var(--text-faint);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.tag-filter__toggle[aria-expanded='true'] .tag-filter__chevron {
+  transform: rotate(-135deg);
+}
+
+.tag-filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .tag-filter__chips { display: none; }
+  .tag-filter__chips.open { display: flex; }
+}
+
+@media (min-width: 768px) {
+  .tag-filter__toggle { cursor: default; }
+  .tag-filter__chevron { display: none; }
+}
+
 .chip {
   font: inherit;
   font-size: 0.85rem;
