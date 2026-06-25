@@ -32,7 +32,7 @@ export default function App() {
     const { theme, toggleTheme } = useTheme()
 
     const { RiveComponent: CoverRive } = useRive({
-        src: `${BASE}isometric-cube.riv`,
+        src: `${BASE}sparkle-grid.riv`,
         stateMachines: 'State Machine 1',
         autoplay: true,
         layout: new Layout({ fit: Fit.Cover, alignment: Alignment.Center }),
@@ -161,7 +161,7 @@ export default function App() {
                             A collection of knowledge cards distilled by Claude ·{' '}
                             <a
                                 className="site-tagline__credit"
-                                href="https://rive.app/marketplace/18821-35367-isometric-cube-animations/"
+                                href="https://rive.app/marketplace/14866-28064-sparkle-grid/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
