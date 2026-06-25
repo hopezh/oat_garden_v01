@@ -98,21 +98,16 @@ a { color: inherit; text-decoration: none; }
   aspect-ratio: 1600 / 900;
 }
 
+/* The Rive <canvas> fills the panel; Fit.Cover (set in App.jsx) handles how
+   the animation scales within it. */
 .site-cover__bg {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   z-index: 0;
-}
-
-/* Inlined SVG cover fills the panel (its 1600/900 viewBox matches the
-   container's aspect-ratio, so it lines up exactly). */
-.site-cover__bg svg {
-  display: block;
-  width: 100%;
-  height: 100%;
 }
 
 .site-header {
@@ -124,24 +119,19 @@ a { color: inherit; text-decoration: none; }
   gap: 1.5rem;
   min-height: 100%;
   padding: clamp(1.25rem, 3vw, 2.25rem);
+  /* Let pointer events fall through to the Rive canvas so the dot grid reacts
+     to the cursor; re-enabled on the interactive children below. */
+  pointer-events: none;
 }
 
-/* Over the cover, the title/tagline render light in dark theme and black in
-   light theme. */
+/* Over the Rive cover, the title/tagline stay white in both themes for
+   legibility against the animation (not affected by the theme toggle). */
 .site-cover .site-title {
   color: #fff;
 }
 
 .site-cover .site-tagline {
   color: rgba(255, 255, 255, 0.82);
-}
-
-[data-theme='light'] .site-cover .site-title {
-  color: #000;
-}
-
-[data-theme='light'] .site-cover .site-tagline {
-  color: rgba(0, 0, 0, 0.78);
 }
 
 .site-title {
@@ -494,6 +484,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 0.6rem;
   flex-shrink: 0;
+  pointer-events: auto;
 }
 
 .theme-toggle {

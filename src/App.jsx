@@ -7,9 +7,10 @@ import CardGrid from './components/CardGrid.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 import GitHubLink from './components/GitHubLink.jsx'
 import { useTheme } from './hooks/useTheme.js'
-// Inlined (not <img>) so the page's data-theme on <html> cascades into the
-// SVG and its embedded dark/light <style> tracks the theme toggle live.
-import coverSvg from '../public/cover_img_v14.svg?raw'
+// Rive animation served as a static asset from public/ (path respects BASE
+// for /<repo>/ on Pages). Rendered to a <canvas>, so it does not track the
+// theme toggle — fixed look in both light and dark.
+import { useRive, Layout, Fit } from '@rive-app/react-canvas'
 
 const BASE = import.meta.env.BASE_URL
 const SORT_STORAGE_KEY = 'oat-garden-sort'
@@ -29,6 +30,13 @@ function getInitialSort() {
 
 export default function App() {
     const { theme, toggleTheme } = useTheme()
+
+    const { RiveComponent: CoverRive } = useRive({
+        src: `${BASE}sparkle-grid.riv`,
+        stateMachines: 'State Machine 1',
+        autoplay: true,
+        layout: new Layout({ fit: Fit.Cover }),
+    })
 
     const [posts, setPosts] = useState([])
     const [status, setStatus] = useState('loading') // loading | ready | error
@@ -141,11 +149,10 @@ export default function App() {
     return (
         <div className="app">
             <div className="site-cover">
-                <div
+                <CoverRive
                     className="site-cover__bg"
                     role="presentation"
                     aria-hidden="true"
-                    dangerouslySetInnerHTML={{ __html: coverSvg }}
                 />
                 <header className="site-header">
                     <div>
