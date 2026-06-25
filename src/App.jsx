@@ -10,7 +10,7 @@ import { useTheme } from './hooks/useTheme.js'
 // Rive animation served as a static asset from public/ (path respects BASE
 // for /<repo>/ on Pages). Rendered to a <canvas>, so it does not track the
 // theme toggle — fixed look in both light and dark.
-import { useRive, Layout, Fit } from '@rive-app/react-canvas'
+import { useRive, Layout, Fit, Alignment } from '@rive-app/react-canvas'
 
 const BASE = import.meta.env.BASE_URL
 const SORT_STORAGE_KEY = 'oat-garden-sort'
@@ -32,10 +32,10 @@ export default function App() {
     const { theme, toggleTheme } = useTheme()
 
     const { RiveComponent: CoverRive } = useRive({
-        src: `${BASE}sparkle-grid.riv`,
+        src: `${BASE}isometric-cube.riv`,
         stateMachines: 'State Machine 1',
         autoplay: true,
-        layout: new Layout({ fit: Fit.Cover }),
+        layout: new Layout({ fit: Fit.Cover, alignment: Alignment.Center }),
     })
 
     const [posts, setPosts] = useState([])
@@ -158,7 +158,15 @@ export default function App() {
                     <div>
                         <h1 className="site-title">Oat Garden</h1>
                         <p className="site-tagline">
-                            A collection of knowledge cards distilled by Claude
+                            A collection of knowledge cards distilled by Claude ·{' '}
+                            <a
+                                className="site-tagline__credit"
+                                href="https://rive.app/marketplace/18821-35367-isometric-cube-animations/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Rive animation
+                            </a>
                         </p>
                     </div>
                     <div className="header-actions">
