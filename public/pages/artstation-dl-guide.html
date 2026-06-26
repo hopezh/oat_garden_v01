@@ -216,6 +216,7 @@
       <a href="#output">Output</a>
       <a href="#batch">List input</a>
       <a href="#troubleshooting">Fixes</a>
+      <a href="#recover">Recover</a>
       <a href="#reference">Reference</a>
     </div>
     <div class="nav-right">
@@ -283,6 +284,13 @@
       <div class="side-links">
         <a href="#troubleshooting">8 · Troubleshooting</a>
         <a href="#deno-path">Deno on PATH</a>
+      </div>
+    </div>
+    <div class="side-group" data-g>
+      <button>Recover <span class="chev">▾</span></button>
+      <div class="side-links">
+        <a href="#recover">9 · Recover YouTube embeds</a>
+        <a href="#recover-run">Run the script</a>
       </div>
     </div>
     <div class="side-group" data-g>
@@ -722,7 +730,8 @@ https://www.artstation.com/artwork/abcdEf</code></pre>
         <tbody>
           <tr><td><code>No supported JavaScript runtime could be found</code> · <code>n challenge solving failed</code></td><td>Deno isn't visible on the PATH of the shell you launched the download from</td><td>Install Deno (§2), then make sure it's actually on PATH — see below.</td></tr>
           <tr><td><code>[vimeo] attempting impersonation, but no impersonate target is available</code> (often with <code>Failed to parse XML</code>)</td><td><code>yt-dlp</code> needs the <code>curl_cffi</code> library to impersonate a browser for Vimeo</td><td><code>uv add "yt-dlp[default,curl-cffi]"</code> — the <code>[curl-cffi]</code> extra pulls in <code>curl_cffi</code> (the <code>[default]</code> extra does <em>not</em>).</td></tr>
-          <tr><td><code>Unsupported URL</code> · <code>Falling back on generic information extractor</code></td><td><code>external: true</code> forwards <em>every</em> embedded link (e.g. <code>youtube-nocookie.com</code> players), including ones <code>yt-dlp</code> has no extractor for</td><td>Harmless noise. Ignore it, or set <code>"external": false</code> to stop following embeds entirely.</td></tr>
+          <tr><td><code>Unsupported URL</code> · <code>Falling back on generic information extractor</code> on a <code>youtube-nocookie.com/embed/&lt;id&gt;?list=…</code> link</td><td>A YouTube embed carrying a <code>?list=</code> playlist param: <code>yt-dlp</code> (2026.06.x) mis-routes the embed+playlist URL to its generic extractor instead of YouTube. The video itself is fine.</td><td><strong>Recoverable</strong> — run <code>recover_embeds.py</code> against your run log (see §9) to re-fetch each one by its <code>watch?v=</code> URL.</td></tr>
+          <tr><td><code>Unsupported URL</code> · <code>Falling back on generic information extractor</code> on any other embed host</td><td><code>external: true</code> forwards <em>every</em> embedded link, including ones <code>yt-dlp</code> genuinely has no extractor for</td><td>Harmless noise. Ignore it, or set <code>"external": false</code> to stop following embeds entirely.</td></tr>
           <tr><td><code>[youtube] This video is not available</code> · <code>[vimeo] HTTP Error 401: Unauthorized</code></td><td>Source-side: the video was deleted, made private, region-locked, or embed-restricted</td><td>Not fixable — the content is gone or access-restricted on the host.</td></tr>
         </tbody>
       </table>
@@ -736,6 +745,24 @@ https://www.artstation.com/artwork/abcdEf</code></pre>
 <pre><code>$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
 deno --version</code></pre>
       <div class="note"><strong>It's all embedded-video only.</strong> These warnings come from off-ArtStation players, never from ArtStation's own art or video. The <span class="badge">archive</span> means re-running after a fix costs almost nothing — already-downloaded files are skipped.</div>
+    </section>
+
+    <!-- RECOVER EMBEDS -->
+    <section id="recover">
+      <h2 class="sec"><span class="num">09</span>Recovering missing YouTube embeds</h2>
+      <p>One <code>Unsupported URL</code> case from §8 is <strong>not</strong> harmless noise. Some ArtStation posts embed YouTube as <code>youtube-nocookie.com/embed/&lt;id&gt;?list=&lt;playlist&gt;</code>. <code>yt-dlp</code> (2026.06.x) mis-routes that embed+playlist form to its generic extractor and gives up with <code>Unsupported URL</code>, so those videos are <strong>silently missing</strong> from your run. The <span class="badge">archive</span> doesn't help here — nothing was downloaded, so there's nothing recorded to skip or retry on a re-run.</p>
+      <p>The video itself is fine: fetched as a plain <code>watch?v=&lt;id&gt;</code> URL it downloads normally. <code>recover_embeds.py</code> automates exactly that — it scans a run log for these failed embeds and re-fetches each one.</p>
+
+      <div class="note"><strong>When to reach for it.</strong> After any run whose log shows <code>Failed to download ytdl:…youtube…/embed/…</code> lines. If your log has none, the script is a no-op and tells you so.</div>
+
+      <h3 id="recover-run">Capture the log, then run the script</h3>
+      <p>The script reads a log file, so capture your run's output first (this also gives you a record of everything downloaded):</p>
+<pre><code>uv run gallery-dl -c gallery-dl.conf "&lt;url&gt;" 2>&amp;1 | Tee-Object download_log.md</code></pre>
+      <p>Then point the recovery script at that log:</p>
+<pre><code>uv run python recover_embeds.py download_log.md            # re-fetch the missing embeds
+uv run python recover_embeds.py download_log.md --dry-run   # just list what it found</code></pre>
+      <p>It re-downloads each video by <code>watch?v=</code> URL into <code>./downloads/youtube_embeds/</code> and keeps its own <code>.ytdl-archive.txt</code> there, so re-running only fetches what's still missing — the same idempotent behaviour as a normal gallery-dl run.</p>
+      <div class="note"><strong>Why a separate folder.</strong> The log doesn't reliably map each embed back to the post (and artist subfolder) it came from, so recovered videos land together in <code>youtube_embeds/</code> rather than scattered across the per-artist tree.</div>
     </section>
 
     <!-- REFERENCES -->
@@ -1193,7 +1220,8 @@ command** — finished files are skipped and only the failed videos are retried.
 | --- | --- | --- |
 | `No supported JavaScript runtime could be found` · `n challenge solving failed` | Deno isn't visible on the PATH of the shell you launched the download from | Install Deno (§2), then make sure it's actually on PATH — see below. |
 | `[vimeo] attempting impersonation, but no impersonate target is available` (often with `Failed to parse XML`) | `yt-dlp` needs the `curl_cffi` library to impersonate a browser for Vimeo | `uv add "yt-dlp[default,curl-cffi]"` — the `[curl-cffi]` extra pulls in `curl_cffi` (the `[default]` extra does *not*). |
-| `Unsupported URL` · `Falling back on generic information extractor` | `external: true` forwards *every* embedded link (e.g. `youtube-nocookie.com` players), including ones `yt-dlp` has no extractor for | Harmless noise. Ignore it, or set `"external": false` to stop following embeds entirely. |
+| `Unsupported URL` · `Falling back on generic information extractor` on a `youtube-nocookie.com/embed/<id>?list=…` link | A YouTube embed carrying a `?list=` playlist param: `yt-dlp` (2026.06.x) mis-routes the embed+playlist URL to its generic extractor instead of YouTube. The video itself is fine. | **Recoverable** — run `recover_embeds.py` against your run log (see §9) to re-fetch each one by its `watch?v=` URL. |
+| `Unsupported URL` · `Falling back on generic information extractor` on any other embed host | `external: true` forwards *every* embedded link, including ones `yt-dlp` genuinely has no extractor for | Harmless noise. Ignore it, or set `"external": false` to stop following embeds entirely. |
 | `[youtube] This video is not available` · `[vimeo] HTTP Error 401: Unauthorized` | Source-side: the video was deleted, made private, region-locked, or embed-restricted | Not fixable — the content is gone or access-restricted on the host. |
 
 ### Make sure Deno is actually on PATH
@@ -1210,6 +1238,32 @@ The `No supported JavaScript runtime` warning then keeps appearing even though `
   $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
   deno --version
   ```
+
+---
+
+## 9. Recovering missing YouTube embeds
+
+One `Unsupported URL` case above is **not** harmless noise. Some ArtStation posts embed
+YouTube as `youtube-nocookie.com/embed/<id>?list=<playlist>`. `yt-dlp` (2026.06.x) mis-routes
+that embed+playlist form to its generic extractor and gives up with `Unsupported URL`, so
+those videos are **silently missing** from your run — the `archive` doesn't help, because
+nothing was downloaded to record. The video itself is fine: fetched as a plain
+`watch?v=<id>` URL it downloads normally.
+
+Reach for `recover_embeds.py` after any run whose log shows
+`Failed to download ytdl:…youtube…/embed/…` lines. Capture the log first, then run it:
+
+```powershell
+uv run gallery-dl -c gallery-dl.conf "<url>" 2>&1 | Tee-Object download_log.md
+
+uv run python recover_embeds.py download_log.md            # re-fetch the missing embeds
+uv run python recover_embeds.py download_log.md --dry-run   # just list what it found
+```
+
+It re-downloads each video by `watch?v=` URL into `./downloads/youtube_embeds/` and keeps its
+own `.ytdl-archive.txt` there, so re-runs only fetch what's still missing. Recovered videos
+land together in that folder because the log doesn't reliably map each embed back to its
+per-artist subfolder.
 
 ---
 
