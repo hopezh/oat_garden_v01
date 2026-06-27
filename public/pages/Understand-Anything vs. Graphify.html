@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Understand-Anything vs. Graphify — Codebase Knowledge-Graph Tools Compared</title>
+<meta name="description" content="A sourced, decision-useful comparison of Understand-Anything and Graphify across onboarding, querying, visualization, MCP, offline mode and token usage." />
+<meta name="keywords" content="knowledge-graph, codebase-comprehension, understand-anything, graphify, mcp-server, developer-onboarding" />
+<meta name="date" content="2026-06-27" />
+<style>
+  :root{
+    --bg:#f6f8fb; --surface:#ffffff; --surface-2:#eef1f6; --surface-3:#e7ebf2;
+    --text:#1b2230; --muted:#5a6475; --border:#e1e6ee; --border-strong:#cdd5e1;
+    --accent:#2f6bff; --accent-soft:rgba(47,107,255,.12);
+    --ua:#0d9488; --ua-soft:rgba(13,148,136,.13); --ua-bd:rgba(13,148,136,.4);
+    --gf:#e08a00; --gf-soft:rgba(224,138,0,.14); --gf-bd:rgba(224,138,0,.42);
+    --good:#16a34a; --bad:#dc2626; --warn:#d97706;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px rgba(20,30,50,.07);
+    --nav-h:58px;
+    --cv-bg1:#e9eef7; --cv-bg2:#dfe8f5; --cv-grid:rgba(40,70,120,.10);
+    --cv-line:rgba(40,60,90,.30); --cv-ua:#0d9488; --cv-gf:#e08a00; --cv-hub:#2f6bff; --cv-node:#ffffff;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","Consolas",monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  html[data-theme="dark"]{
+    --bg:#0d1117; --surface:#151b24; --surface-2:#1b232e; --surface-3:#212b38;
+    --text:#e6edf5; --muted:#9aa7b6; --border:#28323f; --border-strong:#36424f;
+    --accent:#5b8cff; --accent-soft:rgba(91,140,255,.16);
+    --ua:#2dd4bf; --ua-soft:rgba(45,212,191,.14); --ua-bd:rgba(45,212,191,.4);
+    --gf:#f5b338; --gf-soft:rgba(245,179,56,.15); --gf-bd:rgba(245,179,56,.42);
+    --good:#3fb950; --bad:#f85149; --warn:#e3a008;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.4);
+    --cv-bg1:#0e1626; --cv-bg2:#0b1220; --cv-grid:rgba(120,160,220,.10);
+    --cv-line:rgba(150,180,220,.34); --cv-ua:#2dd4bf; --cv-gf:#f5b338; --cv-hub:#5b8cff; --cv-node:#0d1117;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.62;
+    font-size:16px;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+
+  /* ---------- top nav ---------- */
+  .topnav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);z-index:60;display:flex;
+    align-items:center;gap:14px;padding:0 16px;background:color-mix(in srgb,var(--surface) 86%,transparent);
+    backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;white-space:nowrap}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:linear-gradient(135deg,var(--ua),var(--gf))}
+  .nav-center{flex:1;display:flex;justify-content:center;gap:4px;overflow:hidden}
+  .nav-center a{font-size:13.5px;color:var(--muted);text-decoration:none;padding:7px 11px;border-radius:8px;
+    white-space:nowrap;transition:.18s;font-weight:500}
+  .nav-center a:hover{color:var(--text);background:var(--surface-2)}
+  .nav-center a.active{color:var(--accent);background:var(--accent-soft)}
+  .nav-btn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text);border-radius:9px;cursor:pointer;transition:.18s;flex:0 0 auto}
+  .nav-btn:hover{background:var(--surface-2);border-color:var(--border-strong)}
+  .nav-btn svg{width:18px;height:18px}
+
+  /* ---------- sidebar (fixed overlay, content stays centered) ---------- */
+  .backdrop{position:fixed;inset:var(--nav-h) 0 0 0;background:rgba(8,12,20,.42);z-index:45;opacity:0;
+    visibility:hidden;transition:.25s}
+  body.sb-open .backdrop{opacity:1;visibility:visible}
+  .sidebar{position:fixed;top:var(--nav-h);left:0;bottom:0;width:270px;z-index:50;background:var(--surface);
+    border-right:1px solid var(--border);overflow-y:auto;padding:18px 12px 40px;
+    transform:translateX(-100%);transition:transform .26s cubic-bezier(.4,0,.2,1)}
+  body.sb-open .sidebar{transform:translateX(0)}
+  .sb-group{margin-bottom:6px}
+  .sb-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;
+    padding:8px 10px;border-radius:8px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);font-weight:700}
+  .sb-head:hover{background:var(--surface-2);color:var(--text)}
+  .sb-head .chev{transition:transform .2s;width:14px;height:14px}
+  .sb-group.collapsed .chev{transform:rotate(-90deg)}
+  .sb-links{overflow:hidden;transition:max-height .25s ease;max-height:600px}
+  .sb-group.collapsed .sb-links{max-height:0}
+  .sb-links a{display:block;font-size:13.5px;color:var(--muted);text-decoration:none;padding:6px 10px 6px 16px;
+    border-radius:7px;border-left:2px solid transparent;transition:.15s}
+  .sb-links a:hover{color:var(--text);background:var(--surface-2)}
+  .sb-links a.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600}
+
+  /* ---------- cover ---------- */
+  .cover{margin-top:var(--nav-h);width:100%;height:clamp(200px,29vw,330px);overflow:hidden;
+    background:linear-gradient(120deg,var(--cv-bg1),var(--cv-bg2));border-bottom:1px solid var(--border)}
+  .cover svg{display:block;width:100%;height:100%}
+  .cover .edge{stroke:var(--cv-line);stroke-width:1.4;fill:none}
+  .cover .edge.ua{stroke:var(--cv-ua);opacity:.78}
+  .cover .edge.gf{stroke:var(--cv-gf);opacity:.78}
+  .cover .grid{stroke:var(--cv-grid);stroke-width:1;fill:none}
+  .cover .node{fill:var(--cv-node);stroke-width:2.4}
+  .cover .node.ua{stroke:var(--cv-ua)} .cover .node.gf{stroke:var(--cv-gf)}
+  .cover .hub{fill:var(--cv-hub);stroke:var(--cv-node);stroke-width:2.5}
+  .cover .cube{fill:none;stroke:var(--cv-line);stroke-width:1.5;opacity:.55}
+  .cover .lbl{fill:var(--muted);font-family:var(--sans);font-weight:700;font-size:13px;letter-spacing:.14em}
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+  header.page-head{padding:34px 0 6px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:5px 11px;border-radius:30px;margin-bottom:14px}
+  h1{font-size:clamp(1.9rem,4.4vw,2.9rem);line-height:1.1;margin:.1em 0 .35em;letter-spacing:-.02em}
+  .subtitle{font-size:clamp(1rem,2vw,1.18rem);color:var(--muted);max-width:74ch;margin:0}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .pill{font-size:12.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);
+    padding:5px 11px;border-radius:30px}
+
+  section{scroll-margin-top:calc(var(--nav-h) + 16px);padding-top:30px}
+  h2{font-size:1.62rem;letter-spacing:-.01em;margin:.2em 0 .1em;padding-bottom:.32em;border-bottom:1px solid var(--border)}
+  h2 .num{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:.45em;font-size:.86em}
+  h3{font-size:1.18rem;margin:1.4em 0 .4em}
+  h4{font-size:1rem;margin:1.1em 0 .3em}
+  p{margin:.55em 0}
+  a.src{color:var(--accent);text-decoration:none}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--border);
+    padding:.1em .42em;border-radius:5px}
+  strong{font-weight:700}
+
+  /* citation marker */
+  .cite{font-family:var(--mono);font-size:.72em;font-weight:700;color:var(--accent);text-decoration:none;
+    background:var(--accent-soft);border-radius:5px;padding:1px 5px;margin:0 1px;vertical-align:super;
+    line-height:1;transition:.15s}
+  .cite:hover{background:var(--accent);color:#fff}
+
+  /* cards */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;
+    box-shadow:var(--shadow);margin:16px 0}
+  .tldr{background:linear-gradient(160deg,var(--surface),var(--surface-2));border:1px solid var(--border-strong)}
+  .tldr .lead{font-size:1.04rem}
+  .pick{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .pick .opt{border-radius:12px;padding:15px 16px;border:1px solid var(--border)}
+  .pick .ua{background:var(--ua-soft);border-color:var(--ua-bd)}
+  .pick .gf{background:var(--gf-soft);border-color:var(--gf-bd)}
+  .pick .opt .tool{font-weight:800;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .pick .ua .tool{color:var(--ua)} .pick .gf .tool{color:var(--gf)}
+
+  /* tool badges */
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:30px;letter-spacing:.02em}
+  .tag.ua{background:var(--ua-soft);color:var(--ua);border:1px solid var(--ua-bd)}
+  .tag.gf{background:var(--gf-soft);color:var(--gf);border:1px solid var(--gf-bd)}
+  .tag.tie{background:var(--surface-3);color:var(--muted);border:1px solid var(--border-strong)}
+
+  /* two-column compare */
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .vs .col{border-radius:12px;border:1px solid var(--border);padding:14px 16px;background:var(--surface);min-width:0}
+  .vs .col.ua{border-top:3px solid var(--ua)} .vs .col.gf{border-top:3px solid var(--gf)}
+  .vs .col h5{margin:0 0 8px;font-size:.92rem;display:flex;align-items:center;gap:8px}
+  .vs .col h5 .dotm{width:9px;height:9px;border-radius:50%}
+  .vs .col.ua h5 .dotm{background:var(--ua)} .vs .col.gf h5 .dotm{background:var(--gf)}
+  .vs .col ul{margin:0;padding-left:18px} .vs .col li{margin:3px 0;font-size:.92rem}
+
+  /* function scorecards */
+  .fn{position:relative}
+  .fn .winner{position:absolute;top:18px;right:20px}
+  .nuance{font-size:.92rem;color:var(--muted);border-left:3px solid var(--border-strong);padding:2px 0 2px 14px;margin:10px 0 2px}
+
+  /* perspective table */
+  .ptable{width:100%;border-collapse:collapse;margin:6px 0;font-size:.93rem;overflow:hidden;border-radius:10px}
+  .ptable th,.ptable td{text-align:left;padding:9px 13px;border:1px solid var(--border);vertical-align:top}
+  .ptable thead th{background:var(--surface-2);font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .ptable thead th.ua{color:var(--ua)} .ptable thead th.gf{color:var(--gf)}
+  .ptable td:first-child{font-weight:600;color:var(--muted);width:24%}
+  .ptable tbody tr:nth-child(even){background:var(--surface-2)}
+
+  /* callouts */
+  .callout{border-radius:11px;padding:12px 15px;margin:12px 0;font-size:.92rem;border:1px solid var(--border)}
+  .callout .ct{font-weight:700;font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .callout.correction{background:color-mix(in srgb,var(--warn) 9%,var(--surface));border-color:color-mix(in srgb,var(--warn) 40%,var(--border))}
+  .callout.correction .ct{color:var(--warn)}
+  .callout.note{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
+  .callout.note .ct{color:var(--accent)}
+
+  /* at-a-glance matrix */
+  .matrix{width:100%;border-collapse:collapse;font-size:.92rem}
+  .matrix th,.matrix td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:center}
+  .matrix th:first-child,.matrix td:first-child{text-align:left;font-weight:600}
+  .matrix thead th{font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+  .matrix thead th.ua{color:var(--ua)} .matrix thead th.gf{color:var(--gf)}
+  .yes{color:var(--good);font-weight:700} .no{color:var(--bad);font-weight:700} .partial{color:var(--warn);font-weight:700}
+  .matrix td small{display:block;color:var(--muted);font-size:.78rem;font-weight:400}
+
+  /* token chart */
+  .chart{margin:16px 0}
+  .bar-row{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:center;margin:11px 0}
+  .bar-row .blabel{font-size:.86rem;color:var(--muted);text-align:right}
+  .track{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;height:30px;position:relative;overflow:hidden}
+  .fill{height:100%;border-radius:7px 0 0 7px;display:flex;align-items:center;justify-content:flex-end;
+    padding-right:9px;font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;min-width:46px}
+  .fill.raw{background:linear-gradient(90deg,#94a3b8,#64748b)}
+  .fill.gf{background:linear-gradient(90deg,var(--gf),#c47700)}
+  .bigx{display:flex;align-items:baseline;gap:10px;margin-top:8px}
+  .bigx .n{font-size:2.4rem;font-weight:800;color:var(--gf);letter-spacing:-.02em}
+
+  /* pros cons */
+  .pc{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .pc ul{margin:.3em 0;padding-left:18px} .pc li{margin:5px 0;font-size:.93rem}
+  .pc .pros li::marker{color:var(--good)} .pc .cons li::marker{color:var(--bad)}
+  .pc h4{display:flex;align-items:center;gap:8px;margin-top:.4em}
+
+  /* code blocks */
+  pre{background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:14px 16px;
+    overflow-x:auto;font-family:var(--mono);font-size:.85rem;line-height:1.6}
+  pre .cm{color:var(--muted)}
+  .codecap{font-size:.82rem;color:var(--muted);margin:-6px 0 14px}
+
+  /* combine diagram */
+  .flow svg{width:100%;height:auto;display:block}
+  .flow .fbox{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.5}
+  .flow .fbox.ua{stroke:var(--ua)} .flow .fbox.gf{stroke:var(--gf)} .flow .fbox.repo{stroke:var(--accent)}
+  .flow .ftxt{fill:var(--text);font-family:var(--sans);font-size:13px;font-weight:600}
+  .flow .fsub{fill:var(--muted);font-family:var(--sans);font-size:11px}
+  .flow .farrow{stroke:var(--muted);stroke-width:1.8;fill:none;marker-end:url(#arrowhead)}
+
+  /* steps */
+  ol.steps{counter-reset:s;list-style:none;padding-left:0}
+  ol.steps li{position:relative;padding:4px 0 12px 44px;margin:0}
+  ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:2px;width:30px;height:30px;
+    border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:800;display:flex;
+    align-items:center;justify-content:center;font-size:.9rem;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border))}
+
+  /* references */
+  ol.refs{padding-left:0;list-style:none;counter-reset:r}
+  ol.refs li{counter-increment:r;position:relative;padding:7px 0 7px 40px;border-bottom:1px solid var(--border);font-size:.9rem}
+  ol.refs li::before{content:"["counter(r)"]";position:absolute;left:0;top:7px;font-family:var(--mono);
+    font-weight:700;color:var(--accent);font-size:.82rem}
+  ol.refs li.flash{background:var(--accent-soft);border-radius:8px}
+  ol.refs a{color:var(--accent);text-decoration:none;word-break:break-all} ol.refs a:hover{text-decoration:underline}
+  .refname{color:var(--text);font-weight:600}
+
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
+
+  @media(max-width:760px){
+    .nav-center{display:none}
+    .pick,.vs,.pc,.bar-row{grid-template-columns:1fr}
+    .bar-row .blabel{text-align:left}
+    .fn .winner{position:static;display:inline-block;margin-bottom:6px}
+    .card{overflow-x:auto}
+    .ptable{min-width:520px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TOP NAV ============ -->
+<nav class="topnav">
+  <button class="nav-btn" id="sbToggle" aria-label="Toggle contents sidebar" title="Toggle contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <span class="brand"><span class="dot"></span>UA&nbsp;vs&nbsp;Graphify</span>
+  <div class="nav-center">
+    <a href="#tldr">TL;DR</a>
+    <a href="#functions">Functions</a>
+    <a href="#perspectives">Perspectives</a>
+    <a href="#proscons">Pros &amp; Cons</a>
+    <a href="#scenarios">Scenarios</a>
+    <a href="#usage">Usage</a>
+    <a href="#combine">Combine</a>
+    <a href="#sources">Sources</a>
+  </div>
+  <button class="nav-btn" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+    <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+    <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</nav>
+
+<!-- ============ SIDEBAR ============ -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sb-group">
+    <div class="sb-head">Overview <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+    <div class="sb-links"><a href="#tldr">TL;DR &amp; verdict</a><a href="#glance">At a glance</a></div>
+  </div>
+  <div class="sb-group">
+    <div class="sb-head">The four functions <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+    <div class="sb-links">
+      <a href="#fn-a">a · Understanding structure</a>
+      <a href="#fn-b">b · Querying</a>
+      <a href="#fn-c">c · Visualizing relationships</a>
+      <a href="#fn-d">d · Demonstrating execution</a>
+    </div>
+  </div>
+  <div class="sb-group">
+    <div class="sb-head">Perspectives <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+    <div class="sb-links">
+      <a href="#p-philosophy">Core philosophy</a>
+      <a href="#p-impl">Implementation</a>
+      <a href="#p-io">Input / output</a>
+      <a href="#p-extract">Extraction</a>
+      <a href="#p-files">File types</a>
+      <a href="#p-backend">Backend / storage</a>
+      <a href="#p-mcp">MCP server</a>
+      <a href="#p-offline">Offline mode</a>
+      <a href="#p-token">Token usage</a>
+      <a href="#p-overhead">Execution overhead</a>
+      <a href="#p-update">Updates</a>
+    </div>
+  </div>
+  <div class="sb-group">
+    <div class="sb-head">Decision &amp; practice <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+    <div class="sb-links">
+      <a href="#proscons">Pros &amp; cons</a>
+      <a href="#scenarios">Best scenarios</a>
+      <a href="#usage">How to use each</a>
+      <a href="#combine">Combining both</a>
+    </div>
+  </div>
+  <div class="sb-group">
+    <div class="sb-head">Reference <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>
+    <div class="sb-links"><a href="#sources">Sources &amp; caveats</a></div>
+  </div>
+</aside>
+
+<!-- ============ COVER ============ -->
+<div class="cover" role="img" aria-label="Abstract axonometric illustration of two knowledge graphs converging on a central hub">
+  <svg viewBox="0 0 1200 330" preserveAspectRatio="xMidYMid slice">
+    <!-- iso grid -->
+    <g class="grid">
+      <path d="M0 240 L300 90 M0 290 L380 80 M120 330 L520 90 M300 330 L700 100"/>
+      <path d="M1200 240 L900 90 M1200 290 L820 80 M1080 330 L680 90 M900 330 L500 100"/>
+      <path d="M40 150 L1160 150" opacity=".5"/>
+    </g>
+    <!-- wireframe cubes (axonometric) -->
+    <g class="cube">
+      <path d="M150 215 l34 -19 l34 19 l0 38 l-34 19 l-34 -19 z M150 215 l34 19 l34 -19 M184 234 l0 38"/>
+      <path d="M1000 205 l30 -17 l30 17 l0 34 l-30 17 l-30 -17 z M1000 205 l30 17 l30 -17 M1030 222 l0 34"/>
+    </g>
+    <!-- UA teaching cluster (left) -->
+    <g>
+      <line class="edge ua" x1="250" y1="120" x2="360" y2="90"/>
+      <line class="edge ua" x1="250" y1="120" x2="300" y2="210"/>
+      <line class="edge ua" x1="360" y1="90" x2="430" y2="170"/>
+      <line class="edge ua" x1="300" y1="210" x2="430" y2="170"/>
+      <line class="edge ua" x1="430" y1="170" x2="600" y2="165"/>
+      <line class="edge ua" x1="360" y1="90" x2="600" y2="165"/>
+      <circle class="node ua" cx="250" cy="120" r="11"/>
+      <circle class="node ua" cx="360" cy="90" r="9"/>
+      <circle class="node ua" cx="300" cy="210" r="9"/>
+      <circle class="node ua" cx="430" cy="170" r="13"/>
+      <text class="lbl" x="196" y="92">TEACH · HUMANS</text>
+    </g>
+    <!-- GF grounding cluster (right) -->
+    <g>
+      <line class="edge gf" x1="950" y1="120" x2="840" y2="90"/>
+      <line class="edge gf" x1="950" y1="120" x2="900" y2="210"/>
+      <line class="edge gf" x1="840" y1="90" x2="770" y2="170"/>
+      <line class="edge gf" x1="900" y1="210" x2="770" y2="170"/>
+      <line class="edge gf" x1="770" y1="170" x2="600" y2="165"/>
+      <line class="edge gf" x1="840" y1="90" x2="600" y2="165"/>
+      <circle class="node gf" cx="950" cy="120" r="11"/>
+      <circle class="node gf" cx="840" cy="90" r="9"/>
+      <circle class="node gf" cx="900" cy="210" r="9"/>
+      <circle class="node gf" cx="770" cy="170" r="13"/>
+      <text class="lbl" x="838" y="92">GROUND · AGENTS</text>
+    </g>
+    <!-- central hub -->
+    <circle class="hub" cx="600" cy="165" r="18"/>
+    <circle class="hub" cx="600" cy="165" r="30" fill="none" stroke="var(--cv-hub)" stroke-width="1.3" opacity=".5"/>
+  </svg>
+</div>
+
+<!-- ============ MAIN ============ -->
+<div class="wrap">
+  <header class="page-head">
+    <span class="eyebrow">Tooling comparison · codebase → knowledge graph</span>
+    <h1>Understand-Anything vs. Graphify</h1>
+    <p class="subtitle">Two tools turn a codebase — or a mixed folder of code, docs, papers, and media — into a knowledge graph, but they optimize for different readers. <strong>Understand-Anything</strong> optimizes for a <em>human</em> learning a codebase; <strong>Graphify</strong> optimizes for an <em>AI assistant</em> that must stay grounded in structure. Every factual claim below is traced to a primary repo, official site, or corroborating write-up in the Sources section.</p>
+    <div class="meta-row">
+      <span class="pill">📅 2026-06-27</span>
+      <span class="pill">🔍 21 cited sources</span>
+      <span class="pill">✅ claims adversarially fact-checked</span>
+      <span class="pill">⚖️ 11 perspectives · 4 functions</span>
+    </div>
+  </header>
+
+  <!-- ===== TLDR ===== -->
+  <section id="tldr">
+    <div class="card tldr">
+      <h2 style="border:none;padding:0;margin-top:0"><span class="num">§1</span>TL;DR</h2>
+      <p class="lead"><strong>Understand-Anything</strong> (Egonex-AI) is a TypeScript Claude-Code / multi-platform <strong>plugin</strong> whose stated philosophy is <em>"Graphs that teach &gt; graphs that impress"</em><a class="cite" href="#ref-1">1</a>. It runs a 5–6 agent pipeline and produces a committable <code>knowledge-graph.json</code> plus a polished interactive dashboard with guided onboarding tours, persona-adaptive detail, and a diff ripple-effect view<a class="cite" href="#ref-2">2</a>. <strong>Graphify</strong> (safishamsi) is a Python <strong>skill / CLI</strong> that compresses any multimodal folder into one persistent, queryable <code>graph.json</code>, reports <strong>71.5× fewer tokens per query</strong> vs. reading raw files, and ships a built-in <strong>MCP stdio server</strong> plus exports to Neo4j, GraphML, SVG, and Obsidian<a class="cite" href="#ref-12">12</a><a class="cite" href="#ref-13">13</a>.</p>
+      <p>The decisive split: UA has a far richer <strong>human-facing dashboard</strong> but <strong>no MCP server</strong> and <strong>no graph-DB exports</strong>; Graphify has <strong>less dashboard polish</strong> but is <strong>built to ground an AI agent</strong> and feed external graph tooling<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</p>
+      <div class="pick">
+        <div class="opt ua"><span class="tool">Pick Understand-Anything if…</span> your goal is to <strong>teach humans</strong> — onboard engineers, give PMs/leads a navigable architecture map, and run guided tours &amp; change-impact reviews from inside your coding agent.</div>
+        <div class="opt gf"><span class="tool">Pick Graphify if…</span> your goal is to <strong>ground an AI assistant</strong> in a persistent, token-cheap graph (via MCP), ingest non-code material (PDFs, images, audio/video, YouTube), and export to Neo4j / Gephi / Obsidian.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== AT A GLANCE ===== -->
+  <section id="glance">
+    <h2><span class="num">§1.1</span>At a glance</h2>
+    <p>Capability presence across the features that most often decide the choice. <span class="yes">●</span> present · <span class="partial">◐</span> partial / basic · <span class="no">○</span> absent.</p>
+    <div class="card" style="overflow-x:auto">
+      <table class="matrix">
+        <thead><tr><th>Capability</th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>MCP server (grounds an AI agent)</td><td><span class="no">○</span><small>none documented</small></td><td><span class="yes">●</span><small>stdio, 7 tools</small></td></tr>
+          <tr><td>Graph-DB / interchange export</td><td><span class="no">○</span><small>PNG/SVG/JSON only</small></td><td><span class="yes">●</span><small>Neo4j · GraphML · Obsidian</small></td></tr>
+          <tr><td>Multimodal input (PDF/image/audio/video)</td><td><span class="no">○</span></td><td><span class="yes">●</span><small>+ YouTube URLs</small></td></tr>
+          <tr><td>Polished human dashboard + guided tours</td><td><span class="yes">●</span><small>persona-adaptive</small></td><td><span class="partial">◐</span><small>functional graph.html</small></td></tr>
+          <tr><td>Diff / change-impact view</td><td><span class="yes">●</span><small>ripple view</small></td><td><span class="partial">◐</span><small>path tracing</small></td></tr>
+          <tr><td>Edge-level provenance tags</td><td><span class="no">○</span></td><td><span class="yes">●</span><small>EXTRACTED/INFERRED/AMBIGUOUS</small></td></tr>
+          <tr><td>Committable in-repo JSON graph</td><td><span class="yes">●</span></td><td><span class="yes">●</span></td></tr>
+          <tr><td>Incremental update + git hook</td><td><span class="yes">●</span></td><td><span class="yes">●</span><small>+ --watch live</small></td></tr>
+          <tr><td>Published per-query token benchmark</td><td><span class="no">○</span><small>internal goal only</small></td><td><span class="yes">●</span><small>71.5×</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== FUNCTIONS ===== -->
+  <section id="functions">
+    <h2><span class="num">§2</span>The four functions, head-to-head</h2>
+
+    <div class="card fn" id="fn-a">
+      <span class="winner tag tie">Winner: tie · role-dependent</span>
+      <h3>(a) Understanding structure &amp; mechanics</h3>
+      <p>Both start from the same deterministic backbone: a Tree-sitter AST pass extracting imports, exports, definitions, call sites, and inheritance, with an LLM layered on top for semantics<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-13">13</a>. They diverge in what the semantic layer is <em>for</em>. UA's LLM agents assign <strong>architectural layers</strong> (API / Service / Data / UI / Utility), business-domain mappings, and plain-English summaries aimed at comprehension<a class="cite" href="#ref-2">2</a>. Graphify's semantic pass surfaces the <strong>"why"</strong> — mining rationale comments (<code># WHY:</code>, <code># NOTE:</code>, <code># HACK:</code>) into <code>rationale_for</code> nodes, extracting hyperedges, and tagging every edge <code>EXTRACTED / INFERRED / AMBIGUOUS</code><a class="cite" href="#ref-13">13</a>.</p>
+      <p class="nuance">For a human building a mental model of layers and flow, UA's teaching framing wins; for fidelity about provenance and design rationale, Graphify wins.</p>
+    </div>
+
+    <div class="card fn" id="fn-b">
+      <span class="winner tag gf">Winner: Graphify</span>
+      <h3>(b) Querying information</h3>
+      <p>UA answers through <code>/understand-chat</code>, which does <strong>grep-based subgraph retrieval</strong> over <code>knowledge-graph.json</code> — pulling just the connected subgraph rather than dumping the whole graph<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-10">10</a> — but there is <strong>no MCP server</strong><a class="cite" href="#ref-15">15</a>. Graphify exposes three query paths: a terminal CLI (<code>graphify query/path/explain</code>, runnable with <strong>no AI assistant</strong>), a built-in <strong>MCP stdio server</strong> with 7 tools (<code>query_graph, get_node, get_neighbors, get_community, god_nodes, graph_stats, shortest_path</code>), and direct traversal of <code>graph.json</code> — all benchmarked at <strong>71.5× fewer tokens/query</strong> with a <code>--budget</code>/<code>token_budget</code> cap<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</p>
+      <p class="nuance">Persistent, programmatic, token-budgeted, MCP-native querying an agent can call repeatedly — Graphify's home turf.</p>
+    </div>
+
+    <div class="card fn" id="fn-c">
+      <span class="winner tag tie">Winner: split</span>
+      <h3>(c) Illustrating component relationships visually</h3>
+      <p>UA's dashboard is the standout: a force-directed React graph color-coded by architectural layer, with pan/zoom, fuzzy + semantic search, a Dependency Path Finder, hierarchical drill-down, community clustering, and PNG/SVG/JSON export<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>. Graphify renders a custom <strong>vis.js <code>graph.html</code></strong> (node size by degree, click-to-inspect, search, community filter) and additionally exports to <strong>SVG, GraphML (Gephi/yEd), Neo4j (Cypher / bolt push), and Obsidian</strong><a class="cite" href="#ref-13">13</a>.</p>
+      <p class="nuance">For a turnkey, polished in-browser UI, <strong>UA wins</strong>; for piping the graph into established tooling (Gephi, yEd, Neo4j, Obsidian), <strong>Graphify wins</strong>.</p>
+    </div>
+
+    <div class="card fn" id="fn-d">
+      <span class="winner tag ua">Winner: Understand-Anything</span>
+      <h3>(d) Demonstrating visually how a function/workflow executes</h3>
+      <p><em>Neither tool animates literal runtime execution.</em> UA gets closest to a guided walkthrough: AI-generated, dependency-ordered <strong>Guided Tours</strong> stepping from the API layer down to data persistence, plus a <strong>diff impact (ripple-effect) view</strong> and a shortest-path finder<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>. Graphify traces workflows structurally: <code>path "A" "B"</code> for exact paths, <code>query --dfs</code> to trace hop-by-hop, a call-graph pass, and hyperedges that group "all functions in an auth flow" into one relationship<a class="cite" href="#ref-13">13</a>.</p>
+      <p class="nuance">UA wins for a <em>visual, narrated</em> step-by-step demonstration; Graphify offers precise path tracing, but as text/graph traversal rather than a guided tour.</p>
+    </div>
+  </section>
+
+  <!-- ===== PERSPECTIVES ===== -->
+  <section id="perspectives">
+    <h2><span class="num">§3</span>Perspective-by-perspective</h2>
+
+    <div class="card" id="p-philosophy">
+      <h3>Core app philosophy</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Tagline</td><td>"Graphs that teach &gt; graphs that impress"<a class="cite" href="#ref-1">1</a></td><td>"An AI coding assistant skill … structure you didn't know was there"<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Optimizes for</td><td>Humans learning / onboarding</td><td>AI assistants staying grounded</td></tr>
+        </tbody></table>
+      <p class="nuance">UA's goal is <em>"a graph that quietly teaches you how every piece fits together"</em><a class="cite" href="#ref-2">2</a>. Graphify answers Karpathy's <code>/raw</code>-folder problem — compress any folder into a single queryable graph and serve <strong>compressed subgraphs</strong> instead of raw files<a class="cite" href="#ref-17">17</a><a class="cite" href="#ref-20">20</a>.</p>
+    </div>
+
+    <div class="card" id="p-impl">
+      <h3>Implementation</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Language</td><td>TypeScript (pnpm monorepo: <code>core</code> + React/Vite <code>dashboard</code>)<a class="cite" href="#ref-2">2</a></td><td>Python 3.10+ (<code>pip install graphifyy</code>)<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Form factor</td><td>Claude-Code / multi-platform plugin</td><td>CLI + AI-assistant skill</td></tr>
+          <tr><td>Engine</td><td>5–6 agent pipeline + Tree-sitter<a class="cite" href="#ref-2">2</a></td><td>3-pass: Tree-sitter AST → local Whisper → Claude subagents; Leiden (graspologic) clustering<a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <p class="nuance">UA runs 5 agents for <code>/understand</code> (project-scanner, file-analyzer, architecture-analyzer, tour-builder, graph-reviewer) + a 6th (domain-analyzer) for <code>/understand-domain</code><a class="cite" href="#ref-2">2</a>. Graphify's stack is <em>NetworkX + Leiden + tree-sitter + Claude + vis.js</em> with <strong>no server and no database</strong><a class="cite" href="#ref-12">12</a>.</p>
+    </div>
+
+    <div class="card" id="p-io">
+      <h3>Content &amp; format of input / output</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Input</td><td>Codebase dir (multi-language, scopeable to a subdir); docs; optional Karpathy LLM wiki<a class="cite" href="#ref-2">2</a></td><td>Code, docs/markdown, PDFs, images, audio/video, YouTube/video URLs, Office <code>.docx/.xlsx</code> (via <code>[office]</code>)<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-16">16</a></td></tr>
+          <tr><td>Output</td><td><code>.understand-anything/knowledge-graph.json</code> (+ meta / fingerprints / config / domain-graph.json) + web dashboard; exports PNG/SVG/JSON<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-3">3</a><a class="cite" href="#ref-4">4</a></td><td><code>graphify-out/</code> → <code>graph.html</code>, <code>GRAPH_REPORT.md</code>, <code>graph.json</code>, <code>cache/</code>; optional <code>obsidian/</code>, <code>wiki/</code>, <code>.svg</code>, <code>.graphml</code>, <code>cypher.txt</code><a class="cite" href="#ref-12">12</a><a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <div class="callout note"><span class="ct">Nuance</span>UA's graph is <em>"just JSON — commit it once, and teammates skip the pipeline"</em><a class="cite" href="#ref-2">2</a>. Graphify's <code>graph.json</code> is a standard NetworkX export meant to be <em>"queried weeks later without re-reading"</em><a class="cite" href="#ref-17">17</a>. Graphify's "SQL schemas" input is <strong>unverified</strong> (single third-party source only).</div>
+    </div>
+
+    <div class="card" id="p-extract">
+      <h3>Extraction</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Deterministic pass</td><td>Tree-sitter CST → structural facts</td><td>Tree-sitter AST + call-graph pass (code never leaves the machine)<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Semantic pass</td><td>LLM agents: summaries, layers, domains, tours, review<a class="cite" href="#ref-2">2</a></td><td>Parallel Claude subagents: concepts, relationships, rationale<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Provenance</td><td>Not exposed as confidence tags</td><td>Every edge <code>EXTRACTED / INFERRED / AMBIGUOUS</code><a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <div class="callout correction"><span class="ct">Correction</span>Graphify supports <strong>13 tree-sitter languages on main / 20 on v3 — not 36</strong> (the highest third-party figure is 31). Edge confidence tagging is a distinctive honesty feature absent from UA<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-21">21</a>.</div>
+    </div>
+
+    <div class="card" id="p-files">
+      <h3>File types</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Code grammars</td><td>TS/JS, Python + C++, C#, Dart, Go, Java, Kotlin, PHP, Ruby, Rust via Tree-sitter<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-6">6</a></td><td>20 grammars in v3 (Python, JS, TS, Go, Rust, Java, C, C++, Ruby, C#, Kotlin, Scala, PHP, Swift, Lua, Zig, PowerShell, Elixir, Objective-C, Julia)<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Beyond code</td><td>Dockerfiles, Terraform, SQL, Markdown — "26+ file types" (lighter parsers)<a class="cite" href="#ref-1">1</a></td><td>PDFs, images (vision), audio/video (Whisper), Office via extras<a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <p class="nuance">UA's full grammar list is derived from repo file names rather than stated verbatim in README prose<a class="cite" href="#ref-6">6</a>. Graphify's media/Office handling requires optional install extras (<code>[office]</code>, <code>[video]</code>)<a class="cite" href="#ref-13">13</a>.</p>
+    </div>
+
+    <div class="card" id="p-backend">
+      <h3>Backend / storage</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Storage</td><td>Local JSON via <code>node:fs</code>, no DB; git-lfs for 10 MB+ graphs<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-3">3</a></td><td>Local <code>graph.json</code> (NetworkX) + SHA256 cache, no DB<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Graph-DB / interchange</td><td><strong>None</strong> (PNG/SVG/JSON only)<a class="cite" href="#ref-4">4</a></td><td>Neo4j (<code>cypher.txt</code> / <code>--neo4j-push bolt://</code>), GraphML, SVG, Obsidian<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Model backends</td><td>Host platform's model; local Ollama supported<a class="cite" href="#ref-2">2</a></td><td>Claude / GPT-4 / Gemini / DeepSeek / Moonshot / Ollama (host-dependent)<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-19">19</a></td></tr>
+        </tbody></table>
+      <div class="callout correction"><span class="ct">Correction</span>There is <strong>no FalkorDB export</strong> in any source — Graphify's targets are Neo4j, GraphML, SVG, and Obsidian only<a class="cite" href="#ref-13">13</a>.</div>
+    </div>
+
+    <div class="card" id="p-mcp">
+      <h3>MCP server</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>MCP</td><td><strong>None documented</strong><a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-15">15</a></td><td>Built-in <strong>stdio</strong> server (<code>--mcp</code>), 7 tools<a class="cite" href="#ref-15">15</a></td></tr>
+        </tbody></table>
+      <p class="nuance">Across UA's README, plugin manifest, homepage, recursive repo tree, and third-party listings, no MCP server is documented<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-15">15</a>. Graphify's <code>serve.py</code> registers a server named <code>graphify</code> exposing <code>query_graph, get_node, get_neighbors, get_community, god_nodes, graph_stats, shortest_path</code><a class="cite" href="#ref-15">15</a>.</p>
+      <div class="callout correction"><span class="ct">Correction</span>There is <strong>no HTTP transport</strong> (stdio only), and the <strong>PR-impact tools</strong> (<code>list_prs, get_pr_impact, triage_prs</code>) reported by one third-party are <strong>unverified</strong><a class="cite" href="#ref-15">15</a><a class="cite" href="#ref-21">21</a>.</div>
+    </div>
+
+    <div class="card" id="p-offline">
+      <h3>Offline mode</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Offline story</td><td>Point host platform at a local provider (Ollama); graph JSON is a portable offline artifact — but not fully offline<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-7">7</a></td><td>Code AST + audio/video transcription fully local; only docs/PDF/image semantics need an LLM API<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-18">18</a></td></tr>
+        </tbody></table>
+      <p class="nuance">Neither runs end-to-end offline for the initial build. UA explicitly does <em>not</em> claim full offline operation — only the model provider is local<a class="cite" href="#ref-2">2</a>. For Graphify, <em>"code files are processed locally … audio never leaves your machine"</em><a class="cite" href="#ref-13">13</a>.</p>
+      <div class="callout correction"><span class="ct">Correction</span>That Graphify's doc/image semantic pass <em>can run on local Ollama</em> is <strong>unverified</strong> by any first-party source<a class="cite" href="#ref-13">13</a>.</div>
+    </div>
+
+    <div class="card" id="p-token">
+      <h3>Token usage</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>First build</td><td>Heavy initial <code>/understand</code> scan on large repos<a class="cite" href="#ref-2">2</a></td><td>AST pass = effectively <strong>zero tokens</strong>; semantic pass costs tokens<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Steady state</td><td>Incremental (changed files only) via fingerprints<a class="cite" href="#ref-2">2</a></td><td><strong>71.5×</strong> fewer tokens/query vs. raw files<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-19">19</a></td></tr>
+          <tr><td>Budget control</td><td>None documented</td><td><code>--budget N</code> (CLI) / <code>token_budget</code> (MCP, default 2000)<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a></td></tr>
+        </tbody></table>
+      <div class="chart card" style="margin-top:14px">
+        <h4 style="margin-top:0">Tokens to answer one query — graph vs. raw files</h4>
+        <p class="codecap">Graphify benchmark on a 52-file mixed corpus<a class="cite" href="#ref-13">13</a>.</p>
+        <div class="bar-row"><div class="blabel">Read raw files</div><div class="track"><div class="fill raw" style="width:100%">≈ 123,000 tokens</div></div></div>
+        <div class="bar-row"><div class="blabel">Graphify graph query</div><div class="track"><div class="fill gf" style="width:1.4%"></div></div></div>
+        <div class="bar-row"><div class="blabel"></div><div style="font-size:.84rem;color:var(--muted);margin-top:-6px">≈ 1,700 tokens (the amber sliver above)</div></div>
+        <div class="bigx"><span class="n">71.5×</span><span style="color:var(--muted)">fewer tokens per query</span></div>
+      </div>
+      <div class="callout correction"><span class="ct">Corrections</span>UA publishes <strong>no concrete token benchmark</strong> for the shipped product (an internal spec targets a ~85–90% reduction <em>goal</em>)<a class="cite" href="#ref-5">5</a>. Graphify's reduction is <strong>71.5×</strong> (not "~71×"), and the flag is <strong><code>--budget</code></strong> (or MCP <code>token_budget</code>) — <strong>not</strong> <code>--token-budget</code> — and it caps query/traversal output, not the extraction pass<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</div>
+    </div>
+
+    <div class="card" id="p-overhead">
+      <h3>Execution overhead</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Process model</td><td>Runs inside the host coding agent; parallel agents (up to 5 concurrent, 20–30 files/batch)<a class="cite" href="#ref-2">2</a></td><td>Fixed single-function pipeline writing only inside <code>graphify-out/</code>; no server/DB<a class="cite" href="#ref-12">12</a><a class="cite" href="#ref-14">14</a></td></tr>
+          <tr><td>Known frictions</td><td>Dashboard can get sluggish on very large graphs; local dashboard may expose absolute paths/source<a class="cite" href="#ref-9">9</a></td><td>First run pays the build cost; media extras add Whisper/yt-dlp deps<a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <p class="nuance">UA's overhead is front-loaded into the initial multi-agent scan; Graphify's is front-loaded into the first graph build, after which queries are cheap.</p>
+    </div>
+
+    <div class="card" id="p-update">
+      <h3>Update as the project evolves</h3>
+      <table class="ptable"><thead><tr><th></th><th class="ua">Understand-Anything</th><th class="gf">Graphify</th></tr></thead>
+        <tbody>
+          <tr><td>Incremental</td><td>Default (changed files only), fingerprint-based<a class="cite" href="#ref-2">2</a></td><td><code>/graphify &lt;dir&gt; --update</code> (re-extract changed files, prune ghost nodes, merge)<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Git automation</td><td><code>--auto-update</code> post-commit hook patches the graph per commit<a class="cite" href="#ref-2">2</a></td><td><code>graphify hook install</code> → post-commit (+ post-checkout in v3) rebuild<a class="cite" href="#ref-13">13</a></td></tr>
+          <tr><td>Live</td><td>None</td><td><code>--watch</code>: instant AST-only (no-LLM) rebuild on code saves<a class="cite" href="#ref-13">13</a></td></tr>
+        </tbody></table>
+      <div class="callout correction"><span class="ct">Corrections</span>Graphify has <strong>no <code>extract</code> subcommand</strong> (it's <code>--update</code>); the git hook does a <strong>full rebuild</strong> while AST-only/no-LLM rebuilds are the <strong><code>--watch</code></strong> path; and a custom merge driver that "unions" <code>graph.json</code> is <strong>unverified</strong> (one third-party only)<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-21">21</a>.</div>
+    </div>
+  </section>
+
+  <!-- ===== PROS CONS ===== -->
+  <section id="proscons">
+    <h2><span class="num">§4</span>Pros &amp; cons</h2>
+    <div class="pc">
+      <div class="card">
+        <h4><span class="tag ua">Understand-Anything</span></h4>
+        <h4 class="pros">Pros</h4>
+        <ul class="pros">
+          <li>Best-in-class human dashboard: layer-colored force-directed graph, search, drill-down, dependency path finder<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>.</li>
+          <li>Purpose-built onboarding: AI-generated guided tours, persona-adaptive UI (junior dev / PM / power user)<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>.</li>
+          <li>Diff / change-impact ripple view via <code>/understand-diff</code><a class="cite" href="#ref-2">2</a>.</li>
+          <li>Graph is plain committable JSON; teammates skip the pipeline; incremental + <code>--auto-update</code> hook<a class="cite" href="#ref-2">2</a>.</li>
+          <li>Broad platform reach (Claude Code native + Cursor, Copilot, Codex, Gemini CLI, and more)<a class="cite" href="#ref-2">2</a>.</li>
+        </ul>
+        <h4 class="cons">Cons</h4>
+        <ul class="cons">
+          <li><strong>No MCP server</strong> — not built to ground an AI agent programmatically<a class="cite" href="#ref-15">15</a>.</li>
+          <li><strong>No graph-DB / interchange export</strong> (PNG/SVG/JSON only)<a class="cite" href="#ref-4">4</a>.</li>
+          <li>No multimodal ingestion (no PDFs/images/audio/video).</li>
+          <li>No edge-level confidence/provenance tags.</li>
+          <li>Dashboard can be sluggish on very large graphs; may expose absolute paths locally; published cost/runtime benchmarks unverified<a class="cite" href="#ref-9">9</a>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4><span class="tag gf">Graphify</span></h4>
+        <h4 class="pros">Pros</h4>
+        <ul class="pros">
+          <li>Built-in <strong>MCP stdio server</strong> + terminal CLI + direct <code>graph.json</code> — designed to ground assistants<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</li>
+          <li><strong>Multimodal</strong>: code, docs, PDFs, images, audio/video (local Whisper), YouTube URLs<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Strong token economics: zero-token AST pass, <strong>71.5×</strong> per-query reduction, <code>--budget</code> cap<a class="cite" href="#ref-13">13</a>.</li>
+          <li><strong>Exports</strong> to Neo4j, GraphML, SVG, Obsidian for downstream tooling<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Honest provenance: <code>EXTRACTED/INFERRED/AMBIGUOUS</code> tags; captures design <em>rationale</em> + hyperedges<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Privacy posture: code and audio never leave the machine; no telemetry<a class="cite" href="#ref-13">13</a>.</li>
+        </ul>
+        <h4 class="cons">Cons</h4>
+        <ul class="cons">
+          <li>Visualization functional (<code>graph.html</code>) but <strong>less polished</strong> than UA's dashboard; no guided tours / persona modes<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Initial multimodal build needs extras (<code>[office]</code>, <code>[video]</code>: faster-whisper, yt-dlp)<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Doc/PDF/image semantics still require an LLM API (not fully offline)<a class="cite" href="#ref-18">18</a>.</li>
+          <li>Several third-party-only claims are <strong>unverified</strong>: 36 languages, FalkorDB, HTTP MCP, PR-impact tools, Mermaid call-flow, merge driver<a class="cite" href="#ref-21">21</a>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SCENARIOS ===== -->
+  <section id="scenarios">
+    <h2><span class="num">§5</span>Best application scenarios</h2>
+    <div class="vs">
+      <div class="col ua">
+        <h5><span class="dotm"></span>Understand-Anything shines when…</h5>
+        <ul>
+          <li>A new hire must ramp on an unfamiliar service quickly (guided tours, onboarding)<a class="cite" href="#ref-1">1</a><a class="cite" href="#ref-2">2</a>.</li>
+          <li>Non-engineers (PMs, leads) need a navigable architecture/domain map with adjustable detail<a class="cite" href="#ref-2">2</a>.</li>
+          <li>Reviewers want to <em>see</em> a change's ripple effects before merging (<code>/understand-diff</code>)<a class="cite" href="#ref-2">2</a>.</li>
+          <li>The team wants a committable, shareable graph artifact in-repo with zero infrastructure<a class="cite" href="#ref-2">2</a>.</li>
+        </ul>
+      </div>
+      <div class="col gf">
+        <h5><span class="dotm"></span>Graphify shines when…</h5>
+        <ul>
+          <li>You want your AI coding assistant <strong>grounded</strong> in a persistent graph it can query cheaply via MCP<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-20">20</a>.</li>
+          <li>The corpus is <strong>mixed media</strong> — code + papers + screenshots + meeting recordings/YouTube<a class="cite" href="#ref-13">13</a>.</li>
+          <li>You need to <strong>export</strong> the graph into Neo4j, Gephi/yEd, or Obsidian for further analysis<a class="cite" href="#ref-13">13</a>.</li>
+          <li>Privacy matters: code and audio must stay local; you want explicit edge provenance<a class="cite" href="#ref-13">13</a>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== USAGE ===== -->
+  <section id="usage">
+    <h2><span class="num">§6</span>How to use each individually</h2>
+    <p>The commands below are slash/CLI commands that behave the same across operating systems, so no per-OS variants apply.</p>
+
+    <h3>Onboard a new repo</h3>
+    <div class="vs">
+      <div class="col ua"><h5><span class="dotm"></span>Understand-Anything</h5>
+<pre><span class="cm"># full multi-agent scan → .understand-anything/knowledge-graph.json</span>
+/understand
+/understand-dashboard      <span class="cm"># open the interactive web UI</span>
+/understand-onboard        <span class="cm"># generate the dependency-ordered guided tour</span>
+/understand src/frontend   <span class="cm"># scope a huge monorepo</span></pre>
+        <p class="codecap">Dashboard + guided tour is the deliverable; commit the JSON so teammates skip the rerun<a class="cite" href="#ref-2">2</a>.</p>
+      </div>
+      <div class="col gf"><h5><span class="dotm"></span>Graphify</h5>
+<pre>pip install graphifyy &amp;&amp; graphify install
+/graphify .                <span class="cm"># build graphify-out/{graph.html, GRAPH_REPORT.md, graph.json}</span>
+/graphify . --mcp          <span class="cm"># expose the graph to your assistant over MCP</span></pre>
+        <p class="codecap">Open <code>graph.html</code> for the visual map; read <code>GRAPH_REPORT.md</code> for god nodes, surprising connections, starter questions<a class="cite" href="#ref-13">13</a>.</p>
+      </div>
+    </div>
+
+    <h3>Answer "how does the auth flow work?"</h3>
+    <div class="vs">
+      <div class="col ua"><h5><span class="dotm"></span>Understand-Anything</h5>
+<pre>/understand-chat How does the auth flow work?
+<span class="cm"># grep-based subgraph retrieval, not full-graph dump</span>
+/understand-explain src/auth/session.ts
+<span class="cm"># deep-dive a specific file</span></pre>
+        <p class="codecap"><a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-10">10</a></p>
+      </div>
+      <div class="col gf"><h5><span class="dotm"></span>Graphify</h5>
+<pre>/graphify query "how does the auth flow work?"
+/graphify query "how does the auth flow work?" --dfs --budget 1500
+/graphify path "LoginController" "SessionStore"</pre>
+        <p class="codecap">Or let the assistant call the MCP <code>query_graph</code> / <code>shortest_path</code> tools directly<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</p>
+      </div>
+    </div>
+
+    <h3>Assess the impact of a change</h3>
+    <div class="vs">
+      <div class="col ua"><h5><span class="dotm"></span>Understand-Anything</h5>
+<pre>/understand-diff           <span class="cm"># change-impact ripple view</span>
+/understand --auto-update  <span class="cm"># post-commit hook patches the graph each commit</span></pre>
+        <p class="codecap"><a class="cite" href="#ref-2">2</a></p>
+      </div>
+      <div class="col gf"><h5><span class="dotm"></span>Graphify</h5>
+<pre>/graphify . --update       <span class="cm"># re-extract changed files, prune deleted nodes, merge</span>
+graphify hook install      <span class="cm"># post-commit (+ post-checkout) auto-rebuild</span>
+/graphify path "ChangedModule" "PublicAPI"  <span class="cm"># trace reach</span></pre>
+        <p class="codecap"><a class="cite" href="#ref-13">13</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMBINE ===== -->
+  <section id="combine">
+    <h2><span class="num">§7</span>Combining both: a recommended handoff</h2>
+    <p>The two tools are complementary rather than competing — UA owns the <strong>human teaching surface</strong>, Graphify owns the <strong>machine grounding surface</strong>. They write to separate directories, so they coexist with no collision.</p>
+
+    <div class="card flow">
+      <svg viewBox="0 0 820 300" role="img" aria-label="Handoff diagram: one repo feeds Understand-Anything for humans and Graphify for the AI assistant and external graph tools">
+        <defs><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--muted)"/></marker></defs>
+        <!-- repo -->
+        <rect class="fbox repo" x="330" y="20" width="160" height="54" rx="11"/>
+        <text class="ftxt" x="410" y="44" text-anchor="middle">Same repository</text>
+        <text class="fsub" x="410" y="62" text-anchor="middle">code · docs · media</text>
+        <!-- arrows down -->
+        <path class="farrow" d="M380 74 C330 100 250 100 215 124"/>
+        <path class="farrow" d="M440 74 C490 100 570 100 605 124"/>
+        <!-- UA box -->
+        <rect class="fbox ua" x="70" y="126" width="290" height="68" rx="11"/>
+        <text class="ftxt" x="215" y="152" text-anchor="middle">Understand-Anything → humans</text>
+        <text class="fsub" x="215" y="172" text-anchor="middle">dashboard · guided tours · /understand-diff</text>
+        <text class="fsub" x="215" y="186" text-anchor="middle">commit knowledge-graph.json for the team</text>
+        <!-- GF box -->
+        <rect class="fbox gf" x="460" y="126" width="290" height="68" rx="11"/>
+        <text class="ftxt" x="605" y="152" text-anchor="middle">Graphify → the AI assistant</text>
+        <text class="fsub" x="605" y="172" text-anchor="middle">/graphify . --mcp · query_graph · ~71.5× cheaper</text>
+        <text class="fsub" x="605" y="186" text-anchor="middle">grounding layer UA doesn't provide</text>
+        <!-- GF export arrow -->
+        <path class="farrow" d="M605 194 L605 232"/>
+        <rect class="fbox gf" x="460" y="234" width="290" height="50" rx="11"/>
+        <text class="ftxt" x="605" y="256" text-anchor="middle">Export downstream</text>
+        <text class="fsub" x="605" y="273" text-anchor="middle">Neo4j (bolt push) · GraphML (Gephi/yEd) · Obsidian</text>
+        <!-- UA audience arrow -->
+        <path class="farrow" d="M215 194 L215 232"/>
+        <rect class="fbox ua" x="70" y="234" width="290" height="50" rx="11"/>
+        <text class="ftxt" x="215" y="256" text-anchor="middle">Onboarding &amp; review audience</text>
+        <text class="fsub" x="215" y="273" text-anchor="middle">new hires · PMs / leads · code reviewers</text>
+      </svg>
+    </div>
+
+    <ol class="steps">
+      <li><strong>Build both graphs from the same repo.</strong> Run <code>/understand</code> for the teaching graph and <code>/graphify .</code> for the agent graph — separate dirs (<code>.understand-anything/</code> vs <code>graphify-out/</code>), no collision<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-13">13</a>.</li>
+      <li><strong>Use Understand-Anything for people.</strong> Dashboard + guided tours for onboarding, architecture reviews, and PM/lead walkthroughs; <code>/understand-diff</code> in code review for ripple effects. Commit <code>knowledge-graph.json</code> so the team shares one teaching artifact<a class="cite" href="#ref-2">2</a>.</li>
+      <li><strong>Use Graphify for the AI assistant.</strong> <code>/graphify . --mcp</code> so the agent queries the persistent graph over MCP at ~71.5× lower token cost than raw files — the grounding layer UA does not provide<a class="cite" href="#ref-13">13</a><a class="cite" href="#ref-15">15</a>.</li>
+      <li><strong>Export from Graphify for long-term knowledge.</strong> <code>--neo4j-push bolt://…</code> for graph-DB analytics, <code>--graphml</code> for Gephi/yEd, <code>--obsidian</code> to fold architecture into a team vault<a class="cite" href="#ref-13">13</a>.</li>
+      <li><strong>Keep both fresh automatically.</strong> Enable UA's <code>--auto-update</code> post-commit hook and Graphify's <code>graphify hook install</code> so each commit refreshes the human graph and the agent graph together<a class="cite" href="#ref-2">2</a><a class="cite" href="#ref-13">13</a>.</li>
+    </ol>
+    <div class="callout note"><span class="ct">Net</span>Understand-Anything is the onboarding dashboard and tour guide; Graphify is the persistent MCP knowledge graph that grounds the assistant and feeds Neo4j/Obsidian. If you can only run one, choose by audience — <strong>humans → UA; agents → Graphify.</strong></div>
+  </section>
+
+  <!-- ===== SOURCES ===== -->
+  <section id="sources">
+    <h2><span class="num">§8</span>Sources &amp; caveats</h2>
+    <ol class="refs">
+      <li id="ref-1"><span class="refname">Understand Anything — official homepage.</span> <a href="https://understand-anything.com/" target="_blank" rel="noopener">understand-anything.com</a></li>
+      <li id="ref-2"><span class="refname">Understand-Anything — README (Egonex-AI/main).</span> <a href="https://raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/README.md" target="_blank" rel="noopener">raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/README.md</a></li>
+      <li id="ref-3"><span class="refname">Understand-Anything — core persistence module (index.ts).</span> <a href="https://raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/understand-anything-plugin/packages/core/src/persistence/index.ts" target="_blank" rel="noopener">packages/core/src/persistence/index.ts</a></li>
+      <li id="ref-4"><span class="refname">Understand-Anything — dashboard ExportMenu.tsx.</span> <a href="https://raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/understand-anything-plugin/packages/dashboard/src/components/ExportMenu.tsx" target="_blank" rel="noopener">packages/dashboard/src/components/ExportMenu.tsx</a></li>
+      <li id="ref-5"><span class="refname">Understand-Anything — token-reduction design spec.</span> <a href="https://raw.githubusercontent.com/Egonex-AI/Understand-Anything/main/docs/superpowers/specs/2026-03-27-token-reduction-design.md" target="_blank" rel="noopener">docs/superpowers/specs/2026-03-27-token-reduction-design.md</a></li>
+      <li id="ref-6"><span class="refname">Understand-Anything — recursive repo tree (GitHub API).</span> <a href="https://api.github.com/repos/Egonex-AI/Understand-Anything/git/trees/main?recursive=1" target="_blank" rel="noopener">api.github.com/.../git/trees/main?recursive=1</a></li>
+      <li id="ref-7"><span class="refname">Understand Anything write-up — Mervin Praison (mer.vin).</span> <a href="https://mer.vin/2026/05/understand-anything-codebase-knowledge-graphs-for-claude-code-and-ai-agents/" target="_blank" rel="noopener">mer.vin/2026/05/understand-anything-…</a></li>
+      <li id="ref-8"><span class="refname">Understand Anything write-up — DEV.to (arshtechpro).</span> <a href="https://dev.to/arshtechpro/understand-anything-turn-any-codebase-into-an-interactive-knowledge-graph-37ed" target="_blank" rel="noopener">dev.to/arshtechpro/understand-anything-…</a></li>
+      <li id="ref-9"><span class="refname">Understand Anything product review — theaiway.net.</span> <a href="https://theaiway.net/products/understand-anything/" target="_blank" rel="noopener">theaiway.net/products/understand-anything</a></li>
+      <li id="ref-10"><span class="refname">understand-chat skill listing — crossaitools.com.</span> <a href="https://crossaitools.com/skills/egonex-ai/understand-anything/understand-chat" target="_blank" rel="noopener">crossaitools.com/skills/egonex-ai/understand-anything/understand-chat</a></li>
+      <li id="ref-11"><span class="refname">Understand Anything discussion — Hacker News.</span> <a href="https://news.ycombinator.com/item?id=47977470" target="_blank" rel="noopener">news.ycombinator.com/item?id=47977470</a></li>
+      <li id="ref-12"><span class="refname">Graphify — README (safishamsi/main).</span> <a href="https://raw.githubusercontent.com/safishamsi/graphify/main/README.md" target="_blank" rel="noopener">raw.githubusercontent.com/safishamsi/graphify/main/README.md</a></li>
+      <li id="ref-13"><span class="refname">Graphify — README (v3).</span> <a href="https://raw.githubusercontent.com/safishamsi/graphify/v3/README.md" target="_blank" rel="noopener">raw.githubusercontent.com/safishamsi/graphify/v3/README.md</a></li>
+      <li id="ref-14"><span class="refname">Graphify — ARCHITECTURE.md.</span> <a href="https://raw.githubusercontent.com/safishamsi/graphify/main/ARCHITECTURE.md" target="_blank" rel="noopener">raw.githubusercontent.com/safishamsi/graphify/main/ARCHITECTURE.md</a></li>
+      <li id="ref-15"><span class="refname">Graphify — serve.py (MCP stdio server).</span> <a href="https://raw.githubusercontent.com/safishamsi/graphify/main/graphify/serve.py" target="_blank" rel="noopener">raw.githubusercontent.com/safishamsi/graphify/main/graphify/serve.py</a></li>
+      <li id="ref-16"><span class="refname">Graphify — CHANGELOG (v3).</span> <a href="https://raw.githubusercontent.com/safishamsi/graphify/v3/CHANGELOG.md" target="_blank" rel="noopener">raw.githubusercontent.com/safishamsi/graphify/v3/CHANGELOG.md</a></li>
+      <li id="ref-17"><span class="refname">Graphify knowledge graph — OpenClaw blog.</span> <a href="https://openclawapi.org/en/blog/2026-04-12-graphify-knowledge-graph" target="_blank" rel="noopener">openclawapi.org/en/blog/2026-04-12-graphify-knowledge-graph</a></li>
+      <li id="ref-18"><span class="refname">Graphify write-up — Flowtivity.</span> <a href="https://flowtivity.ai/blog/graphify-knowledge-graph-coding-assistant/" target="_blank" rel="noopener">flowtivity.ai/blog/graphify-knowledge-graph-coding-assistant</a></li>
+      <li id="ref-19"><span class="refname">Turn any codebase into a knowledge graph — Towards AI.</span> <a href="https://pub.towardsai.net/turn-any-codebase-into-a-knowledge-graph-71cd233e33f7" target="_blank" rel="noopener">pub.towardsai.net/turn-any-codebase-into-a-knowledge-graph-…</a></li>
+      <li id="ref-20"><span class="refname">How to use Graphify — Ana Bildea, Agentic Builders.</span> <a href="https://medium.com/agentic-builders/how-to-use-graphify-turn-any-folder-into-a-knowledge-graph-d51b38eb60b6" target="_blank" rel="noopener">medium.com/agentic-builders/how-to-use-graphify-…</a></li>
+      <li id="ref-21"><span class="refname">Graphify guide — Knightli.</span> <a href="https://knightli.com/en/2026/05/21/safishamsi-graphify-ai-code-knowledge-graph/" target="_blank" rel="noopener">knightli.com/en/2026/05/21/safishamsi-graphify-ai-code-knowledge-graph</a></li>
+    </ol>
+    <div class="callout correction"><span class="ct">Caveats — unverified by primary sources</span>Several Graphify claims circulating in third-party write-ups are <strong>not</strong> confirmed by the primary repo: 36-language support (it is 13 on main / 20 on v3), a FalkorDB export, an HTTP/SSE MCP transport, PR-impact MCP tools, a Mermaid call-flow export, and a git merge driver. Understand-Anything's specific cost/runtime benchmarks and any MCP server are likewise unconfirmed. These are flagged inline as <em>Corrections</em> throughout.</div>
+  </section>
+
+  <footer>
+    <p>Compiled 2026-06-27 from the 21 sources above; factual claims were adversarially fact-checked against the primary repositories and official sites before writing. Tool names, taglines, and command syntax belong to their respective projects (Egonex-AI / safishamsi).</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, sun=document.getElementById('icon-sun'), moon=document.getElementById('icon-moon');
+  function applyTheme(t){root.setAttribute('data-theme',t);sun.style.display=t==='dark'?'none':'block';moon.style.display=t==='dark'?'block':'none';}
+  var saved=localStorage.getItem('ug-theme');
+  if(!saved){saved=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+  applyTheme(saved);
+  document.getElementById('themeToggle').addEventListener('click',function(){
+    var t=root.getAttribute('data-theme')==='dark'?'light':'dark';applyTheme(t);localStorage.setItem('ug-theme',t);
+  });
+
+  // sidebar horizontal collapse (toggle lives in topnav, outside sidebar)
+  var body=document.body, bd=document.getElementById('backdrop');
+  function openSb(o){body.classList.toggle('sb-open',o);localStorage.setItem('ug-sb',o?'1':'0');}
+  var sbSaved=localStorage.getItem('ug-sb');
+  openSb(sbSaved? sbSaved==='1' : window.innerWidth>=1200);
+  document.getElementById('sbToggle').addEventListener('click',function(){openSb(!body.classList.contains('sb-open'));});
+  bd.addEventListener('click',function(){openSb(false);});
+
+  // sidebar group vertical accordion
+  document.querySelectorAll('.sb-head').forEach(function(h){
+    h.addEventListener('click',function(){h.parentElement.classList.toggle('collapsed');});
+  });
+
+  // close sidebar after nav click on small screens
+  document.querySelectorAll('.sb-links a, .nav-center a').forEach(function(a){
+    a.addEventListener('click',function(){if(window.innerWidth<1000)openSb(false);});
+  });
+
+  // citation flash
+  document.querySelectorAll('a.cite').forEach(function(c){
+    c.addEventListener('click',function(){
+      var id=c.getAttribute('href').slice(1), el=document.getElementById(id);
+      if(el){el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}
+    });
+  });
+
+  // scrollspy across topnav + sidebar
+  var navLinks=Array.prototype.slice.call(document.querySelectorAll('.nav-center a, .sb-links a'));
+  var ids={}; navLinks.forEach(function(a){var id=a.getAttribute('href').slice(1);(ids[id]=ids[id]||[]).push(a);});
+  var targets=Object.keys(ids).map(function(id){return document.getElementById(id);}).filter(Boolean);
+  var spy=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        navLinks.forEach(function(a){a.classList.remove('active');});
+        var id=e.target.id;
+        (ids[id]||[]).forEach(function(a){a.classList.add('active');});
+        // also light the parent top-nav section
+        var sec=e.target.closest('section'); if(sec&&ids[sec.id]){ids[sec.id].forEach(function(a){a.classList.add('active');});}
+      }
+    });
+  },{rootMargin:'-30% 0px -60% 0px',threshold:0});
+  targets.forEach(function(t){spy.observe(t);});
+})();
+</script>
+</body>
+</html>
