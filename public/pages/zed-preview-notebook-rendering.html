@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rendering Jupyter Notebooks in Zed Preview on macOS</title>
+<meta name="description" content="Step-by-step guide to enabling Zed Preview's experimental native ipynb rendering with the notebooks feature flag and env var.">
+<meta name="keywords" content="zed-editor, jupyter-notebook, ipynb-rendering, feature-flags, macos-setup, jupytext">
+<meta name="date" content="2026-07-04">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f1f3f7;
+    --text: #1a1d24;
+    --muted: #5b6472;
+    --border: #e3e7ee;
+    --accent: #5b5bd6;
+    --accent-soft: #ecebfb;
+    --code-bg: #f3f4f8;
+    --code-text: #2c313c;
+    --shadow: 0 1px 3px rgba(20,24,35,.06), 0 8px 24px rgba(20,24,35,.05);
+    --tldr-bg: #f4f3fe;
+    --tldr-border: #dcd9f7;
+    /* cover */
+    --cov-sky: #eef1f7;
+    --cov-top: #e5e8fa;
+    --cov-left: #c4caf0;
+    --cov-right: #a6ade4;
+    --cov-stroke: #7f8ad4;
+    --cov-accent: #5b5bd6;
+    --cov-line: #cdd4e6;
+  }
+  html[data-theme="dark"] {
+    --bg: #0c0f16;
+    --surface: #141922;
+    --surface-2: #10151d;
+    --text: #e7eaf1;
+    --muted: #98a2b3;
+    --border: #232b39;
+    --accent: #8b8bf0;
+    --accent-soft: #1c2130;
+    --code-bg: #0f141c;
+    --code-text: #cdd4e2;
+    --shadow: 0 1px 3px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    --tldr-bg: #171b2b;
+    --tldr-border: #2c3350;
+    --cov-sky: #0e131e;
+    --cov-top: #2b3556;
+    --cov-left: #202942;
+    --cov-right: #171e30;
+    --cov-stroke: #45568a;
+    --cov-accent: #8b8bf0;
+    --cov-line: #232c44;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    transition: background .25s ease, color .25s ease;
+  }
+
+  /* ---------- Top nav ---------- */
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; height: 60px; z-index: 100;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(160%) blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); cursor: pointer; flex: 0 0 auto;
+    transition: background .18s, border-color .18s, transform .1s;
+  }
+  .icon-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+  .icon-btn:active { transform: scale(.94); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .brand { font-weight: 700; font-size: 15px; letter-spacing: -.2px; white-space: nowrap; }
+  .brand .dot { color: var(--accent); }
+  .topnav-center {
+    flex: 1 1 auto; display: flex; justify-content: center; gap: 4px; overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .topnav-center::-webkit-scrollbar { display: none; }
+  .topnav-center a {
+    text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 500;
+    padding: 7px 13px; border-radius: 8px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .topnav-center a:hover { color: var(--text); background: var(--surface-2); }
+  .topnav-center a.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: fixed; top: 60px; left: 0; bottom: 0; width: 264px; z-index: 90;
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 18px 12px 40px; overflow-y: auto;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  body.sb-collapsed .sidebar { transform: translateX(-100%); }
+  .sb-group { margin-bottom: 6px; }
+  .sb-group-head {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; cursor: pointer; user-select: none;
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); background: none; border: none;
+    padding: 9px 10px; border-radius: 7px;
+  }
+  .sb-group-head:hover { background: var(--surface-2); color: var(--text); }
+  .sb-group-head .chev { transition: transform .2s; }
+  .sb-group.collapsed .chev { transform: rotate(-90deg); }
+  .sb-links { display: flex; flex-direction: column; overflow: hidden; transition: max-height .28s ease; }
+  .sb-group.collapsed .sb-links { max-height: 0 !important; }
+  .sb-links a {
+    text-decoration: none; color: var(--muted); font-size: 13.5px;
+    padding: 6px 12px 6px 20px; border-radius: 7px; border-left: 2px solid transparent;
+    transition: background .14s, color .14s, border-color .14s;
+  }
+  .sb-links a:hover { background: var(--surface-2); color: var(--text); }
+  .sb-links a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- Cover band (full width) ---------- */
+  .cover {
+    width: 100%; height: clamp(210px, 30vh, 320px); margin-top: 60px;
+    background: var(--cov-sky); overflow: hidden; position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+  .cover svg { width: 100%; height: 100%; display: block; }
+
+  /* ---------- Main content (centered in window) ---------- */
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 22px 100px; }
+  .titleblock { text-align: left; padding: 38px 0 8px; }
+  .kicker { color: var(--accent); font-weight: 700; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { font-size: clamp(26px, 4.4vw, 40px); line-height: 1.12; letter-spacing: -.9px; margin: 12px 0 10px; }
+  .subtitle { font-size: clamp(15px, 2vw, 18.5px); color: var(--muted); max-width: 62ch; margin: 0; }
+
+  /* ---------- TLDR ---------- */
+  .tldr {
+    background: var(--tldr-bg); border: 1px solid var(--tldr-border);
+    border-radius: 14px; padding: 20px 22px; margin: 30px 0 10px; box-shadow: var(--shadow);
+  }
+  .tldr h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  .tldr ul { margin: 0; padding-left: 20px; }
+  .tldr li { margin: 5px 0; font-size: 15px; }
+
+  /* ---------- Sections ---------- */
+  section { padding-top: 46px; }
+  h2.sec { font-size: clamp(20px, 3vw, 26px); letter-spacing: -.5px; margin: 0 0 6px; }
+  h3 { font-size: 17.5px; margin: 26px 0 8px; letter-spacing: -.2px; }
+  p { margin: 12px 0; }
+  .lead { color: var(--muted); font-size: 15.5px; margin-top: 4px; }
+  a.inline { color: var(--accent); }
+  ul.body, ol.body { margin: 12px 0; padding-left: 22px; }
+  ul.body li, ol.body li { margin: 7px 0; }
+  code { font-family: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: .88em; background: var(--code-bg); color: var(--code-text); padding: 2px 6px; border-radius: 5px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 11px; padding: 15px 16px; overflow-x: auto; margin: 14px 0; }
+  pre code { background: none; padding: 0; font-size: 13px; line-height: 1.6; color: var(--code-text); }
+  .divider { height: 1px; background: var(--border); border: 0; margin: 44px 0 0; }
+
+  /* callout */
+  .note {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 13px 16px; margin: 16px 0; box-shadow: var(--shadow);
+  }
+  .note .lbl { font-weight: 700; color: var(--accent); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; }
+  .warn { border-left-color: #d98324; }
+  .warn .lbl { color: #d98324; }
+
+  /* step cards */
+  .step { display: flex; gap: 14px; margin: 18px 0; }
+  .step-num {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .step-body { flex: 1 1 auto; min-width: 0; }
+  .step-body h3 { margin-top: 0; }
+
+  /* citation marker */
+  .cite {
+    display: inline-block; vertical-align: super; font-size: 10.5px; font-weight: 700;
+    color: var(--accent); text-decoration: none; background: var(--accent-soft);
+    padding: 1px 5px; border-radius: 5px; margin-left: 2px; line-height: 1.4;
+  }
+  .cite:hover { background: var(--accent); color: #fff; }
+
+  /* ---------- OS tabs ---------- */
+  .ostabs { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 16px 0; background: var(--surface); }
+  .ostab-bar { display: flex; gap: 2px; background: var(--surface-2); padding: 6px; overflow-x: auto; scrollbar-width: none; }
+  .ostab-bar::-webkit-scrollbar { display: none; }
+  .ostab {
+    border: none; background: none; cursor: pointer; white-space: nowrap;
+    font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--muted);
+    padding: 8px 15px; border-radius: 8px; position: relative;
+    transition: color .15s, background .15s;
+  }
+  .ostab:hover { color: var(--text); }
+  .ostab[aria-selected="true"] { color: var(--accent); background: var(--surface); box-shadow: 0 0 0 1px var(--border); }
+  .ostab[aria-selected="true"]::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 2px;
+    background: var(--accent); border-radius: 2px;
+  }
+  .ostab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ostab-panel { padding: 4px 15px 14px; }
+  .ostab-panel[hidden] { display: none; }
+  .ostab-panel pre { margin-top: 14px; }
+
+  /* diagrams */
+  .figure { margin: 24px 0; }
+  .figure svg { width: 100%; height: auto; display: block; }
+  .figure figcaption { color: var(--muted); font-size: 13px; text-align: center; margin-top: 8px; }
+  .dg-fill-top { fill: var(--cov-top); }
+  .dg-card { fill: var(--surface); stroke: var(--border); }
+  .dg-accent { fill: var(--accent); }
+  .dg-accent-soft { fill: var(--accent-soft); }
+  .dg-stroke { stroke: var(--border); fill: none; }
+  .dg-text { fill: var(--text); font-family: -apple-system, "Segoe UI", sans-serif; }
+  .dg-muted { fill: var(--muted); font-family: -apple-system, "Segoe UI", sans-serif; }
+  .dg-line { stroke: var(--muted); }
+
+  /* references */
+  #references ol { padding-left: 20px; }
+  #references li { margin: 9px 0; font-size: 14px; color: var(--muted); }
+  #references li a { color: var(--accent); word-break: break-word; }
+  #references li b { color: var(--text); }
+
+  /* limitations table */
+  .cmp { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14.5px; }
+  .cmp th, .cmp td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .cmp th { color: var(--muted); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  .cmp td:first-child { font-weight: 600; }
+  .yes { color: #2ea043; font-weight: 700; }
+  .no { color: #d0503a; font-weight: 700; }
+
+  footer.pg { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 0 0; border-top: 1px solid var(--border); margin-top: 50px; }
+
+  @media (max-width: 620px) {
+    .topnav-center { justify-content: flex-start; }
+    .brand span.txt { display: none; }
+    .step { gap: 10px; }
+  }
+</style>
+</head>
+<body class="sb-collapsed">
+
+  <!-- ===== TOP NAV ===== -->
+  <nav class="topnav">
+    <button class="icon-btn" id="sbToggle" aria-label="Toggle sidebar" title="Toggle contents sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="brand"><span class="dot">◆</span> <span class="txt">Zed&nbsp;·&nbsp;Notebook&nbsp;Rendering</span></div>
+    <div class="topnav-center" id="topnav">
+      <a href="#overview">Overview</a>
+      <a href="#setup">Setup</a>
+      <a href="#alternatives">Alternatives</a>
+      <a href="#references">Reference</a>
+    </div>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle dark / light">
+      <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg id="moonIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </nav>
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-group">
+      <button class="sb-group-head">Overview
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="sb-links">
+        <a href="#what-it-is">What the feature is</a>
+        <a href="#repl-vs-native">REPL vs native notebook</a>
+        <a href="#current-state">Current state &amp; limits</a>
+      </div>
+    </div>
+    <div class="sb-group">
+      <button class="sb-group-head">Setup
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="sb-links">
+        <a href="#prereqs">Prerequisites</a>
+        <a href="#step-flag">1 · Feature flag</a>
+        <a href="#step-quit">2 · Fully quit</a>
+        <a href="#step-launch">3 · Launch + env var</a>
+        <a href="#step-open">4 · Open &amp; assign kernel</a>
+        <a href="#troubleshoot">Troubleshooting</a>
+      </div>
+    </div>
+    <div class="sb-group">
+      <button class="sb-group-head">Alternatives
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="sb-links">
+        <a href="#viewer">Syntax-only viewer</a>
+        <a href="#jupytext">Jupytext workflow</a>
+        <a href="#channels">Channels &amp; private beta</a>
+      </div>
+    </div>
+    <div class="sb-group">
+      <button class="sb-group-head">Reference
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="sb-links">
+        <a href="#references">Sources</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== COVER IMAGE ===== -->
+  <div class="cover" role="img" aria-label="Axonometric illustration of stacked notebook cells">
+    <svg viewBox="0 0 1200 320" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <!-- faint floor grid -->
+      <g stroke="var(--cov-line)" stroke-width="1" opacity="0.55">
+        <line x1="0" y1="250" x2="1200" y2="140"/>
+        <line x1="0" y1="290" x2="1200" y2="180"/>
+        <line x1="120" y1="330" x2="760" y2="-10"/>
+        <line x1="300" y1="330" x2="940" y2="-10"/>
+        <line x1="480" y1="330" x2="1120" y2="-10"/>
+      </g>
+
+      <!-- floating accent nodes (left) -->
+      <g opacity="0.9">
+        <circle cx="180" cy="120" r="5" fill="var(--cov-accent)"/>
+        <circle cx="250" cy="200" r="4" fill="var(--cov-stroke)"/>
+        <circle cx="120" cy="210" r="3.5" fill="var(--cov-stroke)"/>
+        <line x1="180" y1="120" x2="250" y2="200" stroke="var(--cov-stroke)" stroke-width="1.4" opacity="0.6"/>
+        <line x1="250" y1="200" x2="120" y2="210" stroke="var(--cov-stroke)" stroke-width="1.4" opacity="0.6"/>
+      </g>
+
+      <!-- ===== stacked axonometric "cells" (centered-right) =====
+           each slab: top (P0,P1,P2,P3), left face, right face. Slab pitch = -52 in y. -->
+      <g transform="translate(690, 40)">
+        <!-- slab 5 (bottom) : code cell -->
+        <g transform="translate(0,208)">
+          <polygon points="0,0 170,98 68,157 -102,59" fill="var(--cov-top)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="-102,59 68,157 68,177 -102,79" fill="var(--cov-left)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="68,157 170,98 170,118 68,177" fill="var(--cov-right)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <!-- code lines on top face -->
+          <line x1="-58" y1="70" x2="18" y2="114" stroke="var(--cov-stroke)" stroke-width="2.4" opacity="0.7"/>
+          <line x1="-40" y1="61" x2="46" y2="110" stroke="var(--cov-stroke)" stroke-width="2.4" opacity="0.5"/>
+        </g>
+        <!-- slab 4 : output / bar chart -->
+        <g transform="translate(0,156)">
+          <polygon points="0,0 170,98 68,157 -102,59" fill="var(--cov-top)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="-102,59 68,157 68,177 -102,79" fill="var(--cov-left)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="68,157 170,98 170,118 68,177" fill="var(--cov-right)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <!-- little axonometric bars -->
+          <polygon points="-30,74 -8,87 -8,71 -30,58" fill="var(--cov-accent)"/>
+          <polygon points="6,86 28,99 28,75 6,62" fill="var(--cov-accent)" opacity="0.85"/>
+          <polygon points="42,98 64,111 64,79 42,66" fill="var(--cov-accent)" opacity="0.7"/>
+        </g>
+        <!-- slab 3 : markdown cell -->
+        <g transform="translate(0,104)">
+          <polygon points="0,0 170,98 68,157 -102,59" fill="var(--cov-top)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="-102,59 68,157 68,177 -102,79" fill="var(--cov-left)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="68,157 170,98 170,118 68,177" fill="var(--cov-right)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <line x1="-52" y1="66" x2="34" y2="115" stroke="var(--cov-stroke)" stroke-width="2.6" opacity="0.6"/>
+          <line x1="-34" y1="57" x2="22" y2="89" stroke="var(--cov-stroke)" stroke-width="2.6" opacity="0.45"/>
+        </g>
+        <!-- slab 2 : code cell with run triangle -->
+        <g transform="translate(0,52)">
+          <polygon points="0,0 170,98 68,157 -102,59" fill="var(--cov-top)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="-102,59 68,157 68,177 -102,79" fill="var(--cov-left)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <polygon points="68,157 170,98 170,118 68,177" fill="var(--cov-right)" stroke="var(--cov-stroke)" stroke-width="1.5"/>
+          <!-- run triangle -->
+          <polygon points="-20,78 -20,50 8,70 8,70" fill="var(--cov-accent)"/>
+          <polygon points="-20,78 -20,50 8,64" fill="var(--cov-accent)"/>
+        </g>
+        <!-- slab 1 (top) : active cell -->
+        <g transform="translate(0,0)">
+          <polygon points="0,0 170,98 68,157 -102,59" fill="var(--cov-top)" stroke="var(--cov-accent)" stroke-width="2.4"/>
+          <polygon points="-102,59 68,157 68,177 -102,79" fill="var(--cov-left)" stroke="var(--cov-accent)" stroke-width="2.4"/>
+          <polygon points="68,157 170,98 170,118 68,177" fill="var(--cov-right)" stroke="var(--cov-accent)" stroke-width="2.4"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- ===== MAIN ===== -->
+  <div class="wrap">
+
+    <div class="titleblock">
+      <div class="kicker">Zed Preview · Data workflow</div>
+      <h1>Rendering Jupyter Notebooks in Zed Preview</h1>
+      <p class="subtitle">Turning on Zed's experimental native <code>.ipynb</code> editor on macOS — the feature flag, the environment variable, the folder-not-file trick, and the safer alternatives when the renderer isn't enough.</p>
+    </div>
+
+    <!-- TLDR -->
+    <div class="tldr">
+      <h2>▸ TL;DR</h2>
+      <ul>
+        <li>Zed hides a half-built native notebook editor behind the <code>notebooks</code> feature flag plus the <code>LOCAL_NOTEBOOK_DEV=1</code> env var.<a class="cite" href="#ref-2">2</a></li>
+        <li>Add the flag in <code>settings.json</code>, fully quit Zed, then launch from the terminal <b>opening the project folder — not the file</b>, with the env var set for that launch.<a class="cite" href="#ref-2">2</a></li>
+        <li>Expect rough edges: no cell deletion, no way to kill a running cell, awkward DataFrame printing.<a class="cite" href="#ref-2">2</a> Interactive Plotly HTML still won't render.<a class="cite" href="#ref-1">1</a></li>
+        <li>For real pandas/polars work, a <b>Jupytext-paired <code>.py</code>↔<code>.ipynb</code> workflow</b> is the more dependable path today.<a class="cite" href="#ref-7">7</a></li>
+      </ul>
+    </div>
+
+    <!-- ============ OVERVIEW ============ -->
+    <section id="overview">
+      <h2 class="sec">Overview</h2>
+      <p class="lead">What the feature actually is, how it differs from the REPL you may already run, and how finished it is.</p>
+    </section>
+
+    <section id="what-it-is">
+      <h3>What the feature is</h3>
+      <p>Zed ships an in-progress native <code>.ipynb</code> editor gated behind a <code>notebooks</code> feature flag and a <code>LOCAL_NOTEBOOK_DEV=1</code> environment variable. When it engages, the notebook renders as real cells with visual boundaries — you can add code and markdown cells and execute them inline — rather than displaying raw JSON.<a class="cite" href="#ref-2">2</a> A native <code>.ipynb</code> UI with rich media, inline plots, cell reordering and kernel assignment is exactly what data-science users have been asking Zed to build.<a class="cite" href="#ref-3">3</a></p>
+    </section>
+
+    <section id="repl-vs-native">
+      <h3>REPL vs native notebook</h3>
+      <p>These are two different things, and it's easy to conflate them:</p>
+      <figure class="figure">
+        <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+          <!-- REPL side -->
+          <rect x="20" y="30" width="330" height="190" rx="14" class="dg-card"/>
+          <text x="40" y="60" class="dg-text" font-size="16" font-weight="700">REPL (already works)</text>
+          <rect x="40" y="76" width="290" height="40" rx="8" fill="var(--code-bg)" stroke="var(--border)"/>
+          <text x="54" y="101" class="dg-muted" font-size="13" font-family="monospace">script.py &#160;·&#160; # %% cell markers</text>
+          <text x="40" y="140" class="dg-muted" font-size="13">Runs a <tspan font-weight="700" class="dg-text">.py</tspan> file cell-by-cell</text>
+          <text x="40" y="162" class="dg-muted" font-size="13">against a Jupyter kernel.</text>
+          <text x="40" y="192" class="dg-muted" font-size="13">Inline text / image output.</text>
+          <circle cx="48" cy="205" r="4" class="dg-accent"/>
+          <text x="62" y="209" class="dg-muted" font-size="12">Stable, no flag needed</text>
+
+          <!-- arrow / vs -->
+          <text x="382" y="130" class="dg-muted" font-size="15" font-weight="700" text-anchor="middle">vs</text>
+
+          <!-- native side -->
+          <rect x="410" y="30" width="330" height="190" rx="14" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="430" y="60" class="dg-text" font-size="16" font-weight="700">Native notebook (experimental)</text>
+          <rect x="430" y="76" width="290" height="40" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="444" y="101" fill="var(--accent)" font-size="13" font-family="monospace" font-weight="700">notebook.ipynb &#160;·&#160; real cells</text>
+          <text x="430" y="140" class="dg-muted" font-size="13">Opens the <tspan font-weight="700" class="dg-text">.ipynb</tspan> directly as</text>
+          <text x="430" y="162" class="dg-muted" font-size="13">bordered, editable cells.</text>
+          <text x="430" y="192" class="dg-muted" font-size="13">Flag + env var + folder launch.</text>
+          <circle cx="438" cy="205" r="4" fill="#d98324"/>
+          <text x="452" y="209" class="dg-muted" font-size="12">Preview channel, half-built</text>
+        </svg>
+        <figcaption>The REPL runs <code>.py</code> files against a kernel; the notebook feature opens <code>.ipynb</code> files as cells.<a class="cite" href="#ref-2">2</a></figcaption>
+      </figure>
+    </section>
+
+    <section id="current-state">
+      <h3>Current state &amp; limitations</h3>
+      <p>It's genuinely half-built rather than merely unpolished — treat it today as a "read my notebooks and make quick edits" experience, not a Jupyter replacement.<a class="cite" href="#ref-2">2</a></p>
+      <table class="cmp">
+        <thead><tr><th>Capability</th><th>Status</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Render cells inline</td><td class="yes">✓</td><td>Bordered code / markdown cells</td></tr>
+          <tr><td>Add &amp; run cells</td><td class="yes">✓</td><td>Executes against a kernel</td></tr>
+          <tr><td>Delete a cell from UI</td><td class="no">✗</td><td>Drop to JSON, remove the cell block</td></tr>
+          <tr><td>Kill a running cell</td><td class="no">✗</td><td>No interrupt control yet</td></tr>
+          <tr><td>DataFrame as last expression</td><td class="no">✗</td><td>Prints awkwardly</td></tr>
+          <tr><td>Interactive Plotly HTML</td><td class="no">✗</td><td>Use JupyterLab for this<a class="cite" href="#ref-1">1</a></td></tr>
+        </tbody>
+      </table>
+      <p>The feature is also <b>version-sensitive and has regressed between releases</b> — notebooks that rendered fine have reverted to plain JSON after a version bump despite <code>"notebooks": "on"</code> staying set.<a class="cite" href="#ref-2">2</a> Reports from different version lineages can therefore mislead.</p>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ============ SETUP ============ -->
+    <section id="setup">
+      <h2 class="sec">Setup on macOS</h2>
+      <p class="lead">Assuming Zed Preview is installed at <code>/Applications/Zed&nbsp;Preview.app</code> and you're signed in via GitHub.</p>
+    </section>
+
+    <section id="prereqs">
+      <h3>Prerequisites</h3>
+      <ul class="body">
+        <li><b>Zed Preview installed</b> — Preview installs alongside stable, so the two channels coexist. Install command differs by OS (below).<a class="cite" href="#ref-4">4</a></li>
+        <li><b>Signed in via GitHub</b> (needed because the flag may be a private-beta feature — see <a class="inline" href="#channels">Channels &amp; private beta</a>).<a class="cite" href="#ref-5">5</a></li>
+        <li>A project folder containing at least one <code>.ipynb</code>, with a kernel available (for a uv-per-project setup, the project's <code>ipykernel</code>).</li>
+      </ul>
+
+      <p style="margin-top:6px">Install Zed Preview:</p>
+      <!-- OS TAB GROUP: install -->
+      <div class="ostabs" data-osgroup>
+        <div class="ostab-bar" role="tablist" aria-label="Install Zed Preview by OS">
+          <button class="ostab" role="tab" data-os="macos" id="tabInst-macos" aria-controls="panInst-macos">macOS</button>
+          <button class="ostab" role="tab" data-os="windows" id="tabInst-windows" aria-controls="panInst-windows">Windows</button>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="macos" id="panInst-macos" aria-labelledby="tabInst-macos">
+          <p style="margin:12px 0 0">Homebrew cask — installs <code>Zed&nbsp;Preview.app</code> next to stable:<a class="cite" href="#ref-4">4</a></p>
+          <pre><code>brew install --cask zed@preview</code></pre>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="windows" id="panInst-windows" aria-labelledby="tabInst-windows" hidden>
+          <p style="margin:12px 0 0">No Homebrew on Windows — use winget with the <code>.Preview</code> package id (requires Win&nbsp;10&nbsp;1809+ or Win&nbsp;11). The installer wires up PATH automatically, so no <code>cli:&nbsp;install</code> step is needed:<a class="cite" href="#ref-10">10</a></p>
+          <pre><code>winget install --id ZedIndustries.Zed.Preview --exact</code></pre>
+          <p style="margin:12px 0 0">Or download the preview <code>.exe</code> from Zed's preview releases page. Update later with <code>winget upgrade --id ZedIndustries.Zed.Preview --exact</code>.<a class="cite" href="#ref-10">10</a></p>
+        </div>
+      </div>
+      <figure class="figure">
+        <svg viewBox="0 0 760 132" xmlns="http://www.w3.org/2000/svg">
+          <!-- flow -->
+          <g font-family="-apple-system, sans-serif">
+            <rect x="10" y="40" width="128" height="52" rx="10" class="dg-card"/>
+            <text x="74" y="63" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">1 · Flag</text>
+            <text x="74" y="80" text-anchor="middle" class="dg-muted" font-size="11">settings.json</text>
+
+            <rect x="168" y="40" width="128" height="52" rx="10" class="dg-card"/>
+            <text x="232" y="63" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">2 · Quit</text>
+            <text x="232" y="80" text-anchor="middle" class="dg-muted" font-size="11">fully, no bg proc</text>
+
+            <rect x="326" y="40" width="128" height="52" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="390" y="63" text-anchor="middle" fill="var(--accent)" font-size="13" font-weight="700">3 · Launch</text>
+            <text x="390" y="80" text-anchor="middle" class="dg-muted" font-size="11">env var + folder</text>
+
+            <rect x="484" y="40" width="128" height="52" rx="10" class="dg-card"/>
+            <text x="548" y="63" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">4 · Open</text>
+            <text x="548" y="80" text-anchor="middle" class="dg-muted" font-size="11">pick .ipynb</text>
+
+            <rect x="642" y="40" width="108" height="52" rx="10" class="dg-card"/>
+            <text x="696" y="63" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">Kernel</text>
+            <text x="696" y="80" text-anchor="middle" class="dg-muted" font-size="11">ipykernel</text>
+
+            <g stroke="var(--muted)" stroke-width="1.6" fill="none">
+              <path d="M138 66 L162 66" marker-end="url(#ah)"/>
+              <path d="M296 66 L320 66" marker-end="url(#ah)"/>
+              <path d="M454 66 L478 66" marker-end="url(#ah)"/>
+              <path d="M612 66 L636 66" marker-end="url(#ah)"/>
+            </g>
+            <defs>
+              <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="var(--muted)"/></marker>
+            </defs>
+          </g>
+        </svg>
+        <figcaption>The five-step path from cold start to a running notebook.</figcaption>
+      </figure>
+    </section>
+
+    <section id="step-flag">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Add the feature flag</h3>
+          <p>In Zed Preview, press <code>Cmd&nbsp;+&nbsp;,</code> to open <code>settings.json</code> and merge in the <code>feature_flags</code> block. Opening settings <em>from within Preview</em> guarantees you're editing the file that build reads.<a class="cite" href="#ref-2">2</a></p>
+          <pre><code>{
+  "feature_flags": {
+    "notebooks": "on"
+  }
+}</code></pre>
+          <p class="lead">This step is identical on every OS, so it stays a plain code block.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="step-quit">
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Fully quit Zed</h3>
+          <p>Not just closing the window. This matters twice: the feature flag is read at startup, and Zed <b>snapshots its environment at launch</b>, so the env var in the next step won't be seen unless the process starts fresh with it already set.<a class="cite" href="#ref-1">1</a> A window reload is not enough — it must be a full relaunch, and the quit gesture differs by OS:</p>
+          <!-- OS TAB GROUP: quit -->
+          <div class="ostabs" data-osgroup>
+            <div class="ostab-bar" role="tablist" aria-label="Fully quit by OS">
+              <button class="ostab" role="tab" data-os="macos" id="tabQ-macos" aria-controls="panQ-macos">macOS</button>
+              <button class="ostab" role="tab" data-os="windows" id="tabQ-windows" aria-controls="panQ-windows">Windows</button>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="macos" id="panQ-macos" aria-labelledby="tabQ-macos">
+              <p style="margin:12px 0 0">Press <code>Cmd&nbsp;+&nbsp;Q</code>. Closing the window alone leaves the app running, so its old environment persists.</p>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="windows" id="panQ-windows" aria-labelledby="tabQ-windows" hidden>
+              <p style="margin:12px 0 0">Closing the window doesn't guarantee the process ends. Confirm no <code>zed.exe</code> lingers (Task Manager, or <code>taskkill /IM zed.exe /F</code>) — or skip the worry entirely by using <code>zed&nbsp;--foreground&nbsp;.</code> in the next step, which forces a fresh process rather than reusing a background one.<a class="cite" href="#ref-1">1</a></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="step-launch">
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Launch from the terminal — with the env var, opening the <em>folder</em></h3>
+          <p>This is the step that trips everyone up. Opening a <code>.ipynb</code> directly renders it as raw JSON; you must open the <b>containing folder</b> and then open the notebook from Zed's file tree.<a class="cite" href="#ref-2">2</a></p>
+
+          <div class="note warn">
+            <span class="lbl">⚠ Folder, not file</span>
+            <p style="margin:6px 0 0">The trailing <code>.</code> (the project directory) is essential. Passing the notebook path as the argument — <code>zed notebook.ipynb</code> — will <em>not</em> trigger the renderer.<a class="cite" href="#ref-2">2</a></p>
+          </div>
+
+          <p>The exact invocation differs by platform. This conversation covered a prior Windows attempt and the current macOS setup:</p>
+
+          <!-- OS TAB GROUP A -->
+          <div class="ostabs" data-osgroup>
+            <div class="ostab-bar" role="tablist" aria-label="Launch command by OS">
+              <button class="ostab" role="tab" data-os="macos" id="tabA-macos" aria-controls="panA-macos">macOS</button>
+              <button class="ostab" role="tab" data-os="windows" id="tabA-windows" aria-controls="panA-windows">Windows</button>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="macos" id="panA-macos" aria-labelledby="tabA-macos">
+              <p style="margin:12px 0 0">Most reliable — point straight at Preview's CLI binary and prefix the env var, so it can't collide with whichever channel your plain <code>zed</code> launches:<a class="cite" href="#ref-8">8</a></p>
+              <pre><code>cd /path/to/your/project
+LOCAL_NOTEBOOK_DEV=1 "/Applications/Zed Preview.app/Contents/MacOS/cli" .</code></pre>
+              <p style="margin:12px 0 0">Shorter, if your <code>zed</code> command points at <b>stable</b> — route to Preview explicitly:<a class="cite" href="#ref-9">9</a></p>
+              <pre><code>LOCAL_NOTEBOOK_DEV=1 zed --preview .</code></pre>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="windows" id="panA-windows" aria-labelledby="tabA-windows" hidden>
+              <p style="margin:12px 0 0">In PowerShell, set the variable in the session, then launch with the folder. <code>--foreground</code> was the outstanding fix to try on the earlier Windows stable build:<a class="cite" href="#ref-1">1</a></p>
+              <pre><code>$env:LOCAL_NOTEBOOK_DEV = "1"
+zed --foreground .</code></pre>
+              <p style="margin:12px 0 0">Same env-snapshot rule applies: Zed on Windows also captures its environment at launch, so set the variable <em>before</em> the launch and start a fresh process.<a class="cite" href="#ref-1">1</a></p>
+            </div>
+          </div>
+
+          <p>Then confirm the variable is actually set for that shell before relying on it:</p>
+
+          <!-- OS TAB GROUP B (kept in sync with A) -->
+          <div class="ostabs" data-osgroup>
+            <div class="ostab-bar" role="tablist" aria-label="Verify env var by OS">
+              <button class="ostab" role="tab" data-os="macos" id="tabB-macos" aria-controls="panB-macos">macOS</button>
+              <button class="ostab" role="tab" data-os="windows" id="tabB-windows" aria-controls="panB-windows">Windows</button>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="macos" id="panB-macos" aria-labelledby="tabB-macos">
+              <pre><code>echo $LOCAL_NOTEBOOK_DEV   # should print: 1</code></pre>
+            </div>
+            <div class="ostab-panel" role="tabpanel" data-os="windows" id="panB-windows" aria-labelledby="tabB-windows" hidden>
+              <pre><code>echo $env:LOCAL_NOTEBOOK_DEV   # should print: 1</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="step-open">
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Open the notebook &amp; assign a kernel</h3>
+          <p>With the project folder open, click your <code>.ipynb</code> in the file tree. It should render as cells with visual boundaries rather than JSON. Assign your kernel — for a uv-per-project setup, pick the project's <code>ipykernel</code> from the kernel selector, same as with your <code>#&nbsp;%%</code> REPL workflow.<a class="cite" href="#ref-2">2</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="troubleshoot">
+      <h3>Troubleshooting — still showing JSON?</h3>
+      <ul class="body">
+        <li><b>Opened the folder, not the file</b> at launch — re-confirm the <code>.</code> was the argument.<a class="cite" href="#ref-2">2</a></li>
+        <li><b>The env var was set for <em>that</em> launch</b> — run the verify command above in the same shell first.</li>
+        <li><b>You did a full <code>Cmd&nbsp;+&nbsp;Q</code></b>, not a window reload, after editing settings.<a class="cite" href="#ref-1">1</a></li>
+        <li><b>You're genuinely in Preview, not stable</b> — the app menu should read "Zed Preview," since the flag behaves differently across channels and can regress between versions.<a class="cite" href="#ref-2">2</a></li>
+        <li><b>Access may be gated server-side.</b> If flag + env var + folder-launch still yields nothing, the flag might be a private beta your account isn't registered for — config alone won't unlock it.<a class="cite" href="#ref-5">5</a></li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ============ ALTERNATIVES ============ -->
+    <section id="alternatives">
+      <h2 class="sec">Alternatives</h2>
+      <p class="lead">Two pragmatic paths for when you want to <em>get work done</em> rather than test a feature.</p>
+      <figure class="figure">
+        <svg viewBox="0 0 760 210" xmlns="http://www.w3.org/2000/svg">
+          <g font-family="-apple-system, sans-serif">
+            <rect x="300" y="10" width="160" height="46" rx="10" class="dg-card"/>
+            <text x="380" y="38" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">Working with .ipynb</text>
+
+            <!-- three branches -->
+            <g stroke="var(--muted)" stroke-width="1.6" fill="none">
+              <path d="M380 56 L380 74 L140 74 L140 96"/>
+              <path d="M380 56 L380 96"/>
+              <path d="M380 56 L380 74 L620 74 L620 96"/>
+            </g>
+
+            <rect x="30" y="98" width="220" height="96" rx="12" fill="none" stroke="var(--accent)" stroke-width="2"/>
+            <text x="140" y="122" text-anchor="middle" fill="var(--accent)" font-size="13" font-weight="700">Native renderer</text>
+            <text x="140" y="144" text-anchor="middle" class="dg-muted" font-size="11">Preview + flag + env var</text>
+            <text x="140" y="162" text-anchor="middle" class="dg-muted" font-size="11">Test / read notebooks</text>
+            <text x="140" y="180" text-anchor="middle" class="dg-muted" font-size="11">Half-built, may regress</text>
+
+            <rect x="270" y="98" width="220" height="96" rx="12" class="dg-card"/>
+            <text x="380" y="122" text-anchor="middle" class="dg-text" font-size="13" font-weight="700">Jupyter Viewer ext.</text>
+            <text x="380" y="144" text-anchor="middle" class="dg-muted" font-size="11">Syntax + outline + folds</text>
+            <text x="380" y="162" text-anchor="middle" class="dg-muted" font-size="11">Still shows JSON text</text>
+            <text x="380" y="180" text-anchor="middle" class="dg-muted" font-size="11">Glance only</text>
+
+            <rect x="510" y="98" width="220" height="96" rx="12" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="620" y="122" text-anchor="middle" fill="var(--accent)" font-size="13" font-weight="700">Jupytext pairing</text>
+            <text x="620" y="144" text-anchor="middle" class="dg-muted" font-size="11">.py ↔ .ipynb sync</text>
+            <text x="620" y="162" text-anchor="middle" class="dg-muted" font-size="11">Uses existing REPL</text>
+            <text x="620" y="180" text-anchor="middle" class="dg-muted" font-size="11">Most dependable ★</text>
+          </g>
+        </svg>
+        <figcaption>Three routes, ranked by how much real work they support today.</figcaption>
+      </figure>
+    </section>
+
+    <section id="viewer">
+      <h3>The lighter option — a syntax-only viewer</h3>
+      <p>A community extension, <code>zed-jupyter-viewer</code>, adds notebook-aware syntax highlighting, cell navigation via the Outline panel (<code>Cmd&nbsp;+&nbsp;Shift&nbsp;+&nbsp;O</code>), and folding of cells, outputs and metadata. But it is explicitly <b>not a renderer</b> — <code>.ipynb</code> files still display as structured JSON text, because Zed currently exposes no dedicated API for custom cell rendering.<a class="cite" href="#ref-6">6</a> Useful for glancing at a notebook, not for running one.</p>
+    </section>
+
+    <section id="jupytext">
+      <h3>The robust option — a Jupytext-paired workflow</h3>
+      <p>Keep a <code>.py</code> file — which Zed edits beautifully and runs cell-by-cell through the REPL you already have — synced to an <code>.ipynb</code> via Jupytext. Changes round-trip safely between the two, it's git-friendly (you version the text file instead of large JSON diffs), and it's driven through Zed's task system.<a class="cite" href="#ref-7">7</a> This sidesteps the whole experimental-rendering question and plays to Zed's existing strengths.</p>
+      <p>The only OS-divergent line is activating the virtualenv:</p>
+      <!-- OS TAB GROUP: jupytext venv -->
+      <div class="ostabs" data-osgroup>
+        <div class="ostab-bar" role="tablist" aria-label="Jupytext setup by OS">
+          <button class="ostab" role="tab" data-os="macos" id="tabJ-macos" aria-controls="panJ-macos">macOS</button>
+          <button class="ostab" role="tab" data-os="windows" id="tabJ-windows" aria-controls="panJ-windows">Windows</button>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="macos" id="panJ-macos" aria-labelledby="tabJ-macos">
+          <pre><code>python -m venv .venv
+source .venv/bin/activate
+pip install jupytext
+# pair an existing script to a notebook:
+jupytext --set-formats py,ipynb your_script.py
+jupytext --sync your_script.py</code></pre>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="windows" id="panJ-windows" aria-labelledby="tabJ-windows" hidden>
+          <pre><code>python -m venv .venv
+.venv\Scripts\Activate.ps1     # PowerShell  (use activate.bat for cmd.exe)
+pip install jupytext
+# pair an existing script to a notebook:
+jupytext --set-formats py,ipynb your_script.py
+jupytext --sync your_script.py</code></pre>
+        </div>
+      </div>
+      <div class="note">
+        <span class="lbl">Caveat</span>
+        <p style="margin:6px 0 0">It still won't give you <b>interactive Plotly HTML output</b> — that remains the one thing Zed's REPL / notebook path can't do, and JupyterLab's web UI is the fallback there.<a class="cite" href="#ref-1">1</a></p>
+      </div>
+    </section>
+
+    <section id="channels">
+      <h3>Channels &amp; private beta</h3>
+      <p>Preview is the better channel to test on: it's the weekly release that may contain experimental functionality and can experience reverts of recently-added features, and during private betas Zed prioritizes updates to the preview channel.<a class="cite" href="#ref-5">5</a> Note that a single <code>cli: install</code> writes one <code>zed</code> symlink — running it from Preview overwrites the stable one, since they share the name. Pointing directly at the Preview binary (as in step 3) avoids disturbing whichever channel your plain <code>zed</code> launches.<a class="cite" href="#ref-8">8</a></p>
+      <p>When a feature is in private beta, your Zed user record must be registered to that flag; you sign in via GitHub, and if you're not associated with the flag the related UI stays hidden. Some users have found beta features occasionally reachable on stable, but Preview is where they land first.<a class="cite" href="#ref-5">5</a></p>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ============ REFERENCES ============ -->
+    <section id="references">
+      <h2 class="sec">Reference</h2>
+      <ol>
+        <li id="ref-1"><b>This conversation</b> — troubleshooting thread on Zed Preview notebook rendering, env-snapshot-at-launch behavior, the Plotly-HTML limitation, and the prior Windows <code>--foreground</code> fix.</li>
+        <li id="ref-2"><b>Zed Discussion #25936 — "Jupyter Notebook."</b> Enabling the notebook flag, the open-the-folder-not-the-file fix, and the current limitations (no cell delete, no kill, DataFrame printing). <a href="https://github.com/zed-industries/zed/discussions/25936">github.com/zed-industries/zed/discussions/25936</a></li>
+        <li id="ref-3"><b>Zed Discussion #32343 — "Notebook Features Zed Should Support."</b> Data-scientist wishlist for native <code>.ipynb</code> UI, inline output, and kernel assignment. <a href="https://github.com/zed-industries/zed/discussions/32343">github.com/zed-industries/zed/discussions/32343</a></li>
+        <li id="ref-4"><b>Zed docs — macOS install.</b> Homebrew casks <code>zed</code> and <code>zed@preview</code>; both channels installable side by side. <a href="https://zed.dev/docs/macos">zed.dev/docs/macos</a></li>
+        <li id="ref-5"><b>Zed FAQ — release channels &amp; feature flags.</b> Preview vs stable, and how private-beta feature flags are tied to your signed-in account. <a href="https://zed.dev/faq">zed.dev/faq</a></li>
+        <li id="ref-6"><b>zed-jupyter-viewer (barruadi, GitHub).</b> Syntax highlighting / outline / folding for <code>.ipynb</code>; explicitly not a renderer. <a href="https://github.com/barruadi/zed-jupyter-viewer">github.com/barruadi/zed-jupyter-viewer</a></li>
+        <li id="ref-7"><b>Zed Discussion #51653 — Jupytext workflow.</b> Pairing <code>.py</code>/<code>.R</code> with <code>.ipynb</code> via Jupytext and Zed tasks; round-trip-safe and git-friendly. <a href="https://github.com/zed-industries/zed/discussions/51653">github.com/zed-industries/zed/discussions/51653</a></li>
+        <li id="ref-8"><b>Zed Issue #15890 — CLI install overwrites main app when Preview present.</b> A single <code>zed</code> symlink is shared across channels. <a href="https://github.com/zed-industries/zed/issues/15890">github.com/zed-industries/zed/issues/15890</a></li>
+        <li id="ref-9"><b>Zed CLI Reference.</b> <code>--stable</code> / <code>--preview</code> / <code>--nightly</code> flags to route the CLI to a specific channel. <a href="https://zed.dev/docs/reference/cli">zed.dev/docs/reference/cli</a></li>
+        <li id="ref-10"><b>Zed docs — Windows install.</b> winget package ids <code>ZedIndustries.Zed</code> and <code>ZedIndustries.Zed.Preview</code>; the installer sets PATH automatically. Requires Win&nbsp;10&nbsp;(1809+) or Win&nbsp;11. <a href="https://zed.dev/docs/windows">zed.dev/docs/windows</a></li>
+      </ol>
+    </section>
+
+    <footer class="pg">
+      Consolidated from a Zed Preview troubleshooting conversation · Generated 2026-07-04
+    </footer>
+  </div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var body = document.body;
+
+  /* ---------- Theme ---------- */
+  var sun = document.getElementById('sunIcon');
+  var moon = document.getElementById('moonIcon');
+  function applyTheme(t) {
+    root.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    sun.style.display = dark ? 'none' : 'block';
+    moon.style.display = dark ? 'block' : 'none';
+    try { localStorage.setItem('zed-theme', t); } catch (e) {}
+  }
+  var savedTheme;
+  try { savedTheme = localStorage.getItem('zed-theme'); } catch (e) {}
+  if (!savedTheme) savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  applyTheme(savedTheme);
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---------- Sidebar horizontal collapse (toggle lives in topnav) ---------- */
+  var sbToggle = document.getElementById('sbToggle');
+  var startCollapsed = window.innerWidth < 1000;
+  try {
+    var s = localStorage.getItem('zed-sb');
+    if (s === 'open') startCollapsed = false;
+    else if (s === 'closed') startCollapsed = true;
+  } catch (e) {}
+  body.classList.toggle('sb-collapsed', startCollapsed);
+  sbToggle.addEventListener('click', function () {
+    body.classList.toggle('sb-collapsed');
+    try { localStorage.setItem('zed-sb', body.classList.contains('sb-collapsed') ? 'closed' : 'open'); } catch (e) {}
+  });
+
+  /* ---------- Sidebar vertical group collapse ---------- */
+  document.querySelectorAll('.sb-group-head').forEach(function (head) {
+    var group = head.parentElement;
+    var links = group.querySelector('.sb-links');
+    links.style.maxHeight = links.scrollHeight + 'px';
+    head.addEventListener('click', function () {
+      var collapsed = group.classList.toggle('collapsed');
+      if (!collapsed) links.style.maxHeight = links.scrollHeight + 'px';
+    });
+  });
+
+  /* ---------- OS tabs (synced across all groups + localStorage + keyboard) ---------- */
+  function detectOS() {
+    var p = ((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '').toLowerCase();
+    if (p.indexOf('win') !== -1) return 'windows';
+    if (p.indexOf('mac') !== -1) return 'macos';
+    return 'macos';
+  }
+  var osPref;
+  try { osPref = localStorage.getItem('zed-os'); } catch (e) {}
+  if (osPref !== 'windows' && osPref !== 'macos') osPref = detectOS();
+
+  var osGroups = Array.prototype.slice.call(document.querySelectorAll('[data-osgroup]'));
+  function setOS(os) {
+    osPref = os;
+    try { localStorage.setItem('zed-os', os); } catch (e) {}
+    osGroups.forEach(function (grp) {
+      grp.querySelectorAll('.ostab').forEach(function (tab) {
+        var sel = tab.dataset.os === os;
+        tab.setAttribute('aria-selected', sel ? 'true' : 'false');
+        tab.tabIndex = sel ? 0 : -1;
+      });
+      grp.querySelectorAll('.ostab-panel').forEach(function (pan) {
+        pan.hidden = pan.dataset.os !== os;
+      });
+    });
+  }
+  osGroups.forEach(function (grp) {
+    var tabs = Array.prototype.slice.call(grp.querySelectorAll('.ostab'));
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { setOS(tab.dataset.os); });
+      tab.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          var dir = e.key === 'ArrowRight' ? 1 : -1;
+          var next = tabs[(i + dir + tabs.length) % tabs.length];
+          setOS(next.dataset.os);
+          next.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); setOS(tab.dataset.os);
+        }
+      });
+    });
+  });
+  setOS(osPref);
+
+  /* ---------- Scrollspy for top nav + sidebar ---------- */
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section[id]'));
+  var topLinks = Array.prototype.slice.call(document.querySelectorAll('#topnav a'));
+  var sideLinks = Array.prototype.slice.call(document.querySelectorAll('.sb-links a'));
+  var topIds = topLinks.map(function (a) { return a.getAttribute('href').slice(1); });
+
+  function onScroll() {
+    var pos = window.scrollY + 120;
+    var current = sections[0] ? sections[0].id : null;
+    sections.forEach(function (sec) { if (sec.offsetTop <= pos) current = sec.id; });
+    if (!current) return;
+    sideLinks.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+    // map current section to nearest top-nav anchor
+    var topCurrent = current;
+    if (topIds.indexOf(current) === -1) {
+      // find the closest preceding top-level section
+      var order = ['overview','setup','alternatives','references'];
+      var groupMap = {
+        'what-it-is':'overview','repl-vs-native':'overview','current-state':'overview',
+        'prereqs':'setup','step-flag':'setup','step-quit':'setup','step-launch':'setup','step-open':'setup','troubleshoot':'setup',
+        'viewer':'alternatives','jupytext':'alternatives','channels':'alternatives'
+      };
+      topCurrent = groupMap[current] || 'overview';
+    }
+    topLinks.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + topCurrent); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function () {
+    document.querySelectorAll('.sb-group:not(.collapsed) .sb-links').forEach(function (l) { l.style.maxHeight = l.scrollHeight + 'px'; });
+  });
+  onScroll();
+})();
+</script>
+</body>
+</html>

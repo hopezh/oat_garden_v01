@@ -1,0 +1,710 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Structuring a marimo Project — Reactive Notebook Reference</title>
+<meta name="description" content="How marimo stores notebooks as pure Python, how cells form a reactive graph, and how to lay out a multi-notebook project across operating systems.">
+<meta name="keywords" content="marimo, reactive-notebooks, python, project-structure, uv, data-visualization">
+<meta name="date" content="2026-07-04">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#F4F7F5; --surface:#FFFFFF; --surface-2:#EDF3EF; --surface-3:#E4ECE7;
+    --text:#132019; --muted:#54655C; --line:#D6E1DA;
+    --accent:#1E7A50; --accent-deep:#0E3F2B; --accent-bright:#37B87C;
+    --code-bg:#0E1A15; --code-fg:#D8E5DD;
+    --tok-comment:#5f7a6c; --tok-key:#7fd7a6; --tok-str:#c9e6a0;
+    --tok-fn:#8fd0ff; --tok-num:#e6a0c9; --tok-params:#e6c98a;
+    --cov-bg:#E6EEE9; --cov-grid:#C4D6CB; --cov-line:#1E7A50; --cov-fill:#D3E5DA; --cov-node:#0E3F2B;
+    --shadow:0 18px 40px -28px rgba(14,63,43,.5);
+    --nav-h:58px; --sb-w:266px; --maxw:824px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0D1411; --surface:#131D18; --surface-2:#18241F; --surface-3:#1E2C25;
+    --text:#E7F0EA; --muted:#93A79C; --line:#243530;
+    --accent:#37B87C; --accent-deep:#8FE0B4; --accent-bright:#5FD39A;
+    --code-bg:#0A130F; --code-fg:#D8E5DD;
+    --cov-bg:#101A15; --cov-grid:#1E2E27; --cov-line:#37B87C; --cov-fill:#16241D; --cov-node:#8FE0B4;
+    --shadow:0 18px 44px -28px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:17px; line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    transition:background .25s ease,color .25s ease;
+  }
+  a{color:var(--accent); text-decoration:none;}
+  a:hover{color:var(--accent-deep); text-decoration:underline; text-underline-offset:2px;}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px;}
+  code{font-family:"JetBrains Mono",ui-monospace,monospace;}
+
+  /* ---------------- TOP NAV ---------------- */
+  .topnav{
+    position:sticky; top:0; z-index:60; height:var(--nav-h);
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px;
+    padding:0 18px;
+    background:color-mix(in srgb, var(--surface) 86%, transparent);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-left{display:flex; align-items:center; gap:12px; min-width:0;}
+  .brand{font-family:"JetBrains Mono",monospace; font-weight:800; letter-spacing:-.02em; font-size:15px; white-space:nowrap;}
+  .brand b{color:var(--accent);}
+  .iconbtn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    height:36px; min-width:36px; padding:0 10px;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--text);
+    border-radius:9px; cursor:pointer; font:inherit; font-size:13px;
+    transition:background .15s,border-color .15s;
+  }
+  .iconbtn:hover{border-color:var(--accent); background:var(--surface-3);}
+  .iconbtn svg{width:17px; height:17px; display:block;}
+  .nav-center{display:flex; gap:4px; justify-content:center; flex-wrap:wrap;}
+  .nav-center a{
+    font-family:"JetBrains Mono",monospace; font-size:12.5px; font-weight:500;
+    letter-spacing:.03em; color:var(--muted); padding:7px 12px; border-radius:8px;
+  }
+  .nav-center a:hover{color:var(--text); background:var(--surface-2); text-decoration:none;}
+  .nav-right{display:flex; justify-content:flex-end;}
+  .tlabel{font-family:"JetBrains Mono",monospace;}
+
+  /* ---------------- COVER ---------------- */
+  .cover{width:100%; height:230px; overflow:hidden; background:var(--cov-bg); border-bottom:1px solid var(--line);}
+  .cover svg{width:100%; height:100%; display:block;}
+
+  /* ---------------- SIDEBAR ---------------- */
+  .sidebar{
+    position:fixed; top:var(--nav-h); left:0; bottom:0; width:var(--sb-w); z-index:50;
+    background:var(--surface); border-right:1px solid var(--line);
+    overflow-y:auto; padding:20px 14px 60px;
+    transform:translateX(-102%); transition:transform .26s cubic-bezier(.3,.7,.3,1);
+  }
+  body.nav-open .sidebar{transform:none;}
+  .sb-title{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); padding:0 8px 6px;}
+  .grp{border-bottom:1px solid var(--line); padding:6px 0;}
+  .grp-head{
+    width:100%; text-align:left; background:none; border:0; cursor:pointer; color:var(--text);
+    font-family:"JetBrains Mono",monospace; font-weight:700; font-size:13.5px;
+    padding:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:8px;
+  }
+  .grp-head:hover{background:var(--surface-2);}
+  .grp-head .chev{transition:transform .2s; color:var(--muted);}
+  .grp.collapsed .chev{transform:rotate(-90deg);}
+  .grp-list{max-height:400px; overflow:hidden; transition:max-height .25s ease;}
+  .grp.collapsed .grp-list{max-height:0;}
+  .grp-list a{
+    display:block; color:var(--muted); font-size:13.5px; padding:6px 8px 6px 18px; border-radius:7px; border-left:2px solid transparent;
+  }
+  .grp-list a:hover{color:var(--text); background:var(--surface-2); border-left-color:var(--accent); text-decoration:none;}
+
+  .backdrop{position:fixed; inset:var(--nav-h) 0 0 0; z-index:45; background:rgba(6,14,10,.42); opacity:0; visibility:hidden; transition:.2s;}
+  body.nav-open .backdrop{opacity:1; visibility:visible;}
+
+  /* ---------------- MAIN (centered in window) ---------------- */
+  .main{max-width:var(--maxw); margin:0 auto; padding:0 26px 130px;}
+
+  .titleblock{padding:46px 0 8px; text-align:left;}
+  .eyebrow{
+    font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.26em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 20px; display:flex; align-items:center; gap:13px;
+  }
+  .eyebrow::before{content:""; width:24px; height:24px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 34% 32%, var(--accent-bright), var(--accent) 45%, var(--accent-deep) 100%);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%, transparent);}
+  h1{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:clamp(34px,6vw,54px); line-height:1.04; letter-spacing:-.02em; margin:0 0 16px;}
+  h1 em{font-style:normal; color:var(--accent);}
+  .subtitle{font-size:clamp(17px,2.2vw,20px); color:var(--muted); max-width:60ch; margin:0;}
+
+  /* TLDR card */
+  .tldr{
+    margin:30px 0 8px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow);
+    position:relative; overflow:hidden;
+  }
+  .tldr::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(var(--accent-bright),var(--accent));}
+  .tldr h2{font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin:0 0 12px;}
+  .tldr ul{margin:0; padding:0; list-style:none;}
+  .tldr li{position:relative; padding-left:22px; margin-bottom:9px; font-size:15.5px;}
+  .tldr li:last-child{margin-bottom:0;}
+  .tldr li::before{content:""; position:absolute; left:3px; top:10px; width:7px; height:7px; border-radius:2px; background:var(--accent); transform:rotate(45deg);}
+
+  /* sections */
+  section.doc{padding-top:54px; scroll-margin-top:calc(var(--nav-h) + 12px);}
+  h2.sec{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:clamp(25px,3.4vw,32px); letter-spacing:-.015em; margin:0 0 6px; display:flex; align-items:baseline; gap:14px;}
+  h2.sec .n{font-size:15px; color:var(--accent); font-weight:700;}
+  .lead{color:var(--muted); margin:0 0 26px; font-size:16px;}
+  h3{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:18px; margin:34px 0 10px; color:var(--accent-deep); scroll-margin-top:calc(var(--nav-h) + 12px);}
+  html[data-theme="dark"] h3{color:var(--accent-deep);}
+  p{margin:0 0 18px;}
+  p code,li code,.tldr code{background:var(--surface-3); border:1px solid var(--line); padding:1px 6px; border-radius:5px; font-size:.85em; color:var(--accent-deep);}
+
+  ul.body{margin:0 0 18px; padding-left:0; list-style:none;}
+  ul.body li{position:relative; padding-left:24px; margin-bottom:12px;}
+  ul.body li::before{content:""; position:absolute; left:4px; top:11px; width:7px; height:7px; border-radius:50%; background:var(--accent);}
+
+  /* citation markers */
+  .cite{font-family:"JetBrains Mono",monospace; font-size:.72em; font-weight:700; color:var(--accent); vertical-align:super; text-decoration:none; padding:0 1px;}
+  .cite:hover{text-decoration:underline;}
+
+  /* code */
+  pre{background:var(--code-bg); color:var(--code-fg); font-family:"JetBrains Mono",monospace; font-size:13.3px; line-height:1.7;
+    padding:20px 22px; border-radius:12px; overflow-x:auto; margin:0 0 22px; border:1px solid #1b2a23; box-shadow:var(--shadow);}
+  pre .cap{display:block; font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:#6e8578; margin-bottom:12px;}
+  pre code{background:none; border:0; padding:0; color:inherit; font-size:inherit;}
+  .hljs-comment,.hljs-quote{color:var(--tok-comment); font-style:italic;}
+  .hljs-keyword,.hljs-literal,.hljs-built_in,.hljs-type{color:var(--tok-key);}
+  .hljs-string,.hljs-meta .hljs-string{color:var(--tok-str);}
+  .hljs-title,.hljs-title.function_,.hljs-title.class_,.hljs-section{color:var(--tok-fn);}
+  .hljs-params{color:var(--tok-params);}
+  .hljs-number{color:var(--tok-num);}
+  .hljs-meta,.hljs-decorator{color:var(--tok-str);}
+  .tree{color:#cfe0d6;} .tree .c{color:var(--tok-comment);} .tree .d{color:var(--tok-fn);}
+
+  /* reactive-graph figure + wiring diagram */
+  .figure{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px; margin:6px 0 24px; box-shadow:var(--shadow);}
+  .figure figcaption{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-top:14px; text-align:center;}
+  .wire-row{display:flex; align-items:center; flex-wrap:wrap; gap:12px; justify-content:center; font-family:"JetBrains Mono",monospace;}
+  .pill{background:var(--surface-2); border:1px solid var(--line); padding:8px 12px; border-radius:8px; font-size:13px; color:var(--accent-deep); font-weight:500;}
+  .cellbox{background:var(--code-bg); color:var(--code-fg); padding:10px 14px; border-radius:8px; font-size:12.3px; line-height:1.5; border:1px solid #1b2a23; white-space:pre;}
+  .arw{color:var(--accent); font-size:19px; font-weight:700;}
+  .legend{display:flex; flex-wrap:wrap; gap:8px 24px; margin-top:16px; justify-content:center; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.04em; color:var(--muted); text-transform:uppercase;}
+  .legend b{color:var(--accent-deep);}
+
+  /* comparison cards */
+  .cards{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:6px 0 22px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:20px 20px 6px; box-shadow:var(--shadow);}
+  .card .tag{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); display:block; margin-bottom:4px;}
+  .card h4{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:16px; margin:0 0 10px;}
+  .card p{font-size:14.5px; color:var(--muted);}
+  .card code{font-size:.82em;}
+
+  /* callouts */
+  .callout{display:flex; gap:15px; background:linear-gradient(180deg, color-mix(in srgb,var(--accent) 12%,transparent), color-mix(in srgb,var(--accent) 3%,transparent));
+    border:1px solid color-mix(in srgb,var(--accent) 30%,transparent); border-left:3px solid var(--accent); border-radius:10px; padding:16px 18px; margin:6px 0 22px;}
+  .callout .ic{flex:none; font-family:"JetBrains Mono",monospace; font-weight:800; color:var(--accent); font-size:15px; line-height:1.55;}
+  .callout p{margin:0; font-size:15px;}
+  .callout strong{color:var(--accent-deep);}
+
+  /* OS TABS */
+  .ostabs{margin:6px 0 22px; border:1px solid var(--line); border-radius:13px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow);}
+  .tabbar{display:flex; flex-wrap:wrap; gap:2px; padding:8px 8px 0; background:var(--surface-2); border-bottom:1px solid var(--line);}
+  .tabbar [role=tab]{
+    font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:600; color:var(--muted);
+    background:none; border:0; border-bottom:2px solid transparent; padding:10px 16px; cursor:pointer; border-radius:8px 8px 0 0;
+  }
+  .tabbar [role=tab]:hover{color:var(--text); background:var(--surface-3);}
+  .tabbar [role=tab][aria-selected="true"]{color:var(--accent-deep); border-bottom-color:var(--accent); background:var(--surface);}
+  .panels{padding:16px;}
+  .panels [role=tabpanel]{margin:0;}
+  .panels pre{margin:0;}
+
+  /* references */
+  ol.refs{margin:0; padding:0; counter-reset:r; list-style:none;}
+  ol.refs li{position:relative; padding:12px 12px 12px 46px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:var(--surface); scroll-margin-top:calc(var(--nav-h) + 12px);}
+  ol.refs li::before{counter-increment:r; content:"["counter(r)"]"; position:absolute; left:12px; top:12px; font-family:"JetBrains Mono",monospace; font-weight:700; color:var(--accent); font-size:13px;}
+  ol.refs .t{font-weight:600; display:block; font-size:15px;}
+  ol.refs a{font-family:"JetBrains Mono",monospace; font-size:12.5px; word-break:break-all;}
+  :target{animation:flash 1.4s ease;}
+  @keyframes flash{0%,40%{background:color-mix(in srgb,var(--accent) 16%,transparent);}100%{background:transparent;}}
+
+  footer.pagefoot{margin-top:40px; padding-top:24px; border-top:1px solid var(--line); font-family:"JetBrains Mono",monospace; font-size:12.5px; color:var(--muted); display:flex; flex-wrap:wrap; gap:8px 20px; justify-content:space-between;}
+
+  /* load motion */
+  @keyframes rise{from{opacity:0; transform:translateY(12px);}to{opacity:1; transform:none;}}
+  .titleblock,.tldr,section.doc{animation:rise .55s cubic-bezier(.2,.7,.2,1) both;}
+  section.doc:nth-of-type(2){animation-delay:.04s;}
+
+  @media (max-width:1199px){
+    /* on smaller screens the sidebar is a drawer with backdrop; default closed */
+  }
+  @media (max-width:720px){
+    body{font-size:16px;}
+    .cover{height:170px;}
+    .nav-center{display:none;}
+    .cards{grid-template-columns:1fr;}
+    footer.pagefoot{flex-direction:column;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important; scroll-behavior:auto !important;}}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP NAV ===================== -->
+<nav class="topnav">
+  <div class="nav-left">
+    <button id="sideBtn" class="iconbtn" aria-label="Toggle contents sidebar" aria-expanded="false" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      <span class="tlabel">Contents</span>
+    </button>
+    <span class="brand"><b>marimo</b> project structure</span>
+  </div>
+  <div class="nav-center">
+    <a href="#anatomy">Anatomy</a>
+    <a href="#projects">Projects</a>
+    <a href="#platform">Platform</a>
+    <a href="#references">References</a>
+  </div>
+  <div class="nav-right">
+    <button id="themeBtn" class="iconbtn" aria-label="Toggle dark and light theme" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.3" y1="5.3" x2="7" y2="7"/><line x1="17" y1="17" x2="18.7" y2="18.7"/><line x1="5.3" y1="18.7" x2="7" y2="17"/><line x1="17" y1="7" x2="18.7" y2="5.3"/></svg>
+      <span class="tlabel">Dark</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ===================== COVER (axonometric) ===================== -->
+<div class="cover" aria-hidden="true">
+  <svg viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="isogrid" width="56" height="32" patternUnits="userSpaceOnUse" patternTransform="translate(0 0)">
+        <path d="M0 16 L28 0 L56 16 L28 32 Z" fill="none" stroke="var(--cov-grid)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="1200" height="230" fill="url(#isogrid)" opacity="0.5"/>
+    <!-- reactive dependency graph, isometric wireframe: cells as nodes -->
+    <g stroke="var(--cov-line)" stroke-width="1.6" fill="var(--cov-fill)">
+      <!-- edges -->
+      <g stroke-width="1.6" stroke-dasharray="2 5" opacity="0.9">
+        <line x1="300" y1="120" x2="600" y2="95"/>
+        <line x1="600" y1="95" x2="900" y2="128"/>
+        <line x1="300" y1="120" x2="900" y2="128"/>
+      </g>
+      <!-- box A -->
+      <g><polygon points="300,72 372,108 300,144 228,108"/>
+         <polygon points="228,108 300,144 300,190 228,154" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="372,108 300,144 300,190 372,154" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+      <!-- box B -->
+      <g><polygon points="600,44 672,80 600,116 528,80"/>
+         <polygon points="528,80 600,116 600,162 528,126" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="672,80 600,116 600,162 672,126" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+      <!-- box C -->
+      <g><polygon points="900,80 972,116 900,152 828,116"/>
+         <polygon points="828,116 900,152 900,198 828,162" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="972,116 900,152 900,198 972,162" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+    </g>
+    <!-- graph nodes -->
+    <g fill="var(--cov-node)">
+      <circle cx="300" cy="120" r="5"/><circle cx="600" cy="95" r="5"/><circle cx="900" cy="128" r="5"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="sidebar" id="sidebar" aria-label="Detailed contents">
+  <div class="sb-title">On this page</div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">01 · Anatomy of a notebook
+      <span class="chev">▾</span></button>
+    <div class="grp-list">
+      <a href="#skeleton">The skeleton</a>
+      <a href="#cell-fn">A cell is a function</a>
+      <a href="#setup">The setup cell</a>
+      <a href="#toplevel">Top-level defs</a>
+      <a href="#footer">The run footer</a>
+      <a href="#one-def">One-definition rule</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">02 · Organizing many notebooks
+      <span class="chev">▾</span></button>
+    <div class="grp-list">
+      <a href="#layout">Recommended layout</a>
+      <a href="#share">Two ways to share code</a>
+      <a href="#env">One environment or many</a>
+      <a href="#ordering">Ordering &amp; publishing</a>
+      <a href="#expensive">Expensive cells</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">03 · Platform notes
+      <span class="chev">▾</span></button>
+    <div class="grp-list">
+      <a href="#support">Supported platforms</a>
+      <a href="#install">Installing the toolchain</a>
+      <a href="#caveats">Cross-platform caveats</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">References
+      <span class="chev">▾</span></button>
+    <div class="grp-list">
+      <a href="#references">All sources</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== MAIN ===================== -->
+<main class="main">
+
+  <div class="titleblock">
+    <p class="eyebrow">Reactive Python Notebooks</p>
+    <h1>Structuring a<br><em>marimo</em> project</h1>
+    <p class="subtitle">A marimo notebook is pure Python, not JSON — so organizing a project is really organizing a small, well-formed package. Here is the anatomy of one notebook, how to lay out many, and how it all runs across operating systems.</p>
+  </div>
+
+  <div class="tldr">
+    <h2>TL;DR</h2>
+    <ul>
+      <li>A marimo notebook is a plain <code>.py</code> file — Git-friendly, runnable as a script, deployable as an app.<a href="#r1" class="cite">[1]</a></li>
+      <li>Each cell is a function: its <em>parameters</em> are the cells it reads, its <em>return values</em> are what it exposes. marimo wires these into a reactive graph, so execution order follows references, not page position.<a href="#r1" class="cite">[1]</a></li>
+      <li>Lay out a multi-notebook project like a package: <code>notebooks/</code> for chapters, <code>src/</code> for shared code.<a href="#r3" class="cite">[3]</a></li>
+      <li>Pick a dependency strategy — one shared environment (simple) or per-notebook sandboxes with inlined deps (isolated).<a href="#r3" class="cite">[3]</a></li>
+      <li>Fully cross-platform (Windows, macOS, Linux); the <code>uv</code> and <code>marimo</code> commands are identical everywhere — only toolchain install and manual venv activation differ.<a href="#r6" class="cite">[6]</a></li>
+    </ul>
+  </div>
+
+  <!-- ============ 01 ANATOMY ============ -->
+  <section class="doc" id="anatomy">
+    <h2 class="sec"><span class="n">01</span> Anatomy of one notebook</h2>
+    <p class="lead">Where Jupyter stores an <code>.ipynb</code> JSON scratchpad, marimo stores a plain <code>.py</code> file with a deterministic shape.<a href="#r1" class="cite">[1]</a></p>
+
+    <h3 id="skeleton">The skeleton</h3>
+    <pre><span class="cap">notebook.py</span><code class="language-python">import marimo
+
+__generated_with = "0.x.x"        # marimo version stamp
+app = marimo.App(width="medium")  # the App object; every cell hangs off it
+
+
+with app.setup:                   # (optional) setup cell — runs first
+    import numpy as np
+    import polars as pl
+
+
+@app.cell                         # a regular cell
+def _():
+    import marimo as mo
+    return (mo,)                  # names this cell exports to others
+
+
+@app.cell
+def _(mo):                        # params = variables this cell consumes
+    slider = mo.ui.slider(1, 100)
+    slider
+    return (slider,)
+
+
+@app.cell
+def _(mo, slider):
+    mo.md(f"Value is **{slider.value}**")
+    return
+
+
+@app.function                     # (optional) reusable top-level function
+def calculate(x):
+    return x * 2
+
+
+if __name__ == "__main__":
+    app.run()</code></pre>
+
+    <h3 id="cell-fn">A cell is a function</h3>
+    <p>This is the defining idea. A cell's <em>parameters</em> are the variables it reads from other cells, and its <em>return tuple</em> is what it exposes to the rest of the notebook. marimo reads those references to build a dependency graph — so cells run in a deterministic order based on variable references, never their position on the page.<a href="#r1" class="cite">[1]</a></p>
+
+    <figure class="figure">
+      <div class="wire-row">
+        <span class="pill">mo, slider</span>
+        <span class="arw">&rarr;</span>
+        <span class="cellbox">@app.cell
+def _(mo, slider):
+    ...</span>
+        <span class="arw">&rarr;</span>
+        <span class="pill">return (...)</span>
+      </div>
+      <div class="legend">
+        <span><b>in</b> — params = upstream deps</span>
+        <span><b>body</b> — the cell</span>
+        <span><b>out</b> — return = exported vars</span>
+      </div>
+      <figcaption>A cell wires up like a pure function</figcaption>
+    </figure>
+
+    <figure class="figure">
+      <svg viewBox="0 0 640 130" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+        <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="var(--accent)"/></marker></defs>
+        <g font-family="JetBrains Mono, monospace" font-size="12">
+          <g fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.4">
+            <rect x="24" y="46" rx="9" width="120" height="38"/>
+            <rect x="262" y="46" rx="9" width="120" height="38"/>
+            <rect x="500" y="20" rx="9" width="120" height="38"/>
+            <rect x="500" y="72" rx="9" width="120" height="38"/>
+          </g>
+          <g fill="var(--text)" text-anchor="middle">
+            <text x="84" y="70">slider</text>
+            <text x="322" y="70">value</text>
+            <text x="560" y="44">chart</text>
+            <text x="560" y="96">summary</text>
+          </g>
+          <g stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#ah)">
+            <line x1="146" y1="65" x2="258" y2="65"/>
+            <line x1="384" y1="60" x2="496" y2="42"/>
+            <line x1="384" y1="70" x2="496" y2="90"/>
+          </g>
+        </g>
+      </svg>
+      <figcaption>Change one node and every downstream cell re-runs automatically</figcaption>
+    </figure>
+
+    <h3 id="setup">The setup cell</h3>
+    <p>The <code>with app.setup:</code> block is guaranteed to run before everything else. It is where imports go when they need to back reusable top-level definitions.</p>
+
+    <h3 id="toplevel">Top-level functions &amp; classes</h3>
+    <p>Definitions marked <code>@app.function</code> and <code>@app.class_definition</code> make the notebook <em>importable</em> — you can pull them into other notebooks or scripts with ordinary Python <code>import</code>.<a href="#r2" class="cite">[2]</a> The catch: they may only reference symbols from the setup cell or other top-level symbols, not variables defined inside regular cells.</p>
+
+    <h3 id="footer">The run footer</h3>
+    <p>The <code>if __name__ == "__main__": app.run()</code> line lets one file run three ways: <code>marimo edit</code> (interactive), <code>marimo run</code> (as an app with code hidden), and <code>python notebook.py</code> (as a plain script).</p>
+
+    <div class="callout" id="one-def">
+      <span class="ic">!</span>
+      <p><strong>The one-definition rule.</strong> Each variable may be defined in exactly one cell. Coming from Jupyter this trips people up — but it is precisely what keeps the dependency graph unambiguous.<a href="#r5" class="cite">[5]</a></p>
+    </div>
+  </section>
+
+  <!-- ============ 02 PROJECTS ============ -->
+  <section class="doc" id="projects">
+    <h2 class="sec"><span class="n">02</span> Organizing many notebooks</h2>
+    <p class="lead">Because each notebook is just a <code>.py</code> file, structuring a multi-chapter project <em>is</em> structuring a small package — and marimo leans into that.</p>
+
+    <h3 id="layout">Recommended layout</h3>
+    <pre><span class="cap">project tree</span><code class="tree">my-project/
+├── pyproject.toml          <span class="c"># project + marimo as a dependency</span>
+├── README.md
+├── <span class="d">src/</span>
+│   └── <span class="d">myproj/</span>            <span class="c"># SHARED code, importable everywhere</span>
+│       ├── __init__.py
+│       ├── data.py         <span class="c"># loaders, dataframe pipelines</span>
+│       ├── viz.py          <span class="c"># reusable plotting helpers</span>
+│       └── sim.py          <span class="c"># e.g. simulation wrappers</span>
+├── <span class="d">notebooks/</span>
+│   ├── <span class="d">01_intro/</span>
+│   │   ├── 01_overview.py
+│   │   └── 02_setup.py
+│   ├── <span class="d">02_daylight/</span>
+│   │   ├── 01_model.py
+│   │   └── 02_results.py
+│   └── <span class="d">03_solar/</span>
+│       └── 01_irradiance.py
+└── <span class="d">tests/</span></code></pre>
+
+    <p>The marimo docs recommend exactly this split: notebooks in a <code>notebooks/</code> directory, shared logic in a real package under <code>src/</code>.<a href="#r3" class="cite">[3]</a> The reason it matters — marimo resolves imports the way Python does, searching <code>sys.path</code> plus the notebook's own folder. So anything outside that folder must be a properly installed package, not a sibling file reached with a <code>sys.path</code> hack.<a href="#r4" class="cite">[4]</a></p>
+
+    <h3 id="share">Two ways to share code</h3>
+    <ul class="body">
+      <li><strong>Shared utilities &rarr; the <code>src/</code> package.</strong> Data loaders, plotting styles, simulation wrappers — put them in <code>src/myproj/</code> and install editable (<code>uv init --lib</code>, marimo as a dev dependency; <code>uv</code> workspaces for multiple packages). Then every notebook does <code>from myproj.viz import my_chart</code>.<a href="#r3" class="cite">[3]</a></li>
+      <li><strong>Notebook &rarr; notebook reuse.</strong> marimo can import the <code>@app.function</code> / <code>@app.class_definition</code> defs from one notebook into another.<a href="#r2" class="cite">[2]</a> Handy for a chapter-builds-on-chapter flow, but it couples notebooks — reserve it for genuinely shared notebook logic and push anything stable down into <code>src/</code>.</li>
+    </ul>
+
+    <h3 id="env">One environment, or many?</h3>
+    <p>This is the decision that most shapes how a sectioned project feels.</p>
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Option A</span>
+        <h4>Single shared env</h4>
+        <p>One <code>pyproject.toml</code> — <code>uv add marimo polars plotly</code>, then <code>uv run marimo edit notebooks/…</code>. Shares dependencies across everything and follows standard Python practice. Best when all chapters run the same stack.<a href="#r3" class="cite">[3]</a></p>
+      </div>
+      <div class="card">
+        <span class="tag">Option B</span>
+        <h4>Per-notebook sandbox</h4>
+        <p>Each notebook inlines its own PEP&nbsp;723 deps and runs isolated: <code>marimo edit --sandbox nb.py</code> or <code>uv run nb.py</code>. Self-contained, so different chapters can carry different — even conflicting — dependencies.<a href="#r3" class="cite">[3]</a></p>
+      </div>
+    </div>
+    <p>For varied research work a <strong>hybrid</strong> fits: a shared project env as the baseline, and sandbox the outliers — e.g. a GPU-heavy deep-learning notebook that should not drag its dependencies into every other chapter.</p>
+
+    <h3 id="ordering">Ordering, running, publishing</h3>
+    <ul class="body">
+      <li><strong>Ordering.</strong> Use numeric filename prefixes (<code>01_</code>, <code>02_</code>). Cell execution is a graph, but the human reading order of a book of notebooks comes entirely from filenames — so prefix them.</li>
+      <li><strong>Navigating.</strong> Run <code>marimo edit notebooks/</code> pointed at the directory for a file browser over all chapters, rather than opening one file at a time.</li>
+      <li><strong>Publishing as a book.</strong> Do not naively WASM-export each notebook — a hello-world export runs ~18&nbsp;MB and duplicates per notebook. The maintained fix is the marimo GitHub-Pages template, which shares one assets folder across many notebooks.<a href="#r7" class="cite">[7]</a></li>
+    </ul>
+
+    <div class="callout" id="expensive">
+      <span class="ic">&#9432;</span>
+      <p><strong>Gate expensive cells with <code>mo.stop</code>.</strong> For long simulations or model training, put the work behind <code>mo.ui.run_button</code> + <code>mo.stop</code> so reactivity does not re-trigger the whole computation every time you nudge an upstream slider.<a href="#r5" class="cite">[5]</a></p>
+    </div>
+  </section>
+
+  <!-- ============ 03 PLATFORM ============ -->
+  <section class="doc" id="platform">
+    <h2 class="sec"><span class="n">03</span> Platform notes</h2>
+    <p class="lead">marimo runs anywhere a recent Python does, and the project workflow is portable — with only a couple of setup steps that differ per OS.</p>
+
+    <h3 id="support">Supported platforms</h3>
+    <p>marimo requires <strong>Python 3.10 or newer</strong> (through 3.14) and runs on Windows 10 and later, macOS (Intel and Apple Silicon), and all major Linux distributions.<a href="#r6" class="cite">[6]</a> The editor itself runs in your browser — Chrome / Chromium is recommended, Firefox works too.</p>
+
+    <h3 id="install">Installing the toolchain</h3>
+    <p>The <code>uv</code> and <code>marimo</code> commands are identical on every OS. Only the one-time <code>uv</code> install and — if you skip <code>uv</code> — manual virtual-env activation differ, shown per platform below.</p>
+
+    <div class="ostabs" data-group="install">
+      <div class="tabbar" role="tablist" aria-label="Install uv by operating system">
+        <button role="tab" data-os="win" aria-selected="true" tabindex="0">Windows</button>
+        <button role="tab" data-os="mac" aria-selected="false" tabindex="-1">macOS</button>
+      </div>
+      <div class="panels">
+        <div role="tabpanel" data-os="win">
+          <pre><span class="cap">install uv — powershell</span><code class="language-bash">powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre>
+        </div>
+        <div role="tabpanel" data-os="mac" hidden>
+          <pre><span class="cap">install uv — terminal</span><code class="language-bash">curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <p>From there the project setup is the same everywhere:</p>
+    <pre><span class="cap">create the project (any OS)</span><code class="language-bash">uv init --lib my-project
+cd my-project
+uv add marimo polars plotly
+uv run marimo edit notebooks/</code></pre>
+
+    <p>If you prefer a plain <code>pip</code> + <code>venv</code> flow instead of <code>uv</code>, the only OS-specific step is activating the environment:</p>
+    <div class="ostabs" data-group="venv">
+      <div class="tabbar" role="tablist" aria-label="Activate a virtual environment by operating system">
+        <button role="tab" data-os="win" aria-selected="true" tabindex="0">Windows</button>
+        <button role="tab" data-os="mac" aria-selected="false" tabindex="-1">macOS</button>
+      </div>
+      <div class="panels">
+        <div role="tabpanel" data-os="win">
+          <pre><span class="cap">powershell</span><code class="language-bash">python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install marimo</code></pre>
+        </div>
+        <div role="tabpanel" data-os="mac" hidden>
+          <pre><span class="cap">terminal</span><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+pip install marimo</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="caveats">Cross-platform caveats</h3>
+    <ul class="body">
+      <li><strong>A few optional SQL deps are Unix-only.</strong> Some optional dependencies such as <code>chdb</code> are not available on Windows.<a href="#r6" class="cite">[6]</a> marimo's DuckDB-based SQL still works, so this rarely bites.</li>
+      <li><strong>GPU backends differ.</strong> On an NVIDIA GPU (Windows or Linux) PyTorch uses CUDA; on Apple Silicon it uses the MPS backend. Keep device selection portable if you move a notebook between machines.</li>
+      <li><strong>Config lives in a standard spot.</strong> marimo's config file sits under your platform's config directory (e.g. <code>~/.config/marimo/marimo.toml</code>); run <code>marimo config show</code> to print the exact path.</li>
+    </ul>
+  </section>
+
+  <!-- ============ REFERENCES ============ -->
+  <section class="doc" id="references">
+    <h2 class="sec">References</h2>
+    <ol class="refs">
+      <li id="r1"><span class="t">marimo — Documentation home</span><a href="https://docs.marimo.io/" target="_blank" rel="noopener">https://docs.marimo.io/</a></li>
+      <li id="r2"><span class="t">Reuse functions and classes</span><a href="https://docs.marimo.io/guides/reusing_functions/" target="_blank" rel="noopener">https://docs.marimo.io/guides/reusing_functions/</a></li>
+      <li id="r3"><span class="t">Notebooks in existing projects</span><a href="https://docs.marimo.io/guides/package_management/notebooks_in_projects/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/notebooks_in_projects/</a></li>
+      <li id="r4"><span class="t">Importing packages</span><a href="https://docs.marimo.io/guides/package_management/importing_packages/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/importing_packages/</a></li>
+      <li id="r5"><span class="t">Best practices</span><a href="https://docs.marimo.io/guides/best_practices/" target="_blank" rel="noopener">https://docs.marimo.io/guides/best_practices/</a></li>
+      <li id="r6"><span class="t">Installation &amp; platform support</span><a href="https://docs.marimo.io/getting_started/installation/" target="_blank" rel="noopener">https://docs.marimo.io/getting_started/installation/</a></li>
+      <li id="r7"><span class="t">marimo GitHub-Pages template</span><a href="https://github.com/marimo-team/marimo-gh-pages-template" target="_blank" rel="noopener">https://github.com/marimo-team/marimo-gh-pages-template</a></li>
+    </ol>
+
+    <footer class="pagefoot">
+      <span>marimo project structure &middot; reference notes &middot; 2026-07-04</span>
+      <span>compiled from source docs at docs.marimo.io</span>
+    </footer>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var store = {
+    get:function(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } },
+    set:function(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} }
+  };
+  var root = document.documentElement;
+
+  /* ---- THEME ---- */
+  function applyTheme(t){
+    root.setAttribute('data-theme', t);
+    var b = document.getElementById('themeBtn');
+    if(b){ b.setAttribute('aria-pressed', t==='dark'); b.querySelector('.tlabel').textContent = (t==='dark'?'Light':'Dark'); }
+  }
+  var savedTheme = store.get('mz-theme');
+  if(!savedTheme){ savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+  applyTheme(savedTheme);
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    var t = (root.getAttribute('data-theme')==='dark') ? 'light' : 'dark';
+    applyTheme(t); store.set('mz-theme', t);
+  });
+
+  /* ---- SIDEBAR (horizontal collapse; control lives in the top nav) ---- */
+  var body = document.body;
+  var sideBtn = document.getElementById('sideBtn');
+  function setSidebar(open){ body.classList.toggle('nav-open', open); sideBtn.setAttribute('aria-expanded', open); }
+  sideBtn.addEventListener('click', function(){ setSidebar(!body.classList.contains('nav-open')); });
+  var bd = document.getElementById('backdrop');
+  if(bd){ bd.addEventListener('click', function(){ setSidebar(false); }); }
+  // default: open on wide screens, closed as a drawer on narrow ones
+  setSidebar(window.matchMedia('(min-width:1200px)').matches);
+
+  /* ---- SIDEBAR groups (vertical collapse) ---- */
+  Array.prototype.forEach.call(document.querySelectorAll('.grp-head'), function(h){
+    h.addEventListener('click', function(){
+      var g = h.parentElement;
+      var collapsed = g.classList.toggle('collapsed');
+      h.setAttribute('aria-expanded', !collapsed);
+    });
+  });
+  // close drawer when a sidebar link is tapped on narrow screens
+  Array.prototype.forEach.call(document.querySelectorAll('.grp-list a, .nav-center a'), function(a){
+    a.addEventListener('click', function(){ if(!window.matchMedia('(min-width:1200px)').matches){ setSidebar(false); } });
+  });
+
+  /* ---- OS TABS (synced + persisted, keyboard accessible) ---- */
+  function detectOS(){
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    p = p.toLowerCase();
+    if(p.indexOf('win') > -1) return 'win';
+    if(p.indexOf('mac') > -1 || p.indexOf('iphone') > -1 || p.indexOf('ipad') > -1) return 'mac';
+    return null;
+  }
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.ostabs'));
+  function applyOS(os){
+    groups.forEach(function(g){
+      Array.prototype.forEach.call(g.querySelectorAll('[role=tab]'), function(t){
+        var on = (t.getAttribute('data-os') === os);
+        t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      });
+      Array.prototype.forEach.call(g.querySelectorAll('[role=tabpanel]'), function(pn){
+        pn.hidden = (pn.getAttribute('data-os') !== os);
+      });
+    });
+  }
+  var currentOS = store.get('mz-os') || detectOS() || 'win';
+  applyOS(currentOS);
+  groups.forEach(function(g){
+    var tabs = Array.prototype.slice.call(g.querySelectorAll('[role=tab]'));
+    tabs.forEach(function(t, i){
+      t.addEventListener('click', function(){ currentOS = t.getAttribute('data-os'); applyOS(currentOS); store.set('mz-os', currentOS); });
+      t.addEventListener('keydown', function(e){
+        if(e.key === 'ArrowRight' || e.key === 'ArrowDown'){ tabs[(i+1)%tabs.length].focus(); e.preventDefault(); }
+        else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){ tabs[(i-1+tabs.length)%tabs.length].focus(); e.preventDefault(); }
+        else if(e.key === 'Enter' || e.key === ' '){ currentOS = t.getAttribute('data-os'); applyOS(currentOS); store.set('mz-os', currentOS); e.preventDefault(); }
+      });
+    });
+  });
+
+  /* ---- syntax highlighting ---- */
+  if(window.hljs){
+    document.querySelectorAll('pre code.language-python, pre code.language-bash').forEach(function(el){
+      try{ window.hljs.highlightElement(el); }catch(e){}
+    });
+  }
+})();
+</script>
+</body>
+</html>
