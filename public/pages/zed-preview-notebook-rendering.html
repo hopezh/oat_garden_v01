@@ -294,6 +294,7 @@
         <a href="#step-quit">2 · Fully quit</a>
         <a href="#step-launch">3 · Launch + env var</a>
         <a href="#step-open">4 · Open &amp; assign kernel</a>
+        <a href="#launcher">Convenience launcher</a>
         <a href="#troubleshoot">Troubleshooting</a>
       </div>
     </div>
@@ -644,12 +645,60 @@ zed --foreground .</code></pre>
       </div>
     </section>
 
+    <section id="launcher">
+      <h3>Optional — a convenience launcher</h3>
+      <p>Wrap the env-var-plus-folder launch in a shell shortcut so it's one word. A shell <em>function</em> is better than a bare alias here because the command ends in the target path — the function lets you default to the current folder or pass a specific one.</p>
+      <div class="note warn">
+        <span class="lbl">⚠ Platform difference</span>
+        <p style="margin:6px 0 0">The <code>--preview</code> channel argument is <b>macOS-only</b> — on Windows you must invoke the Preview install's own executable directly (the CLI shim under <code>bin\</code>, not the top-level GUI <code>Zed.exe</code>).<a class="cite" href="#ref-9">9</a><a class="cite" href="#ref-10">10</a></p>
+      </div>
+      <!-- OS TAB GROUP: launcher -->
+      <div class="ostabs" data-osgroup>
+        <div class="ostab-bar" role="tablist" aria-label="Convenience launcher by OS">
+          <button class="ostab" role="tab" data-os="macos" id="tabL-macos" aria-controls="panL-macos">macOS</button>
+          <button class="ostab" role="tab" data-os="windows" id="tabL-windows" aria-controls="panL-windows">Windows</button>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="macos" id="panL-macos" aria-labelledby="tabL-macos">
+          <p style="margin:12px 0 0">Add to <code>~/.zshrc</code>, then <code>source&nbsp;~/.zshrc</code>. Usage: <code>zednb</code> (current folder) or <code>zednb ~/proj</code>.</p>
+          <pre><code># Launch Zed Preview with the notebook renderer enabled.
+zednb() {
+  LOCAL_NOTEBOOK_DEV=1 "/Applications/Zed Preview.app/Contents/MacOS/cli" "${1:-.}"
+}</code></pre>
+          <p style="margin:12px 0 0">The <code>"${1:-.}"</code> uses the first argument if given, else the current directory. The env var is scoped to that launch and won't leak into your wider shell.</p>
+        </div>
+        <div class="ostab-panel" role="tabpanel" data-os="windows" id="panL-windows" aria-labelledby="tabL-windows" hidden>
+          <p style="margin:12px 0 0">Add to your profile (<code>notepad&nbsp;$PROFILE</code>), then <code>.&nbsp;$PROFILE</code>. Usage: <code>zednb</code>, <code>zednb C:\proj</code>, or <code>zednb -Foreground</code>.</p>
+          <pre><code>function zednb {
+    [CmdletBinding()]
+    param(
+        [string]$Path = ".",
+        [switch]$Foreground   # forces a fresh process so the env var is honored
+    )
+    # CLI shim lives in bin\ — not the top-level Zed.exe
+    $candidates = @(
+        "$env:LOCALAPPDATA\Programs\Zed Preview\bin\Zed.exe",
+        "$env:LOCALAPPDATA\Programs\Zed Preview\Zed.exe"
+    )
+    $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $exe) { Write-Error "Zed Preview not found; fix the path."; return }
+
+    $env:LOCAL_NOTEBOOK_DEV = "1"
+    try {
+        if ($Foreground) { &amp; $exe --foreground $Path } else { &amp; $exe $Path }
+    }
+    finally { Remove-Item Env:\LOCAL_NOTEBOOK_DEV -ErrorAction SilentlyContinue }
+}</code></pre>
+          <p style="margin:12px 0 0">Verify the Preview path once with <code>Get-ChildItem "$env:LOCALAPPDATA\Programs" -Filter "*Zed*" -Directory</code>. If Preview is already running, the shim opens in that stale-env instance — quit it first, or use <code>-Foreground</code> to guarantee a fresh process.<a class="cite" href="#ref-1">1</a></p>
+        </div>
+      </div>
+    </section>
+
     <section id="troubleshoot">
       <h3>Troubleshooting — still showing JSON?</h3>
       <ul class="body">
         <li><b>Opened the folder, not the file</b> at launch — re-confirm the <code>.</code> was the argument.<a class="cite" href="#ref-2">2</a></li>
         <li><b>The env var was set for <em>that</em> launch</b> — run the verify command above in the same shell first.</li>
-        <li><b>You did a full <code>Cmd&nbsp;+&nbsp;Q</code></b>, not a window reload, after editing settings.<a class="cite" href="#ref-1">1</a></li>
+        <li><b>You did a full quit</b> (no lingering process), not a window reload, after editing settings — see step 2 for the per-OS gesture.<a class="cite" href="#ref-1">1</a></li>
         <li><b>You're genuinely in Preview, not stable</b> — the app menu should read "Zed Preview," since the flag behaves differently across channels and can regress between versions.<a class="cite" href="#ref-2">2</a></li>
         <li><b>Access may be gated server-side.</b> If flag + env var + folder-launch still yields nothing, the flag might be a private beta your account isn't registered for — config alone won't unlock it.<a class="cite" href="#ref-5">5</a></li>
       </ul>
@@ -877,7 +926,7 @@ jupytext --sync your_script.py</code></pre>
       var order = ['overview','setup','alternatives','references'];
       var groupMap = {
         'what-it-is':'overview','repl-vs-native':'overview','current-state':'overview',
-        'prereqs':'setup','step-flag':'setup','step-quit':'setup','step-launch':'setup','step-open':'setup','troubleshoot':'setup',
+        'prereqs':'setup','step-flag':'setup','step-quit':'setup','step-launch':'setup','step-open':'setup','launcher':'setup','troubleshoot':'setup',
         'viewer':'alternatives','jupytext':'alternatives','channels':'alternatives'
       };
       topCurrent = groupMap[current] || 'overview';
