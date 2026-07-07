@@ -1,0 +1,876 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Structuring a Deep-Learning Project — PyTorch · uv · marimo</title>
+<meta name="description" content="A representative layout for a professional PyTorch project managed by uv, with marimo notebooks integrated — platform-routed CUDA/MPS builds, a src package, config groups, and reproducible runs.">
+<meta name="keywords" content="pytorch, uv, marimo, deep-learning, project-structure, cuda, mps, hydra">
+<meta name="date" content="2026-07-07">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#F4F7F5; --surface:#FFFFFF; --surface-2:#EDF3EF; --surface-3:#E4ECE7;
+    --text:#132019; --muted:#54655C; --line:#D6E1DA;
+    --accent:#1E7A50; --accent-deep:#0E3F2B; --accent-bright:#37B87C;
+    --code-bg:#0E1A15; --code-fg:#D8E5DD;
+    --tok-comment:#5f7a6c; --tok-key:#7fd7a6; --tok-str:#c9e6a0;
+    --tok-fn:#8fd0ff; --tok-num:#e6a0c9; --tok-params:#e6c98a;
+    --cov-bg:#E6EEE9; --cov-grid:#C4D6CB; --cov-line:#1E7A50; --cov-fill:#D3E5DA; --cov-node:#0E3F2B;
+    --shadow:0 18px 40px -28px rgba(14,63,43,.5);
+    --nav-h:58px; --sb-w:280px; --maxw:824px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0D1411; --surface:#131D18; --surface-2:#18241F; --surface-3:#1E2C25;
+    --text:#E7F0EA; --muted:#93A79C; --line:#243530;
+    --accent:#37B87C; --accent-deep:#8FE0B4; --accent-bright:#5FD39A;
+    --code-bg:#0A130F; --code-fg:#D8E5DD;
+    --cov-bg:#101A15; --cov-grid:#1E2E27; --cov-line:#37B87C; --cov-fill:#16241D; --cov-node:#8FE0B4;
+    --shadow:0 18px 44px -28px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:17px; line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    transition:background .25s ease,color .25s ease;
+  }
+  a{color:var(--accent); text-decoration:none;}
+  a:hover{color:var(--accent-deep); text-decoration:underline; text-underline-offset:2px;}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px;}
+  code{font-family:"JetBrains Mono",ui-monospace,monospace;}
+
+  /* ---------------- TOP NAV ---------------- */
+  .topnav{
+    position:sticky; top:0; z-index:60; height:var(--nav-h);
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px;
+    padding:0 18px;
+    background:color-mix(in srgb, var(--surface) 86%, transparent);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-left{display:flex; align-items:center; gap:12px; min-width:0;}
+  .brand{font-family:"JetBrains Mono",monospace; font-weight:800; letter-spacing:-.02em; font-size:15px; white-space:nowrap;}
+  .brand b{color:var(--accent);}
+  .iconbtn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    height:36px; min-width:36px; padding:0 10px;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--text);
+    border-radius:9px; cursor:pointer; font:inherit; font-size:13px;
+    transition:background .15s,border-color .15s;
+  }
+  .iconbtn:hover{border-color:var(--accent); background:var(--surface-3);}
+  .iconbtn svg{width:17px; height:17px; display:block;}
+  .nav-center{display:flex; gap:4px; justify-content:center; flex-wrap:wrap;}
+  .nav-center a{
+    font-family:"JetBrains Mono",monospace; font-size:12.5px; font-weight:500;
+    letter-spacing:.03em; color:var(--muted); padding:7px 12px; border-radius:8px;
+  }
+  .nav-center a:hover{color:var(--text); background:var(--surface-2); text-decoration:none;}
+  .nav-right{display:flex; justify-content:flex-end;}
+  .tlabel{font-family:"JetBrains Mono",monospace;}
+
+  /* ---------------- COVER ---------------- */
+  .cover{width:100%; height:230px; overflow:hidden; background:var(--cov-bg); border-bottom:1px solid var(--line);}
+  .cover svg{width:100%; height:100%; display:block;}
+
+  /* ---------------- SIDEBAR ---------------- */
+  .sidebar{
+    position:fixed; top:var(--nav-h); left:0; bottom:0; width:var(--sb-w); z-index:50;
+    background:var(--surface); border-right:1px solid var(--line);
+    overflow-y:auto; padding:20px 14px 60px;
+    transform:translateX(-102%); transition:transform .26s cubic-bezier(.3,.7,.3,1);
+  }
+  body.nav-open .sidebar{transform:none;}
+  .sb-title{font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); padding:0 8px 6px;}
+  .grp{border-bottom:1px solid var(--line); padding:6px 0;}
+  .grp-head{
+    width:100%; text-align:left; background:none; border:0; cursor:pointer; color:var(--text);
+    font-family:"JetBrains Mono",monospace; font-weight:700; font-size:13.5px;
+    padding:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:8px;
+  }
+  .grp-head:hover{background:var(--surface-2);}
+  .grp-head .chev{transition:transform .2s; color:var(--muted);}
+  .grp.collapsed .chev{transform:rotate(-90deg);}
+  .grp-list{max-height:400px; overflow:hidden; transition:max-height .25s ease;}
+  .grp.collapsed .grp-list{max-height:0;}
+  .grp-list a{
+    display:block; color:var(--muted); font-size:13.5px; padding:6px 8px 6px 18px; border-radius:7px; border-left:2px solid transparent;
+  }
+  .grp-list a:hover{color:var(--text); background:var(--surface-2); border-left-color:var(--accent); text-decoration:none;}
+
+  .backdrop{position:fixed; inset:var(--nav-h) 0 0 0; z-index:45; background:rgba(6,14,10,.42); opacity:0; visibility:hidden; transition:.2s;}
+  body.nav-open .backdrop{opacity:1; visibility:visible;}
+
+  /* ---------------- MAIN (centered in window) ---------------- */
+  .main{max-width:var(--maxw); margin:0 auto; padding:0 26px 130px;}
+
+  .titleblock{padding:46px 0 8px; text-align:left;}
+  .eyebrow{
+    font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.26em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 20px; display:flex; align-items:center; gap:13px;
+  }
+  .eyebrow::before{content:""; width:24px; height:24px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 34% 32%, var(--accent-bright), var(--accent) 45%, var(--accent-deep) 100%);
+    box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%, transparent);}
+  h1{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:clamp(34px,6vw,54px); line-height:1.04; letter-spacing:-.02em; margin:0 0 16px;}
+  h1 em{font-style:normal; color:var(--accent);}
+  .subtitle{font-size:clamp(17px,2.2vw,20px); color:var(--muted); max-width:62ch; margin:0;}
+
+  /* TLDR card */
+  .tldr{
+    margin:30px 0 8px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow);
+    position:relative; overflow:hidden;
+  }
+  .tldr::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(var(--accent-bright),var(--accent));}
+  .tldr h2{font-family:"JetBrains Mono",monospace; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); margin:0 0 12px;}
+  .tldr ul{margin:0; padding:0; list-style:none;}
+  .tldr li{position:relative; padding-left:22px; margin-bottom:9px; font-size:15.5px;}
+  .tldr li:last-child{margin-bottom:0;}
+  .tldr li::before{content:""; position:absolute; left:3px; top:10px; width:7px; height:7px; border-radius:2px; background:var(--accent); transform:rotate(45deg);}
+
+  /* sections */
+  section.doc{padding-top:54px; scroll-margin-top:calc(var(--nav-h) + 12px);}
+  h2.sec{font-family:"JetBrains Mono",monospace; font-weight:800; font-size:clamp(25px,3.4vw,32px); letter-spacing:-.015em; margin:0 0 6px; display:flex; align-items:baseline; gap:14px;}
+  h2.sec .n{font-size:15px; color:var(--accent); font-weight:700;}
+  .lead{color:var(--muted); margin:0 0 26px; font-size:16px;}
+  h3{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:18px; margin:34px 0 10px; color:var(--accent-deep); scroll-margin-top:calc(var(--nav-h) + 12px);}
+  html[data-theme="dark"] h3{color:var(--accent-deep);}
+  p{margin:0 0 18px;}
+  p code,li code,.tldr code{background:var(--surface-3); border:1px solid var(--line); padding:1px 6px; border-radius:5px; font-size:.85em; color:var(--accent-deep);}
+
+  ul.body{margin:0 0 18px; padding-left:0; list-style:none;}
+  ul.body li{position:relative; padding-left:24px; margin-bottom:12px;}
+  ul.body li::before{content:""; position:absolute; left:4px; top:11px; width:7px; height:7px; border-radius:50%; background:var(--accent);}
+
+  /* citation markers */
+  .cite{font-family:"JetBrains Mono",monospace; font-size:.72em; font-weight:700; color:var(--accent); vertical-align:super; text-decoration:none; padding:0 1px;}
+  .cite:hover{text-decoration:underline;}
+
+  /* code */
+  pre{background:var(--code-bg); color:var(--code-fg); font-family:"JetBrains Mono",monospace; font-size:13.3px; line-height:1.7;
+    padding:20px 22px; border-radius:12px; overflow-x:auto; margin:0 0 22px; border:1px solid #1b2a23; box-shadow:var(--shadow);}
+  pre .cap{display:block; font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:#6e8578; margin-bottom:12px;}
+  pre code{background:none; border:0; padding:0; color:inherit; font-size:inherit;}
+  .hljs-comment,.hljs-quote{color:var(--tok-comment); font-style:italic;}
+  .hljs-keyword,.hljs-literal,.hljs-built_in,.hljs-type{color:var(--tok-key);}
+  .hljs-string,.hljs-meta .hljs-string{color:var(--tok-str);}
+  .hljs-title,.hljs-title.function_,.hljs-title.class_,.hljs-section,.hljs-attr{color:var(--tok-fn);}
+  .hljs-params{color:var(--tok-params);}
+  .hljs-number{color:var(--tok-num);}
+  .hljs-meta,.hljs-decorator{color:var(--tok-str);}
+  .tree{color:#cfe0d6;} .tree .c{color:var(--tok-comment); font-style:italic;} .tree .d{color:var(--tok-fn);} .tree .h{color:var(--tok-params);}
+
+  /* comparison cards */
+  .cards{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:6px 0 22px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:20px 20px 6px; box-shadow:var(--shadow);}
+  .card .tag{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); display:block; margin-bottom:4px;}
+  .card h4{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:16px; margin:0 0 10px;}
+  .card p{font-size:14.5px; color:var(--muted);}
+  .card code{font-size:.82em; background:var(--surface-3); border:1px solid var(--line); padding:1px 5px; border-radius:5px; color:var(--accent-deep);}
+  .card ul{margin:0 0 14px; padding-left:0; list-style:none;}
+  .card li{position:relative; padding-left:18px; margin-bottom:8px; font-size:14px; color:var(--muted);}
+  .card li::before{content:""; position:absolute; left:2px; top:9px; width:5px; height:5px; border-radius:50%; background:var(--accent);}
+
+  /* callouts */
+  .callout{display:flex; gap:15px; background:linear-gradient(180deg, color-mix(in srgb,var(--accent) 12%,transparent), color-mix(in srgb,var(--accent) 3%,transparent));
+    border:1px solid color-mix(in srgb,var(--accent) 30%,transparent); border-left:3px solid var(--accent); border-radius:10px; padding:16px 18px; margin:6px 0 22px;}
+  .callout .ic{flex:none; font-family:"JetBrains Mono",monospace; font-weight:800; color:var(--accent); font-size:15px; line-height:1.55;}
+  .callout p{margin:0; font-size:15px;}
+  .callout strong{color:var(--accent-deep);}
+
+  /* OS TABS */
+  .ostabs{margin:6px 0 22px; border:1px solid var(--line); border-radius:13px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow);}
+  .tabbar{display:flex; flex-wrap:wrap; gap:2px; padding:8px 8px 0; background:var(--surface-2); border-bottom:1px solid var(--line);}
+  .tabbar [role=tab]{
+    font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:600; color:var(--muted);
+    background:none; border:0; border-bottom:2px solid transparent; padding:10px 16px; cursor:pointer; border-radius:8px 8px 0 0;
+  }
+  .tabbar [role=tab]:hover{color:var(--text); background:var(--surface-3);}
+  .tabbar [role=tab][aria-selected="true"]{color:var(--accent-deep); border-bottom-color:var(--accent); background:var(--surface);}
+  .panels{padding:16px;}
+  .panels [role=tabpanel]{margin:0;}
+  .panels pre{margin:0;}
+
+  /* references */
+  ol.refs{margin:0; padding:0; counter-reset:r; list-style:none;}
+  ol.refs li{position:relative; padding:12px 12px 12px 46px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:var(--surface); scroll-margin-top:calc(var(--nav-h) + 12px);}
+  ol.refs li::before{counter-increment:r; content:"["counter(r)"]"; position:absolute; left:12px; top:12px; font-family:"JetBrains Mono",monospace; font-weight:700; color:var(--accent); font-size:13px;}
+  ol.refs .t{font-weight:600; display:block; font-size:15px;}
+  ol.refs a{font-family:"JetBrains Mono",monospace; font-size:12.5px; word-break:break-all;}
+  :target{animation:flash 1.4s ease;}
+  @keyframes flash{0%,40%{background:color-mix(in srgb,var(--accent) 16%,transparent);}100%{background:transparent;}}
+
+  footer.pagefoot{margin-top:40px; padding-top:24px; border-top:1px solid var(--line); font-family:"JetBrains Mono",monospace; font-size:12.5px; color:var(--muted); display:flex; flex-wrap:wrap; gap:8px 20px; justify-content:space-between;}
+
+  /* load motion */
+  @keyframes rise{from{opacity:0; transform:translateY(12px);}to{opacity:1; transform:none;}}
+  .titleblock,.tldr,section.doc{animation:rise .55s cubic-bezier(.2,.7,.2,1) both;}
+  section.doc:nth-of-type(2){animation-delay:.04s;}
+
+  @media (max-width:720px){
+    body{font-size:16px;}
+    .cover{height:170px;}
+    .nav-center{display:none;}
+    .cards{grid-template-columns:1fr;}
+    footer.pagefoot{flex-direction:column;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important; scroll-behavior:auto !important;}}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP NAV ===================== -->
+<nav class="topnav">
+  <div class="nav-left">
+    <button id="sideBtn" class="iconbtn" aria-label="Toggle contents sidebar" aria-expanded="false" aria-controls="sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      <span class="tlabel">Contents</span>
+    </button>
+    <span class="brand"><b>pytorch</b> · uv · marimo</span>
+  </div>
+  <div class="nav-center">
+    <a href="#layout">Layout</a>
+    <a href="#pyproject">pyproject</a>
+    <a href="#package">Package</a>
+    <a href="#notebooks">Notebooks</a>
+    <a href="#running">Running</a>
+    <a href="#references">Refs</a>
+  </div>
+  <div class="nav-right">
+    <button id="themeBtn" class="iconbtn" aria-label="Toggle dark and light theme" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.3" y1="5.3" x2="7" y2="7"/><line x1="17" y1="17" x2="18.7" y2="18.7"/><line x1="5.3" y1="18.7" x2="7" y2="17"/><line x1="17" y1="7" x2="18.7" y2="5.3"/></svg>
+      <span class="tlabel">Dark</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ===================== COVER (axonometric tensor stack) ===================== -->
+<div class="cover" aria-hidden="true">
+  <svg viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="isogrid" width="56" height="32" patternUnits="userSpaceOnUse">
+        <path d="M0 16 L28 0 L56 16 L28 32 Z" fill="none" stroke="var(--cov-grid)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="1200" height="230" fill="url(#isogrid)" opacity="0.5"/>
+    <!-- flow edges: data -> model -> loss -->
+    <g stroke="var(--cov-line)" stroke-width="1.6" fill="none" stroke-dasharray="2 5" opacity="0.9">
+      <line x1="250" y1="128" x2="470" y2="112"/>
+      <line x1="600" y1="96" x2="820" y2="112"/>
+      <line x1="950" y1="128" x2="1050" y2="120"/>
+    </g>
+    <!-- stacked tensor block A (data) -->
+    <g stroke="var(--cov-line)" stroke-width="1.6" fill="var(--cov-fill)">
+      <g><polygon points="180,112 252,148 180,184 108,148"/>
+         <polygon points="108,148 180,184 180,196 108,160" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="252,148 180,184 180,196 252,160" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+      <g opacity="0.8"><polygon points="180,92 252,128 180,164 108,128"/></g>
+    </g>
+    <!-- stacked tensor block B (model / layers) -->
+    <g stroke="var(--cov-line)" stroke-width="1.6" fill="var(--cov-fill)">
+      <g><polygon points="600,48 672,84 600,120 528,84"/>
+         <polygon points="528,84 600,120 600,150 528,114" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="672,84 600,120 600,150 672,114" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+      <g opacity="0.85"><polygon points="600,70 672,106 600,142 528,106"/>
+         <polygon points="528,106 600,142 600,172 528,136" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="672,106 600,142 600,172 672,136" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+    </g>
+    <!-- tensor block C (loss / output) -->
+    <g stroke="var(--cov-line)" stroke-width="1.6" fill="var(--cov-fill)">
+      <g><polygon points="900,92 972,128 900,164 828,128"/>
+         <polygon points="828,128 900,164 900,198 828,162" fill="color-mix(in srgb,var(--cov-fill) 70%, #000 6%)"/>
+         <polygon points="972,128 900,164 900,198 972,162" fill="color-mix(in srgb,var(--cov-fill) 85%, #000 3%)"/></g>
+    </g>
+    <!-- nodes -->
+    <g fill="var(--cov-node)">
+      <circle cx="180" cy="128" r="5"/><circle cx="600" cy="84" r="5"/><circle cx="900" cy="128" r="5"/><circle cx="1080" cy="118" r="4"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ===================== SIDEBAR ===================== -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="sidebar" id="sidebar" aria-label="Detailed contents">
+  <div class="sb-title">On this page</div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">01 · The full layout
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#layout">Annotated tree</a>
+      <a href="#why-src">Why a src package</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">02 · pyproject.toml
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#pyproject">The file</a>
+      <a href="#routing">PyTorch wheel routing</a>
+      <a href="#groups">Dependency groups</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">03 · Inside the package
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#package">Modules</a>
+      <a href="#device">Device selection</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">04 · Where marimo fits
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#notebooks">Two integration modes</a>
+      <a href="#nb-shared">Shared-env notebook</a>
+      <a href="#nb-sandbox">Sandbox notebook</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">05 · Configs &amp; scripts
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#configs">Config groups</a>
+      <a href="#thin-scripts">Thin entry points</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">06 · Running it
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#running">Commands per OS</a>
+      <a href="#caveats">Cross-platform notes</a>
+    </div>
+  </div>
+
+  <div class="grp">
+    <button class="grp-head" aria-expanded="true">References
+      <span class="chev">&#9662;</span></button>
+    <div class="grp-list">
+      <a href="#references">All sources</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== MAIN ===================== -->
+<main class="main">
+
+  <div class="titleblock">
+    <p class="eyebrow">PyTorch · uv · marimo</p>
+    <h1>Structuring a<br><em>deep-learning</em> project</h1>
+    <p class="subtitle">The bare "notebooks + src" sketch is the seed, not the plant. Here is a layout that scales: an installable package at its core, <em>uv</em> managing one lockfile that resolves the right PyTorch build per machine, config as data, and marimo notebooks that import your own code instead of duplicating it.</p>
+  </div>
+
+  <div class="tldr">
+    <h2>TL;DR</h2>
+    <ul>
+      <li>The project <em>is a package</em> (<code>src/&lt;pkg&gt;/</code>), installed editable. Scripts and notebooks are thin callers that <code>import</code> it — logic lives in one place.<a href="#r3" class="cite">[3]</a></li>
+      <li>One <code>uv.lock</code> covers both your machines. <code>[tool.uv.sources]</code> routes <code>torch</code> to the CUDA 12.8 index on Windows (your RTX&nbsp;5090) and falls back to PyPI on macOS, whose wheel ships the MPS backend.<a href="#r1" class="cite">[1]</a><a href="#r7" class="cite">[7]</a></li>
+      <li>marimo joins two ways: as a <code>dev</code> dependency sharing the project env, or as PEP&nbsp;723 <code>--sandbox</code> notebooks with self-contained, isolated deps.<a href="#r2" class="cite">[2]</a><a href="#r4" class="cite">[4]</a></li>
+      <li>Config is composed, not hard-coded: Hydra/YAML groups turn "an experiment" into one small file.<a href="#r8" class="cite">[8]</a></li>
+      <li>Reproducibility is structural — seeded runs, checkpointed state, a device-agnostic backend, and <code>data/</code> &amp; <code>outputs/</code> kept out of Git.</li>
+    </ul>
+  </div>
+
+  <!-- ============ 01 LAYOUT ============ -->
+  <section class="doc" id="layout">
+    <h2 class="sec"><span class="n">01</span> The full layout</h2>
+    <p class="lead">Everything below is one <code>uv</code> project. The pieces that grow independently — the package, the configs, the notebooks, the runs — each get their own home.</p>
+
+    <pre><span class="cap">project tree</span><code class="tree">deeptrace/                          <span class="c"># repo root — a single uv-managed project</span>
+├─ <span class="d">pyproject.toml</span>                   <span class="c"># deps, tool config, PyTorch index routing</span>
+├─ uv.lock                          <span class="c"># fully-resolved, cross-platform lock — commit it</span>
+├─ .python-version                  <span class="c"># pins interpreter (e.g. 3.12) for uv</span>
+├─ README.md
+├─ .gitignore                       <span class="c"># ignores data/, outputs/, .venv/, *.ckpt, wandb/</span>
+├─ .pre-commit-config.yaml          <span class="c"># ruff + notebook-clean hooks</span>
+├─ Makefile                         <span class="c"># thin wrappers: make train / test / lab</span>
+│
+├─ <span class="d">src/</span>
+│  └─ <span class="d">deeptrace/</span>                   <span class="c"># the installable package — importable everywhere</span>
+│     ├─ __init__.py
+│     ├─ config.py                  <span class="c"># typed config schema (pydantic / dataclasses)</span>
+│     ├─ <span class="d">data/</span>
+│     │  ├─ datamodule.py           <span class="c"># dataset assembly + train/val/test splits</span>
+│     │  ├─ datasets.py             <span class="c"># torch.utils.data.Dataset subclasses</span>
+│     │  └─ transforms.py           <span class="c"># augmentation / preprocessing</span>
+│     ├─ <span class="d">models/</span>
+│     │  ├─ backbone.py             <span class="c"># nn.Module definitions</span>
+│     │  ├─ heads.py
+│     │  └─ registry.py             <span class="c"># name -> model factory</span>
+│     ├─ <span class="d">training/</span>
+│     │  ├─ trainer.py              <span class="c"># the train/eval loop (or a Lightning module)</span>
+│     │  ├─ loops.py                <span class="c"># step/epoch logic, grad-accum, AMP</span>
+│     │  ├─ optim.py                <span class="c"># optimizer + LR-scheduler builders</span>
+│     │  └─ callbacks.py            <span class="c"># checkpoint, early-stop, logging hooks</span>
+│     ├─ losses.py
+│     ├─ metrics.py
+│     └─ <span class="d">utils/</span>
+│        ├─ <span class="h">device.py</span>               <span class="c"># pick cuda / mps / cpu  ← your cross-machine glue</span>
+│        ├─ seed.py                 <span class="c"># deterministic seeding</span>
+│        ├─ checkpoint.py           <span class="c"># save/load {model, optim, epoch, rng}</span>
+│        └─ tracking.py             <span class="c"># wandb / tensorboard wiring</span>
+│
+├─ <span class="d">configs/</span>                        <span class="c"># Hydra config groups — experiments as data</span>
+│  ├─ config.yaml                   <span class="c"># top-level defaults list</span>
+│  ├─ <span class="d">data/</span>{cifar10,imagenet}.yaml
+│  ├─ <span class="d">model/</span>{resnet18,vit_small}.yaml
+│  ├─ <span class="d">trainer/</span>{default,debug}.yaml    <span class="c"># debug = 1 batch, fast_dev_run</span>
+│  └─ <span class="d">experiment/</span>baseline.yaml       <span class="c"># one file == one reproducible run</span>
+│
+├─ <span class="d">scripts/</span>                        <span class="c"># thin entry points — parse config, call src/</span>
+│  ├─ train.py
+│  ├─ evaluate.py
+│  └─ export.py                     <span class="c"># -> TorchScript / ONNX</span>
+│
+├─ <span class="d">notebooks/</span>                      <span class="c"># marimo notebooks (.py — reactive, Git-friendly)</span>
+│  ├─ 01_data_exploration.py        <span class="c"># shared-env: imports deeptrace, project venv</span>
+│  ├─ 02_model_sanity.py            <span class="c"># shared-env: overfit one batch, check shapes</span>
+│  ├─ 03_results_dashboard.py       <span class="c"># shared-env: plotly curves over run history</span>
+│  └─ <span class="d">sandbox/</span>
+│     └─ scratch_augmentations.py   <span class="c"># PEP 723 self-contained, isolated deps</span>
+│
+├─ <span class="d">tests/</span>
+│  ├─ test_data.py
+│  ├─ test_models.py                <span class="c"># forward pass, output shapes, device moves</span>
+│  └─ test_training.py              <span class="c"># one step -> loss decreases</span>
+│
+├─ <span class="d">data/</span>                           <span class="c"># (gitignored) real bytes live here, not in Git</span>
+│  ├─ raw/  interim/  processed/
+│
+├─ <span class="d">outputs/</span>                        <span class="c"># (gitignored) Hydra run dirs: ckpts, logs, config</span>
+│  └─ 2026-07-07/12-30-05/
+│
+└─ <span class="d">.github/</span>workflows/ci.yaml       <span class="c"># uv sync + ruff + pytest on push</span></code></pre>
+
+    <h3 id="why-src">Why the <code>src/</code> package is the whole point</h3>
+    <p>The single biggest difference between a "folder of scripts" and a professional project is that the code becomes an <em>installable package</em>. Once <code>deeptrace</code> is installed (editable), every script, every test, and every notebook imports the exact same <code>deeptrace.models</code>, <code>deeptrace.training</code>, and so on — no <code>sys.path</code> hacks, no copy-pasted cells. The marimo docs make the same recommendation: create a package with <code>uv init --lib</code> and import from it rather than manipulating paths.<a href="#r3" class="cite">[3]</a></p>
+
+    <div class="callout">
+      <span class="ic">&#9873;</span>
+      <p><strong>The src-layout rule of thumb.</strong> If a piece of logic is used by more than one script or notebook, it belongs in <code>src/deeptrace/</code>. Scripts and notebooks should read like a <em>table of contents</em> for your package, not like the package itself.</p>
+    </div>
+  </section>
+
+  <!-- ============ 02 PYPROJECT ============ -->
+  <section class="doc" id="pyproject">
+    <h2 class="sec"><span class="n">02</span> The <code>pyproject.toml</code></h2>
+    <p class="lead">One declarative file drives dependencies, the build backend, the PyTorch index routing, and tooling. <code>uv sync</code> turns it into a locked, reproducible environment.</p>
+
+    <pre><span class="cap">pyproject.toml</span><code class="language-ini">[project]
+name = "deeptrace"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.7",           # >=2.7 first shipped Blackwell / sm_120 wheels
+    "torchvision>=0.22",
+    "numpy",
+    "polars",               # your dataframe stack
+    "plotly",               # your charting stack
+    "hydra-core",           # config composition
+    "pydantic",             # typed config validation
+    "tqdm",
+    "rich",
+]
+
+[project.optional-dependencies]
+track = ["wandb"]           # swap for "mlflow" or "tensorboard" as you like
+
+[dependency-groups]         # PEP 735 dev-only groups — never shipped to consumers
+dev = [
+    "marimo",               # notebooks share this project environment
+    "pytest",
+    "ruff",
+    "ipython",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- PyTorch wheel routing: one lockfile, the right build per machine --------
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true             # only packages that opt in (below) use this index
+
+[tool.uv.sources]
+# Windows desktop (RTX 5090 / Blackwell, sm_120) -> CUDA 12.8 build.
+# macOS (M4 Pro): no override, so uv resolves from PyPI, whose macOS
+# arm64 wheel already contains the MPS / Metal backend.
+torch       = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]</code></pre>
+
+    <h3 id="routing">PyTorch wheel routing, explained</h3>
+    <p>PyTorch is awkward to package: its accelerator builds (CPU, CUDA 12.6, 12.8, 13.0, ROCm…) live on a dedicated index rather than PyPI, and the accelerator is baked into a local version suffix.<a href="#r1" class="cite">[1]</a> uv's answer is declarative — you name the index with <code>explicit = true</code>, then use <code>[tool.uv.sources]</code> with environment markers to select it per platform.<a href="#r1" class="cite">[1]</a> Because your two machines are Windows-CUDA and macOS-MPS, the routing is clean: only <code>win32</code> pulls the <code>cu128</code> wheel; macOS silently falls back to PyPI, which is exactly what you want since PyTorch publishes no CUDA builds for macOS.<a href="#r1" class="cite">[1]</a></p>
+
+    <div class="callout">
+      <span class="ic">i</span>
+      <p><strong>Why <code>cu128</code> specifically.</strong> The RTX 5090 is Blackwell (compute capability sm_120); it requires CUDA 12.8, and PyTorch 2.7 was the first stable release to ship pre-built <code>cu128</code> wheels with sm_120 kernels.<a href="#r7" class="cite">[7]</a> An older CPU/CUDA build will load but refuse to run kernels on the card.</p>
+    </div>
+
+    <p>There is also a <code>--torch-backend=auto</code> flag that auto-detects your GPU, but it only works in the <code>uv pip</code> interface — not with <code>uv lock</code>/<code>sync</code>/<code>run</code> — so for a locked project workflow the <code>pyproject.toml</code> routing above is the right tool.<a href="#r1" class="cite">[1]</a></p>
+
+    <h3 id="groups">Dependency groups vs. optional-dependencies</h3>
+    <ul class="body">
+      <li><strong><code>[project.dependencies]</code></strong> — what your package needs to <em>run</em> for anyone who installs it.</li>
+      <li><strong><code>[project.optional-dependencies]</code></strong> — feature extras a <em>consumer</em> can opt into (here, <code>track</code> for experiment logging), installed with <code>uv sync --extra track</code>.</li>
+      <li><strong><code>[dependency-groups]</code></strong> (PEP 735) — developer-only tools like marimo, pytest, and ruff. uv installs the <code>dev</code> group by default on <code>uv sync</code>, and it never leaks into a published wheel.</li>
+    </ul>
+  </section>
+
+  <!-- ============ 03 PACKAGE ============ -->
+  <section class="doc" id="package">
+    <h2 class="sec"><span class="n">03</span> Inside the package</h2>
+    <p class="lead">Each sub-package has one job. The split below is what keeps a training run debuggable six months later.</p>
+
+    <ul class="body">
+      <li><strong><code>data/</code></strong> — <code>Dataset</code> subclasses, the split/assembly logic, and transform pipelines. Nothing here knows about models.</li>
+      <li><strong><code>models/</code></strong> — pure <code>nn.Module</code> definitions plus a small <code>registry</code> so a config string like <code>vit_small</code> resolves to a constructor.</li>
+      <li><strong><code>training/</code></strong> — the loop, optimizer/scheduler builders, AMP and grad-accumulation, and callbacks (checkpointing, early stopping). This is where a hand-rolled loop or a Lightning module goes.</li>
+      <li><strong><code>utils/</code></strong> — the cross-cutting glue: seeding, checkpoint (I/O of model + optimizer + RNG state), tracking, and the device selector below.</li>
+    </ul>
+
+    <h3 id="device">Device selection — your dual-machine glue</h3>
+    <p>Because you move code between a CUDA desktop and an Apple-Silicon Mac, never hard-code <code>"cuda"</code>. One helper keeps every script and notebook portable:</p>
+
+    <pre><span class="cap">src/deeptrace/utils/device.py</span><code class="language-python">import torch
+
+
+def get_device() -&gt; torch.device:
+    """Pick the best available backend, portably across machines."""
+    if torch.cuda.is_available():            # Windows desktop, RTX 5090 (CUDA)
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():    # Mac mini, M4 Pro (Metal / MPS)
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def autocast_dtype(device: torch.device):
+    """bf16 on CUDA Blackwell; MPS/CPU stay fp32 for stability."""
+    return torch.bfloat16 if device.type == "cuda" else torch.float32</code></pre>
+
+    <div class="callout">
+      <span class="ic">&#9873;</span>
+      <p><strong>Portability, not just correctness.</strong> Route <em>everything</em> through <code>get_device()</code> and move tensors with <code>.to(device)</code>. A model that trains on your 5090 then runs unchanged on the M4 Pro is the payoff for never writing a literal backend string.</p>
+    </div>
+  </section>
+
+  <!-- ============ 04 NOTEBOOKS ============ -->
+  <section class="doc" id="notebooks">
+    <h2 class="sec"><span class="n">04</span> Where marimo fits</h2>
+    <p class="lead">marimo notebooks are pure <code>.py</code> files, so they slot into the project like any other module. There are two integration modes — pick per notebook, not per project.<a href="#r2" class="cite">[2]</a></p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Mode A</span>
+        <h4>Shared project env</h4>
+        <p>marimo is a <code>dev</code> dependency; the notebook runs in the project's <code>.venv</code> and imports your package directly.</p>
+        <ul>
+          <li>Same torch build, same <code>deeptrace</code> code as training</li>
+          <li>Launch: <code>uv run marimo edit notebooks/03_results_dashboard.py</code></li>
+          <li>UI-installed packages go to the project via <code>uv add</code></li>
+        </ul>
+        <p><strong>Use for:</strong> dashboards, evaluation, data exploration, sanity checks — anything that <em>is</em> part of the project.<a href="#r2" class="cite">[2]</a></p>
+      </div>
+      <div class="card">
+        <span class="tag">Mode B</span>
+        <h4>PEP 723 sandbox</h4>
+        <p>Dependencies are inlined in the file header; marimo + uv build a fresh isolated venv on open.</p>
+        <ul>
+          <li>Self-contained &amp; shareable — runs anywhere uv is present</li>
+          <li>Launch: <code>uv run marimo edit --sandbox notebooks/sandbox/x.py</code></li>
+          <li>Your package added as an editable source in the header</li>
+        </ul>
+        <p><strong>Use for:</strong> throwaway explorations, examples, and notebooks with odd or conflicting deps you don't want in the main env.<a href="#r4" class="cite">[4]</a></p>
+      </div>
+    </div>
+
+    <h3 id="nb-shared">A shared-env notebook that imports your package</h3>
+    <p>This is the whole reason the src-layout matters: the notebook is thin and reactive, and the heavy lifting is your own code. marimo builds a dependency graph from each cell's parameters and returns, so cells re-run in reference order, not top-to-bottom.</p>
+
+    <pre><span class="cap">notebooks/03_results_dashboard.py</span><code class="language-python">import marimo
+
+app = marimo.App(width="medium")
+
+
+with app.setup:                                  # runs first
+    import polars as pl
+    import plotly.express as px
+    from deeptrace.utils.checkpoint import list_runs, load_history  # your package!
+
+
+@app.cell
+def _(mo):
+    run = mo.ui.dropdown(list_runs(), label="run")  # reactive control
+    run
+    return (run,)
+
+
+@app.cell
+def _(run, load_history):
+    history = pl.DataFrame(load_history(run.value))  # re-runs when `run` changes
+    return (history,)
+
+
+@app.cell
+def _(history):
+    px.line(history, x="step", y="loss", color="split")  # live loss curves
+    return
+
+
+if __name__ == "__main__":
+    app.run()</code></pre>
+
+    <h3 id="nb-sandbox">A sandbox notebook (isolated deps, editable src)</h3>
+    <p>Running with <code>--sandbox</code> makes marimo track imports and write them into a PEP 723 header — essentially a <code>pyproject.toml</code> inlined at the top of the script — which uv uses to spin up an isolated environment.<a href="#r4" class="cite">[4]</a> You can still pull in your own package as an editable source:</p>
+
+    <pre><span class="cap">notebooks/sandbox/scratch_augmentations.py</span><code class="language-python"># /// script
+# requires-python = "&gt;=3.12"
+# dependencies = [
+#     "marimo",
+#     "torch&gt;=2.7 ; sys_platform != 'emscripten'",
+#     "torchvision",
+#     "deeptrace",
+# ]
+#
+# [tool.uv.sources]
+# deeptrace = { path = "../../", editable = true }
+# ///
+
+import marimo
+app = marimo.App()
+# ... cells ...</code></pre>
+
+    <div class="callout">
+      <span class="ic">i</span>
+      <p><strong>Keep notebooks importing, not defining.</strong> A marimo notebook enforces one definition per variable across the whole file, which nudges you toward small, reactive cells that call into <code>deeptrace</code>. If a cell grows a real function or class, promote it into <code>src/</code> and import it back.</p>
+    </div>
+  </section>
+
+  <!-- ============ 05 CONFIGS ============ -->
+  <section class="doc" id="configs">
+    <h2 class="sec"><span class="n">05</span> Configs &amp; scripts</h2>
+    <p class="lead">Treat a run's settings as data. Hydra composes small YAML groups into a full config, so "an experiment" is one file you can commit, diff, and reproduce.<a href="#r8" class="cite">[8]</a></p>
+
+    <pre><span class="cap">configs/config.yaml</span><code class="language-yaml">defaults:
+  - data: cifar10        # pulls configs/data/cifar10.yaml
+  - model: resnet18      # pulls configs/model/resnet18.yaml
+  - trainer: default
+  - _self_
+
+seed: 1234
+epochs: 50
+lr: 3.0e-4</code></pre>
+
+    <h3 id="thin-scripts">Thin entry points</h3>
+    <p>The script parses config and delegates. All the logic it touches lives in <code>deeptrace</code>, so the same code path is exercised by tests and notebooks.</p>
+
+    <pre><span class="cap">scripts/train.py</span><code class="language-python">import hydra
+from omegaconf import DictConfig
+
+from deeptrace.data import build_datamodule
+from deeptrace.models import build_model
+from deeptrace.training import Trainer
+from deeptrace.utils.device import get_device
+from deeptrace.utils.seed import seed_everything
+
+
+@hydra.main(version_base=None, config_path="../configs", config_name="config")
+def main(cfg: DictConfig) -&gt; None:
+    seed_everything(cfg.seed)
+    device = get_device()                     # cuda on the desktop, mps on the Mac
+    datamodule = build_datamodule(cfg.data)
+    model = build_model(cfg.model).to(device)
+    Trainer(cfg.trainer, device=device).fit(model, datamodule)
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+
+    <p>Override anything from the CLI without editing files — <code>uv run python scripts/train.py model=vit_small lr=1e-3 trainer=debug</code>. Hydra writes each run (resolved config, logs, checkpoints) into a timestamped <code>outputs/</code> dir, which is why that folder is gitignored.</p>
+  </section>
+
+  <!-- ============ 06 RUNNING ============ -->
+  <section class="doc" id="running">
+    <h2 class="sec"><span class="n">06</span> Running it, per machine</h2>
+    <p class="lead">The <code>uv</code> and <code>marimo</code> commands are identical on both machines. Only the one-time install and the resolved torch build differ — and uv handles the latter for you from the same lockfile.</p>
+
+    <div class="ostabs">
+      <div class="tabbar ostabs" role="tablist" aria-label="Operating system">
+        <button role="tab" data-os="win" aria-selected="true" tabindex="0">Windows 11 (RTX 5090)</button>
+        <button role="tab" data-os="mac" aria-selected="false" tabindex="-1">macOS (M4 Pro)</button>
+      </div>
+      <div class="panels">
+        <div role="tabpanel" data-os="win">
+          <pre><span class="cap">powershell</span><code class="language-bash"># one-time: install uv
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+uv sync                          # resolves the cu128 torch build for the 5090
+uv run python scripts/train.py experiment=baseline
+uv run marimo edit notebooks/03_results_dashboard.py
+
+# manual venv activation, if you prefer:
+.venv\Scripts\Activate.ps1</code></pre>
+        </div>
+        <div role="tabpanel" data-os="mac" hidden>
+          <pre><span class="cap">terminal</span><code class="language-bash"># one-time: install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+uv sync                          # resolves the MPS torch build from PyPI
+uv run python scripts/train.py experiment=baseline
+uv run marimo edit notebooks/03_results_dashboard.py
+
+# manual venv activation, if you prefer:
+source .venv/bin/activate</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <p>A sandbox notebook is launched the same way on either OS — uv creates its isolated environment on the spot:<a href="#r6" class="cite">[6]</a></p>
+    <pre><span class="cap">either OS</span><code class="language-bash">uv run marimo edit --sandbox notebooks/sandbox/scratch_augmentations.py</code></pre>
+
+    <h3 id="caveats">Cross-platform notes</h3>
+    <ul class="body">
+      <li><strong>The torch build differs; your code doesn't.</strong> uv resolves <code>cu128</code> on Windows and the MPS wheel on macOS from the one lockfile; <code>get_device()</code> then picks <code>cuda</code> vs <code>mps</code> at runtime. Commit <code>uv.lock</code> so both machines agree.</li>
+      <li><strong>A few accelerator-only packages won't resolve on macOS.</strong> Anything CUDA-specific (custom Triton kernels, some quantization libs) should be gated behind a marker or an optional group so a Mac <code>uv sync</code> doesn't fail.</li>
+      <li><strong>Sandbox mode needs uv on PATH.</strong> The <code>--sandbox</code> feature is uv-only, since it leans on uv's PEP 723 support to build the isolated venv.<a href="#r4" class="cite">[4]</a> Install the extra with <code>uv add 'marimo[sandbox]'</code> if you use Sandboxed Home.</li>
+      <li><strong>Commands are identical.</strong> Only the uv installer and manual venv-activation syntax differ between the two shells — everything after <code>uv sync</code> is the same.</li>
+    </ul>
+  </section>
+
+  <!-- ============ REFERENCES ============ -->
+  <section class="doc" id="references">
+    <h2 class="sec">References</h2>
+    <ol class="refs">
+      <li id="r1"><span class="t">Using uv with PyTorch — Astral Docs</span><a href="https://docs.astral.sh/uv/guides/integration/pytorch/" target="_blank" rel="noopener">https://docs.astral.sh/uv/guides/integration/pytorch/</a></li>
+      <li id="r2"><span class="t">marimo — Notebooks in existing projects</span><a href="https://docs.marimo.io/guides/package_management/notebooks_in_projects/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/notebooks_in_projects/</a></li>
+      <li id="r3"><span class="t">marimo — Importing packages (src layout, uv init)</span><a href="https://docs.marimo.io/guides/package_management/importing_packages/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/importing_packages/</a></li>
+      <li id="r4"><span class="t">marimo — Inlining dependencies (PEP 723 / sandbox)</span><a href="https://docs.marimo.io/guides/package_management/inlining_dependencies/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/inlining_dependencies/</a></li>
+      <li id="r5"><span class="t">Using uv with marimo — Astral Docs</span><a href="https://docs.astral.sh/uv/guides/integration/marimo/" target="_blank" rel="noopener">https://docs.astral.sh/uv/guides/integration/marimo/</a></li>
+      <li id="r6"><span class="t">marimo — Using uv (three dependency modes)</span><a href="https://docs.marimo.io/guides/package_management/using_uv/" target="_blank" rel="noopener">https://docs.marimo.io/guides/package_management/using_uv/</a></li>
+      <li id="r7"><span class="t">Running PyTorch on RTX 5090 / 5080 (CUDA 12.8, PyTorch ≥2.7)</span><a href="https://docs.salad.com/container-engine/tutorials/machine-learning/pytorch-rtx5090" target="_blank" rel="noopener">https://docs.salad.com/container-engine/tutorials/machine-learning/pytorch-rtx5090</a></li>
+      <li id="r8"><span class="t">Hydra — Configuring your project (config groups)</span><a href="https://hydra.cc/docs/patterns/configuring_experiments/" target="_blank" rel="noopener">https://hydra.cc/docs/patterns/configuring_experiments/</a></li>
+    </ol>
+
+    <footer class="pagefoot">
+      <span>deep-learning project structure &middot; reference notes &middot; 2026-07-07</span>
+      <span>pytorch · uv · marimo</span>
+    </footer>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var store = {
+    get:function(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } },
+    set:function(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} }
+  };
+  var root = document.documentElement;
+
+  /* ---- THEME ---- */
+  function applyTheme(t){
+    root.setAttribute('data-theme', t);
+    var b = document.getElementById('themeBtn');
+    if(b){ b.setAttribute('aria-pressed', t==='dark'); b.querySelector('.tlabel').textContent = (t==='dark'?'Light':'Dark'); }
+  }
+  var savedTheme = store.get('dl-theme');
+  if(!savedTheme){ savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
+  applyTheme(savedTheme);
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    var t = (root.getAttribute('data-theme')==='dark') ? 'light' : 'dark';
+    applyTheme(t); store.set('dl-theme', t);
+  });
+
+  /* ---- SIDEBAR (horizontal collapse; control lives in the top nav) ---- */
+  var body = document.body;
+  var sideBtn = document.getElementById('sideBtn');
+  function setSidebar(open){ body.classList.toggle('nav-open', open); sideBtn.setAttribute('aria-expanded', open); }
+  sideBtn.addEventListener('click', function(){ setSidebar(!body.classList.contains('nav-open')); });
+  var bd = document.getElementById('backdrop');
+  if(bd){ bd.addEventListener('click', function(){ setSidebar(false); }); }
+  setSidebar(window.matchMedia('(min-width:1200px)').matches);
+
+  /* ---- SIDEBAR groups (vertical collapse) ---- */
+  Array.prototype.forEach.call(document.querySelectorAll('.grp-head'), function(h){
+    h.addEventListener('click', function(){
+      var g = h.parentElement;
+      var collapsed = g.classList.toggle('collapsed');
+      h.setAttribute('aria-expanded', !collapsed);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.grp-list a, .nav-center a'), function(a){
+    a.addEventListener('click', function(){ if(!window.matchMedia('(min-width:1200px)').matches){ setSidebar(false); } });
+  });
+
+  /* ---- OS TABS (synced + persisted, keyboard accessible) ---- */
+  function detectOS(){
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    p = p.toLowerCase();
+    if(p.indexOf('win') > -1) return 'win';
+    if(p.indexOf('mac') > -1 || p.indexOf('iphone') > -1 || p.indexOf('ipad') > -1) return 'mac';
+    return null;
+  }
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.tabbar[role=tablist]'));
+  function applyOS(os){
+    groups.forEach(function(g){
+      Array.prototype.forEach.call(g.querySelectorAll('[role=tab]'), function(t){
+        var on = (t.getAttribute('data-os') === os);
+        t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1;
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[role=tabpanel]'), function(pn){
+      pn.hidden = (pn.getAttribute('data-os') !== os);
+    });
+  }
+  var currentOS = store.get('dl-os') || detectOS() || 'win';
+  applyOS(currentOS);
+  groups.forEach(function(g){
+    var tabs = Array.prototype.slice.call(g.querySelectorAll('[role=tab]'));
+    tabs.forEach(function(t, i){
+      t.addEventListener('click', function(){ currentOS = t.getAttribute('data-os'); applyOS(currentOS); store.set('dl-os', currentOS); });
+      t.addEventListener('keydown', function(e){
+        if(e.key === 'ArrowRight' || e.key === 'ArrowDown'){ tabs[(i+1)%tabs.length].focus(); e.preventDefault(); }
+        else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp'){ tabs[(i-1+tabs.length)%tabs.length].focus(); e.preventDefault(); }
+        else if(e.key === 'Enter' || e.key === ' '){ currentOS = t.getAttribute('data-os'); applyOS(currentOS); store.set('dl-os', currentOS); e.preventDefault(); }
+      });
+    });
+  });
+
+  /* ---- syntax highlighting ---- */
+  if(window.hljs){
+    document.querySelectorAll('pre code.language-python, pre code.language-bash, pre code.language-ini, pre code.language-yaml').forEach(function(el){
+      try{ window.hljs.highlightElement(el); }catch(e){}
+    });
+  }
+})();
+</script>
+</body>
+</html>
