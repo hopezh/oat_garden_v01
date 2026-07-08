@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publishing a Dash App to Plotly Cloud with Invite-Only Viewer Access</title>
+<meta name="description" content="Step-by-step guide and real terminal session for publishing a Dash dashboard to Plotly Cloud and sharing it with invited viewers only.">
+<meta name="keywords" content="dash, plotly-cloud, deployment, access-control, dashboard, uv">
+<meta name="date" content="2026-07-08">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --text: #1c2330;
+    --text-muted: #5b6577;
+    --accent: #2f6fed;
+    --accent-soft: #e3ecfd;
+    --border: #dde3ec;
+    --code-bg: #0f1420;
+    --code-text: #d7e0ef;
+    --code-green: #7ee08a;
+    --code-dim: #7c8aa5;
+    --cover-bg1: #eaf0fb;
+    --cover-bg2: #f7f8fa;
+    --cover-stroke: #8fa6c9;
+    --cover-solid: #c9d8f0;
+    --warn-bg: #fdf3e3;
+    --warn-border: #e8c37a;
+    --shadow: 0 1px 3px rgba(20,30,50,.08), 0 4px 16px rgba(20,30,50,.06);
+  }
+  html[data-theme="dark"] {
+    --bg: #0d1117;
+    --surface: #161c26;
+    --surface-2: #1d2532;
+    --text: #dbe2ee;
+    --text-muted: #8b96a8;
+    --accent: #6ba2ff;
+    --accent-soft: #1b2c4d;
+    --border: #2a3444;
+    --code-bg: #0a0e16;
+    --code-text: #cdd8e8;
+    --code-green: #6fd07c;
+    --code-dim: #66748c;
+    --cover-bg1: #101724;
+    --cover-bg2: #0d1117;
+    --cover-stroke: #3d5378;
+    --cover-solid: #1c2b45;
+    --warn-bg: #2b2313;
+    --warn-border: #7a6231;
+    --shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.65;
+    transition: background .25s, color .25s;
+  }
+
+  /* ---------- Cover ---------- */
+  .cover { width: 100%; height: 230px; overflow: hidden; background: linear-gradient(180deg, var(--cover-bg1), var(--cover-bg2)); }
+  .cover svg { width: 100%; height: 230px; display: block; }
+
+  /* ---------- Top nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: .6rem;
+    padding: .5rem 1rem;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topnav .links { flex: 1; display: flex; justify-content: center; gap: .25rem; flex-wrap: wrap; }
+  .topnav a {
+    color: var(--text-muted); text-decoration: none; font-size: .9rem; font-weight: 600;
+    padding: .35rem .7rem; border-radius: 6px;
+  }
+  .topnav a:hover { color: var(--accent); background: var(--accent-soft); }
+  .iconbtn {
+    background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: .35rem .6rem; font-size: .9rem; cursor: pointer;
+  }
+  .iconbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: fixed; top: 56px; left: 0; bottom: 0; width: 250px;
+    overflow-y: auto; padding: 1rem .9rem 2rem;
+    background: var(--surface); border-right: 1px solid var(--border);
+    transform: translateX(0); transition: transform .25s ease; z-index: 40;
+  }
+  body.sidebar-collapsed .sidebar { transform: translateX(-105%); }
+  .sidebar details { margin-bottom: .4rem; }
+  .sidebar summary {
+    cursor: pointer; font-weight: 700; font-size: .82rem; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--text-muted); padding: .3rem .2rem;
+    list-style: none;
+  }
+  .sidebar summary::before { content: "▸ "; font-size: .7rem; }
+  .sidebar details[open] summary::before { content: "▾ "; }
+  .sidebar a {
+    display: block; color: var(--text-muted); text-decoration: none;
+    font-size: .88rem; padding: .28rem .6rem; border-left: 2px solid var(--border);
+    margin-left: .4rem;
+  }
+  .sidebar a:hover { color: var(--accent); border-left-color: var(--accent); }
+
+  /* ---------- Main ---------- */
+  main { max-width: 820px; margin: 0 auto; padding: 1.6rem 1.2rem 4rem; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: .4rem 0 .3rem; }
+  .subtitle { color: var(--text-muted); font-size: 1.05rem; margin: 0 0 1.4rem; }
+  h2 { font-size: 1.4rem; margin: 2.4rem 0 .7rem; padding-top: .5rem; border-top: 1px solid var(--border); }
+  h3 { font-size: 1.08rem; margin: 1.6rem 0 .5rem; }
+  p { margin: .6rem 0; }
+  code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: .08em .35em; font-size: .88em; font-family: Consolas, "Cascadia Mono", monospace; }
+  a { color: var(--accent); }
+  sup a { text-decoration: none; font-weight: 700; padding: 0 .1em; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 1rem 0;
+  }
+  .tldr { border-left: 4px solid var(--accent); }
+  .tldr .label { font-weight: 800; font-size: .8rem; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+  .tldr ul { margin: .5rem 0 .2rem; padding-left: 1.2rem; }
+  .tldr li { margin: .3rem 0; }
+
+  .callout { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 10px; padding: .8rem 1rem; margin: 1rem 0; }
+  .callout .t { font-weight: 700; }
+
+  /* ---------- Terminal ---------- */
+  .term { position: relative; background: var(--code-bg); border-radius: 10px; margin: .9rem 0; overflow: hidden; box-shadow: var(--shadow); }
+  .term .bar { display: flex; align-items: center; gap: .5rem; padding: .45rem .8rem; background: rgba(255,255,255,.05); font-size: .78rem; color: var(--code-dim); font-family: Consolas, monospace; }
+  .term .dots span { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; background: var(--code-dim); opacity: .55; }
+  .term pre { margin: 0; padding: .8rem 1rem 1rem; overflow-x: auto; color: var(--code-text); font-family: Consolas, "Cascadia Mono", monospace; font-size: .84rem; line-height: 1.55; }
+  .term .p { color: var(--accent); font-weight: 700; }
+  .term .ok { color: var(--code-green); }
+  .term .dim { color: var(--code-dim); }
+  .copybtn {
+    position: absolute; top: .35rem; right: .5rem;
+    background: transparent; color: var(--code-dim); border: 1px solid var(--code-dim);
+    border-radius: 6px; font-size: .72rem; padding: .15rem .5rem; cursor: pointer;
+  }
+  .copybtn:hover { color: var(--code-text); border-color: var(--code-text); }
+
+  /* ---------- Tables ---------- */
+  .tablewrap { overflow-x: auto; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  th, td { padding: .55rem .8rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: var(--surface-2); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+  tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: .1em .6em; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+  .pill.no { background: color-mix(in srgb, #d64545 18%, transparent); color: #d64545; }
+  .pill.view { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  .pill.edit { background: color-mix(in srgb, #2da44e 18%, transparent); color: #2da44e; }
+
+  .diagram { margin: 1.2rem 0; text-align: center; }
+  .diagram svg { max-width: 100%; height: auto; }
+
+  .refs { padding-left: 1.4rem; }
+  .refs li { margin: .45rem 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: .8rem; padding: 1rem 0 2rem; }
+
+  @media (max-width: 1360px) {
+    body:not(.sidebar-collapsed) main { margin-left: calc(250px + (100% - 250px - 820px) / 2); }
+  }
+  @media (max-width: 1100px) {
+    body:not(.sidebar-collapsed) main { margin-left: auto; }
+    .sidebar { box-shadow: var(--shadow); }
+    body.sidebar-collapsed .sidebar { transform: translateX(-105%); }
+  }
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    .cover, .cover svg { height: 150px; }
+    .topnav .links a { padding: .3rem .45rem; font-size: .82rem; }
+  }
+</style>
+</head>
+<body class="sidebar-collapsed">
+
+<!-- ================= Cover ================= -->
+<div class="cover" aria-hidden="true">
+<svg viewBox="0 0 1200 230" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid" width="40" height="23" patternUnits="userSpaceOnUse" patternTransform="skewX(-30)">
+      <path d="M40 0H0V23" fill="none" stroke="var(--cover-stroke)" stroke-width=".5" opacity=".25"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="230" fill="url(#grid)"/>
+  <!-- axonometric solar panel array (bottom left) -->
+  <g stroke="var(--cover-stroke)" fill="var(--cover-solid)" stroke-width="1.2">
+    <path d="M120 185 l70 -40 l60 34 l-70 40 z"/>
+    <path d="M200 139 l70 -40 l60 34 l-70 40 z"/>
+    <path d="M190 225 l70 -40 l60 34 l-70 40 z" opacity=".8"/>
+    <path d="M270 179 l70 -40 l60 34 l-70 40 z" opacity=".8"/>
+  </g>
+  <g stroke="var(--cover-stroke)" fill="none" stroke-width=".7" opacity=".7">
+    <path d="M120 185 l70 -40 l60 34 M155 205 l70 -40 M150 168 l60 34"/>
+    <path d="M200 139 l70 -40 l60 34 M235 159 l70 -40 M230 122 l60 34"/>
+  </g>
+  <!-- rising data path -->
+  <g stroke="var(--accent)" fill="none" stroke-width="1.6" stroke-dasharray="6 5" opacity=".9">
+    <path d="M400 150 C 520 60, 620 130, 730 80"/>
+  </g>
+  <g fill="var(--accent)">
+    <circle cx="400" cy="150" r="3.5"/><circle cx="545" cy="97" r="3.5"/><circle cx="660" cy="107" r="3.5"/><circle cx="730" cy="80" r="3.5"/>
+  </g>
+  <!-- wireframe cloud (right) -->
+  <g stroke="var(--cover-stroke)" fill="none" stroke-width="1.4">
+    <path d="M790 110 a30 30 0 0 1 44 -26 a38 38 0 0 1 72 8 a26 26 0 0 1 18 46 q-8 8 -22 8 h-90 a24 24 0 0 1 -22 -36 z"/>
+    <path d="M812 96 a22 22 0 0 1 34 -14 M868 78 a28 28 0 0 1 34 18" opacity=".55"/>
+  </g>
+  <!-- axonometric browser window with chart (under cloud) -->
+  <g transform="translate(930,95)" stroke="var(--cover-stroke)" stroke-width="1.2">
+    <path d="M0 40 l90 -52 l80 46 l-90 52 z" fill="var(--cover-solid)"/>
+    <path d="M8 42 l82 -47 l14 8 l-82 47 z" fill="none" opacity=".7"/>
+    <g stroke="var(--accent)" stroke-width="2">
+      <path d="M40 52 l0 -14" transform="skewX(0)"/>
+      <path d="M60 54 l0 -22"/>
+      <path d="M80 56 l0 -12"/>
+      <path d="M100 58 l0 -28"/>
+    </g>
+    <circle cx="150" cy="30" r="4" fill="none" stroke="var(--accent)"/>
+  </g>
+  <!-- lock glyph: invite-only -->
+  <g transform="translate(700,158)" stroke="var(--cover-stroke)" fill="var(--cover-solid)" stroke-width="1.4">
+    <rect x="0" y="14" width="34" height="26" rx="4"/>
+    <path d="M7 14 v-4 a10 10 0 0 1 20 0 v4" fill="none"/>
+    <circle cx="17" cy="26" r="3.5" fill="var(--cover-stroke)" stroke="none"/>
+  </g>
+</svg>
+</div>
+
+<!-- ================= Top nav ================= -->
+<nav class="topnav">
+  <button class="iconbtn" id="sidebarToggle" title="Toggle contents sidebar" aria-label="Toggle contents sidebar">☰</button>
+  <div class="links">
+    <a href="#overview">Overview</a>
+    <a href="#publish">Publishing</a>
+    <a href="#session">Session Log</a>
+    <a href="#sharing">Sharing</a>
+    <a href="#references">References</a>
+  </div>
+  <button class="iconbtn" id="themeToggle" title="Toggle dark/light theme" aria-label="Toggle theme">🌓</button>
+</nav>
+
+<!-- ================= Sidebar ================= -->
+<aside class="sidebar" id="sidebar" aria-label="Contents">
+  <details open>
+    <summary>Overview</summary>
+    <a href="#overview">Why Plotly Cloud</a>
+    <a href="#cloud-vs-enterprise">Cloud vs Enterprise</a>
+  </details>
+  <details open>
+    <summary>Publishing</summary>
+    <a href="#prereqs">Prerequisites</a>
+    <a href="#method-devtools">Method A — Dev tools</a>
+    <a href="#method-cli">Method B — CLI</a>
+    <a href="#toml">plotly-cloud.toml</a>
+    <a href="#limits">Size limits &amp; URLs</a>
+  </details>
+  <details open>
+    <summary>Session Log</summary>
+    <a href="#log-install">1. Install extension</a>
+    <a href="#log-login">2. Log in</a>
+    <a href="#log-publish">3. Publish</a>
+  </details>
+  <details open>
+    <summary>Sharing</summary>
+    <a href="#permissions">Permission levels</a>
+    <a href="#invite-only">Invite-only setup</a>
+    <a href="#effective">Effective permissions</a>
+    <a href="#plan-caveat">Free vs Pro caveat</a>
+  </details>
+  <details open>
+    <summary>End</summary>
+    <a href="#references">References</a>
+  </details>
+</aside>
+
+<!-- ================= Main ================= -->
+<main>
+  <h1>Publishing a Dash App to Plotly Cloud with Invite-Only Viewer Access</h1>
+  <p class="subtitle">How a Dash dashboard was deployed to Plotly Cloud and how to lock it down so only invited users can view it — including the real terminal session.</p>
+
+  <div class="card tldr">
+    <div class="label">TLDR</div>
+    <ul>
+      <li>Install the cloud extension (<code>uv add "dash[cloud]"</code>), log in with <code>plotly user login</code>, and deploy with <code>plotly app publish --name &lt;app-name&gt;</code> — the app goes live at <code>https://&lt;app-id&gt;.plotly.app</code>.<sup><a href="#ref-1">[1]</a><a href="#ref-2">[2]</a></sup></li>
+      <li>Published apps are <strong>private by default</strong>; access is managed in the app's <strong>Settings → Sharing</strong> tab on Plotly Cloud.<sup><a href="#ref-3">[3]</a></sup></li>
+      <li>For invite-only viewing: set <em>Anyone with the link</em> to <code>No access</code> and add specific people with <code>Can view</code> permission.<sup><a href="#ref-3">[3]</a></sup></li>
+      <li>Caveat: per-person sharing requires a <strong>Pro plan or higher</strong>; the free tier only offers all-or-nothing link sharing.<sup><a href="#ref-3">[3]</a><a href="#ref-5">[5]</a></sup></li>
+    </ul>
+  </div>
+
+  <h2 id="overview">Why Plotly Cloud</h2>
+  <p>By default a Dash app runs on <code>localhost</code> and is only reachable from the developer's machine. Sharing it requires deploying to a server. Plotly offers two hosting platforms: <strong>Plotly Cloud</strong> and <strong>Dash Enterprise</strong>.<sup><a href="#ref-1">[1]</a></sup></p>
+
+  <h3 id="cloud-vs-enterprise">Plotly Cloud vs Dash Enterprise</h3>
+  <div class="tablewrap">
+    <table>
+      <tr><th></th><th>Plotly Cloud</th><th>Dash Enterprise</th></tr>
+      <tr><td>Infrastructure</td><td>Fully managed by Plotly — nothing to set up</td><td>Self-hosted, full control</td></tr>
+      <tr><td>Getting started</td><td>Free plan available</td><td>Licensed installation</td></tr>
+      <tr><td>Best for</td><td>Sharing apps quickly</td><td>Organizations needing full infrastructure control, LDAP/SAML, job queues, app portals</td></tr>
+    </table>
+  </div>
+  <p>Switching between the two later usually requires no app-code changes.<sup><a href="#ref-1">[1]</a></sup> This guide uses Plotly Cloud.</p>
+
+  <h2 id="publish">Publishing to Plotly Cloud</h2>
+
+  <h3 id="prereqs">Prerequisites</h3>
+  <p>Create a free account at <a href="https://cloud.plotly.com" target="_blank" rel="noopener">cloud.plotly.com</a>, then add the cloud extension to the project. In a <code>uv</code>-managed project:<sup><a href="#ref-2">[2]</a></sup></p>
+  <div class="term"><div class="bar"><span class="dots"><span></span><span></span><span></span></span>terminal</div>
+  <button class="copybtn" data-copy='uv add "dash[cloud]"'>copy</button>
+  <pre><span class="p">&gt;</span> uv add "dash[cloud]"</pre></div>
+  <p>(In a plain pip project: <code>pip install "dash[cloud]"</code>.)</p>
+
+  <div class="diagram" role="img" aria-label="Publish flow: local Dash app, install extension, log in, publish, live app URL">
+  <svg viewBox="0 0 760 120" xmlns="http://www.w3.org/2000/svg" style="font-family:inherit">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--text-muted)"/>
+      </marker>
+    </defs>
+    <g font-size="13" fill="var(--text)" text-anchor="middle">
+      <rect x="10" y="35" width="130" height="50" rx="10" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="75" y="56">Local Dash app</text><text x="75" y="74" fill="var(--text-muted)" font-size="11">localhost</text>
+      <rect x="180" y="35" width="130" height="50" rx="10" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="245" y="56">Install</text><text x="245" y="74" fill="var(--text-muted)" font-size="11">dash[cloud]</text>
+      <rect x="350" y="35" width="130" height="50" rx="10" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="415" y="56">Log in</text><text x="415" y="74" fill="var(--text-muted)" font-size="11">plotly user login</text>
+      <rect x="520" y="35" width="110" height="50" rx="10" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="575" y="56">Publish</text><text x="575" y="74" fill="var(--text-muted)" font-size="11">app publish</text>
+      <rect x="660" y="35" width="90" height="50" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+      <text x="705" y="56" fill="var(--accent)" font-weight="700">Live</text><text x="705" y="74" fill="var(--accent)" font-size="11">*.plotly.app</text>
+    </g>
+    <g stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arr)">
+      <line x1="140" y1="60" x2="176" y2="60"/><line x1="310" y1="60" x2="346" y2="60"/>
+      <line x1="480" y1="60" x2="516" y2="60"/><line x1="630" y1="60" x2="656" y2="60"/>
+    </g>
+  </svg>
+  </div>
+
+  <h3 id="method-devtools">Method A — publish from dev tools (in-browser)</h3>
+  <p>Run the app with <code>app.run(debug=True)</code>. The dev-tools panel that appears in the browser includes a publishing UI: select <strong>Plotly Cloud → Sign In</strong>, authenticate in the browser tab that opens, name the app, pick a team, and select <strong>Publish App</strong>. When the build finishes you'll see an <em>App is live</em> message.<sup><a href="#ref-1">[1]</a></sup></p>
+
+  <h3 id="method-cli">Method B — publish from the CLI</h3>
+  <p>The CLI route (used in the <a href="#session">session below</a>) needs two commands:<sup><a href="#ref-2">[2]</a></sup></p>
+  <div class="term"><div class="bar"><span class="dots"><span></span><span></span><span></span></span>terminal</div>
+  <button class="copybtn" data-copy="uv run plotly user login
+uv run plotly app publish --name <app-name>">copy</button>
+  <pre><span class="p">&gt;</span> uv run plotly user login
+<span class="p">&gt;</span> uv run plotly app publish --name &lt;app-name&gt;</pre></div>
+  <p>Login opens a browser device-authorization flow; credentials are stored locally and reused. For CI/CD, an API key via <code>PLOTLY_API_KEY</code> can replace interactive login.<sup><a href="#ref-2">[2]</a></sup> Members of multiple teams can target one with <code>--team &lt;team-name&gt;</code> (list teams with <code>plotly user teams</code>).</p>
+
+  <h3 id="toml">plotly-cloud.toml</h3>
+  <p>The first publish writes a <code>plotly-cloud.toml</code> into the project directory recording the app's <code>name</code>, <code>app_id</code>, and <code>app_url</code>. <strong>Commit it to version control</strong> — it is how subsequent <code>plotly app publish</code> runs (and collaborators or CI) update the same app in place instead of creating a new one.<sup><a href="#ref-2">[2]</a></sup></p>
+
+  <h3 id="limits">Size limits &amp; URLs</h3>
+  <ul>
+    <li>Total app files must be under <strong>200 MiB</strong> when publishing from dev tools/CLI (80 MiB when uploading directly at cloud.plotly.com). Data files the app reads at runtime must be included.<sup><a href="#ref-1">[1]</a></sup></li>
+    <li>Files matched by <code>.gitignore</code> (and things like virtual environments) are excluded from the upload automatically.<sup><a href="#ref-1">[1]</a></sup></li>
+    <li>The first publish assigns a UUID subdomain (<code>https://&lt;uuid&gt;.plotly.app</code>). Human-readable custom URLs require a paid plan: edit <code>app_url</code> in the TOML and re-publish.<sup><a href="#ref-2">[2]</a></sup></li>
+  </ul>
+
+  <h2 id="session">The Actual Publish Session</h2>
+  <p>The three steps as they actually ran for this dashboard (a Dash app managed with <code>uv</code>), lightly redacted.<sup><a href="#ref-6">[6]</a></sup></p>
+
+  <h3 id="log-install">Step 1 — install the cloud extension</h3>
+  <div class="term"><div class="bar"><span class="dots"><span></span><span></span><span></span></span>step 1 · install</div>
+  <button class="copybtn" data-copy="uv add dash[cloud]">copy</button>
+  <pre><span class="p">&gt;</span> uv add dash[cloud]
+
+<span class="dim">Resolved 62 packages in 857ms
+Prepared 3 packages in 3.64s
+Installed 7 packages in 861ms</span>
+ <span class="ok">+</span> markdown-it-py==4.2.0
+ <span class="ok">+</span> mdurl==0.1.2
+ <span class="ok">+</span> plotly-cloud==0.4.2
+ <span class="ok">+</span> pygments==2.20.0
+ <span class="ok">+</span> rich==15.0.0
+ <span class="ok">+</span> tomli==2.4.1
+ <span class="ok">+</span> tomli-w==1.2.0</pre></div>
+  <p>The extension pulls in the <code>plotly-cloud</code> CLI plus a handful of terminal-UI and TOML helpers.</p>
+
+  <h3 id="log-login">Step 2 — log in (device flow)</h3>
+  <div class="term"><div class="bar"><span class="dots"><span></span><span></span><span></span></span>step 2 · authenticate</div>
+  <button class="copybtn" data-copy="uv run plotly user login">copy</button>
+  <pre><span class="p">&gt;</span> uv run plotly user login
+
+╭─ 🔐 Logging in to Plotly Cloud... ─────────────────────────────╮
+│                                                                │
+│ 🌐 Verification URL: https://signin.cloud.plotly.com/device    │
+│                                                                │
+│ 🔑 Device Code: <span class="dim">XXXX-XXXX</span>                                      │
+│                                                                │
+╰────────────────────────────────────────────────────────────────╯
+
+<span class="dim">⠴ ⏳ Waiting for authorization...</span>
+<span class="ok">✓ Successfully logged in to Plotly Cloud!</span></pre></div>
+  <p>The CLI prints a one-time device code; entering it at the verification URL in the browser completes the login. The credential is cached locally for later commands.</p>
+
+  <h3 id="log-publish">Step 3 — publish</h3>
+  <div class="term"><div class="bar"><span class="dots"><span></span><span></span><span></span></span>step 3 · publish</div>
+  <button class="copybtn" data-copy="uv run plotly app publish --name my-dash-app">copy</button>
+  <pre><span class="p">&gt;</span> uv run plotly app publish --name <span class="dim">my-dash-app</span>
+<span class="ok">⠏ ✓ Configuration saved!</span>
+
+╭──────────────────────── 🚀 Publish Status ─────────────────────╮
+│ ▶  Running                                                     │
+╰────────────────────────────────────────────────────────────────╯
+<span class="ok">🎉 Published app successfully!</span>
+Your app is available at: <span class="dim">https://&lt;app-id&gt;.plotly.app</span></pre></div>
+  <p><em>Configuration saved!</em> refers to the newly created <a href="#toml"><code>plotly-cloud.toml</code></a>. The app came up at its assigned UUID subdomain — a working first deploy in three commands.</p>
+
+  <h2 id="sharing">Sharing with Invited Viewers Only</h2>
+
+  <h3 id="permissions">Permission levels</h3>
+  <p>Published apps are <strong>private by default</strong> — only the publisher can open the URL.<sup><a href="#ref-2">[2]</a></sup> Access is managed per app in <strong>Settings → Sharing</strong> on cloud.plotly.com, with three permission levels:<sup><a href="#ref-3">[3]</a></sup></p>
+  <div class="tablewrap">
+    <table>
+      <tr><th>Permission</th><th>Open the live app URL</th><th>Manage the app (Settings)</th></tr>
+      <tr><td><span class="pill no">No access</span></td><td>✗</td><td>✗</td></tr>
+      <tr><td><span class="pill view">Can view</span></td><td>✓</td><td>✗</td></tr>
+      <tr><td><span class="pill edit">Can edit</span></td><td>✓</td><td>✓ (Creator team role only)</td></tr>
+    </table>
+  </div>
+
+  <h3 id="invite-only">Invite-only setup</h3>
+  <p>To make the app viewable by invited users and no one else:</p>
+  <ol>
+    <li>Open the app's <strong>Settings → Sharing</strong> tab on cloud.plotly.com.</li>
+    <li>Set <strong>Anyone with the link</strong> to <span class="pill no">No access</span> — this is what keeps the bare URL locked down.</li>
+    <li>Under <strong>Add specific people</strong>, search each person by name and add them; they land in the <strong>People with access</strong> list with <span class="pill view">Can view</span> permission.</li>
+    <li>If someone isn't in the team yet, select <strong>Send invitation</strong> to invite them (subject to the plan's team-member limits).</li>
+    <li>Use <strong>Copy link to app</strong> to send the URL — Plotly does <em>not</em> email users when an app is shared with them.<sup><a href="#ref-3">[3]</a></sup></li>
+  </ol>
+  <p>Invited users must sign in to Plotly Cloud to open the app — that sign-in is what enforces the access control.</p>
+
+  <h3 id="effective">Effective permissions</h3>
+  <p>A user can receive access three ways — link access, team-wide access, and individual access. Their <strong>effective permission is whichever is highest</strong>.<sup><a href="#ref-3">[3]</a></sup> For strict invite-only viewing, keep both broad channels off:</p>
+  <div class="diagram" role="img" aria-label="Effective permission is the maximum of link access (set to no access), team-wide access (set to no access), and individual access (can view)">
+  <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" style="font-family:inherit">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--text-muted)"/>
+      </marker>
+    </defs>
+    <g font-size="13" text-anchor="middle">
+      <rect x="15" y="15" width="200" height="42" rx="9" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="115" y="33" fill="var(--text)">Anyone with the link</text>
+      <text x="115" y="49" fill="#d64545" font-weight="700" font-size="11.5">→ No access</text>
+      <rect x="15" y="64" width="200" height="42" rx="9" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="115" y="82" fill="var(--text)">Team members (all)</text>
+      <text x="115" y="98" fill="#d64545" font-weight="700" font-size="11.5">→ No access</text>
+      <rect x="15" y="113" width="200" height="42" rx="9" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="115" y="131" fill="var(--text)">Individually added people</text>
+      <text x="115" y="147" fill="var(--accent)" font-weight="700" font-size="11.5">→ Can view</text>
+      <rect x="330" y="64" width="130" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="395" y="90" fill="var(--text)" font-weight="700">max( · )</text>
+      <rect x="540" y="55" width="165" height="60" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+      <text x="622" y="80" fill="var(--accent)" font-weight="700">Invited users: view</text>
+      <text x="622" y="99" fill="var(--accent)" font-size="11.5">everyone else: no access</text>
+    </g>
+    <g stroke="var(--text-muted)" stroke-width="1.4" marker-end="url(#arr2)" fill="none">
+      <path d="M215 36 C 280 36, 290 78, 326 82"/>
+      <path d="M215 85 L 326 85"/>
+      <path d="M215 134 C 280 134, 290 92, 326 89"/>
+      <path d="M460 85 L 536 85"/>
+    </g>
+  </svg>
+  </div>
+
+  <h3 id="plan-caveat">Free vs Pro caveat</h3>
+  <div class="callout">
+    <span class="t">⚠ Plan requirement:</span> giving access to the team as a whole or to individual people requires a <strong>Pro team plan or higher</strong>.<sup><a href="#ref-3">[3]</a><a href="#ref-5">[5]</a></sup> On the free tier the only sharing lever is <em>Anyone with the link → Can view</em> — an unlisted public link, not true invite-only access. For genuinely restricted viewer-only sharing: upgrade to Pro, add each viewer individually with <code>Can view</code>, and leave link access at <code>No access</code>.
+  </div>
+
+  <h2 id="references">References</h2>
+  <ol class="refs">
+    <li id="ref-1">Plotly Dash documentation — <a href="https://dash.plotly.com/deployment" target="_blank" rel="noopener">Part 5. Publishing Your App</a>.</li>
+    <li id="ref-2">Plotly Dash documentation — <a href="https://dash.plotly.com/plotly-cloud/cli" target="_blank" rel="noopener">Plotly Cloud CLI Configuration</a>.</li>
+    <li id="ref-3">Plotly Dash documentation — <a href="https://dash.plotly.com/plotly-cloud/share" target="_blank" rel="noopener">Access Control and Sharing</a>.</li>
+    <li id="ref-4">Plotly Cloud documentation — <a href="https://docs.plotly.com/cloud/teams/" target="_blank" rel="noopener">Teams: roles, invitations, and member management</a>.</li>
+    <li id="ref-5">Plotly — <a href="https://plotly.com/pricing/" target="_blank" rel="noopener">Pricing and plan comparison</a>.</li>
+    <li id="ref-6">Local terminal session log, <code>cmds_publish_dash_app.txt</code> (2026-07-08) — device code and app URL redacted.</li>
+  </ol>
+
+  <footer>Generated 2026-07-08 · Publishing a Dash dashboard to Plotly Cloud with invite-only viewing</footer>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var body = document.body;
+
+  // Theme: saved preference, else OS preference
+  var savedTheme = localStorage.getItem("htmlify-theme");
+  if (savedTheme) {
+    root.setAttribute("data-theme", savedTheme);
+  } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    root.setAttribute("data-theme", "dark");
+  }
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("htmlify-theme", next);
+  });
+
+  // Sidebar: toggle button lives in the always-visible top nav
+  var savedSidebar = localStorage.getItem("htmlify-sidebar");
+  if (savedSidebar === "open" && window.innerWidth > 1100) {
+    body.classList.remove("sidebar-collapsed");
+  }
+  document.getElementById("sidebarToggle").addEventListener("click", function () {
+    body.classList.toggle("sidebar-collapsed");
+    localStorage.setItem("htmlify-sidebar", body.classList.contains("sidebar-collapsed") ? "closed" : "open");
+  });
+
+  // Auto-close overlay sidebar after navigating on narrow screens
+  document.querySelectorAll(".sidebar a").forEach(function (a) {
+    a.addEventListener("click", function () {
+      if (window.innerWidth <= 1100) body.classList.add("sidebar-collapsed");
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll(".copybtn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(btn.getAttribute("data-copy")).then(function () {
+        var old = btn.textContent;
+        btn.textContent = "copied ✓";
+        setTimeout(function () { btn.textContent = old; }, 1400);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
