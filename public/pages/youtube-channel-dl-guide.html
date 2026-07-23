@@ -350,6 +350,7 @@ footer{
     <a href="#prereq">prerequisites</a>
     <a href="#survey">survey</a>
     <a href="#commands">commands</a>
+    <a href="#single">single video</a>
     <a href="#flags">flag rationale</a>
     <a href="#notes">practice</a>
     <a href="#refs">references</a>
@@ -419,8 +420,18 @@ footer{
   </div>
 
   <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="gsv">
+      <span>04 · Single video</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="gsv">
+      <a href="#single"><span class="hash">#</span>one URL, fewer flags</a>
+      <a href="#transcripts"><span class="hash">#</span>transcripts by language</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
     <button class="sb-toggle" aria-expanded="true" aria-controls="g5">
-      <span>04 · Flag rationale</span><span class="chev">▾</span>
+      <span>05 · Flag rationale</span><span class="chev">▾</span>
     </button>
     <div class="sb-items" id="g5">
       <a href="#resolution"><span class="hash">#</span>resolution</a>
@@ -433,7 +444,7 @@ footer{
 
   <div class="sb-group">
     <button class="sb-toggle" aria-expanded="true" aria-controls="g6">
-      <span>05 · In practice</span><span class="chev">▾</span>
+      <span>06 · In practice</span><span class="chev">▾</span>
     </button>
     <div class="sb-items" id="g6">
       <a href="#notes"><span class="hash">#</span>pitfalls</a>
@@ -853,10 +864,91 @@ uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span>
     └── …</pre>
   </section>
 
-  <!-- ==================== 04 FLAG RATIONALE ==================== -->
+  <!-- ==================== 04 SINGLE VIDEO ==================== -->
+  <section id="single">
+    <div class="section-header">
+      <h2>04 · One video, not a channel</h2>
+      <span class="meta">variant · a single URL</span>
+    </div>
+
+    <div class="prose" style="border-top:none">
+      <p>The same tool grabs a single video — point it at a <code>watch?v=&lt;id&gt;</code> URL and drop the two channel-scale flags. There is no playlist to enumerate, so <code>--download-archive</code> and the <code>--sleep-*</code> spacing earn nothing: one video is one burst. Keep the <code>--write-*</code> sidecars; they behave exactly as they do on the channel run.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Single-video download command by operating system">
+        <button role="tab" data-os="windows" id="t-1v-win" aria-controls="p-1v-win">Windows · PowerShell</button>
+        <button role="tab" data-os="macos" id="t-1v-mac" aria-controls="p-1v-mac">macOS · bash/zsh</button>
+        <button role="tab" data-os="linux" id="t-1v-lin" aria-controls="p-1v-lin">Linux · bash</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-1v-win" aria-labelledby="t-1v-win">
+<pre>uv run yt-dlp `
+  -o <span class="a">"downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s"</span> `
+  --write-info-json --write-thumbnail --write-description `
+  --write-subs --write-auto-subs --sub-langs <span class="a">"en.*"</span> `
+  <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-1v-mac" aria-labelledby="t-1v-mac" hidden>
+<pre>uv run yt-dlp \
+  -o <span class="a">'downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  <span class="k">'https://www.youtube.com/watch?v=&lt;id&gt;'</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-1v-lin" aria-labelledby="t-1v-lin" hidden>
+<pre>uv run yt-dlp \
+  -o <span class="a">'downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  <span class="k">'https://www.youtube.com/watch?v=&lt;id&gt;'</span></pre>
+      </div>
+    </div>
+
+    <div class="prose" id="transcripts">
+      <h3>Transcripts come in whatever language the video has</h3>
+      <p><code>--sub-langs</code> is a filter, not a request: it writes only tracks that already exist. <code>"en.*"</code> against a video with no English captions matches nothing and writes no <code>.vtt</code> — silently, with no error. A missing subtitle file usually means the filter missed, not that a fetch failed. Confirm what a video actually carries before assuming:</p>
+    </div>
+    <div class="codewrap">
+      <pre><span class="c"># list every caption track without downloading anything</span>
+uv run yt-dlp --list-subs <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>Then aim <code>--sub-langs</code> at a track that exists. A Traditional-Chinese talk, for instance, may carry only a human <code>zh-TW</code> track and <em>no</em> auto-captions at all — so <code>--write-auto-subs</code> adds nothing, and only the explicit language pulls the transcript:</p>
+    </div>
+    <div class="codewrap">
+      <pre><span class="c"># transcript only, in the language the video actually has</span>
+uv run yt-dlp --skip-download --write-subs --sub-langs <span class="a">"zh-TW"</span> <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+    </div>
+
+    <div class="hairline-grid" style="grid-template-columns:1fr">
+      <div class="flagrow">
+        <span class="fl">--sub-langs "en.*"</span>
+        <span class="fd"><b>Every English variant.</b> The <code>.*</code> glob catches <code>en</code>, <code>en-US</code>, <code>en-GB</code> and yt-dlp's <code>en-orig</code>. A bare <code>"en"</code> misses the regional tags.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--sub-langs "zh-TW"  ·  "zh.*"</span>
+        <span class="fd"><b>One language, or a whole family.</b> Name the exact code for a single track, or glob the family (<code>zh.*</code> → <code>zh-TW</code>, <code>zh-Hans</code>, <code>zh-HK</code>) when you are unsure which regional variant the uploader used.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--sub-langs "all"</span>
+        <span class="fd"><b>Whatever exists, regardless of language.</b> The safe choice for a mixed-language channel where no single code fits every video — at the cost of many tracks per video.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--write-subs  vs  --write-auto-subs</span>
+        <span class="fd"><b>Human-authored vs machine-generated.</b> A video may carry one, both, or neither. Keep both for a complete archive; drop <code>--write-auto-subs</code> when only real captions matter. Neither invents a track YouTube does not serve.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--convert-subs srt</span>
+        <span class="fd"><b>Reshape after download.</b> Captions arrive as <code>.vtt</code>; add this to convert them to <code>.srt</code>, <code>.ass</code> or <code>.lrc</code> for players that expect a different format.<sup class="cite"><a href="#ref1">[1]</a></sup></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 05 FLAG RATIONALE ==================== -->
   <section id="flags">
     <div class="section-header">
-      <h2>04 · Why each flag is there</h2>
+      <h2>05 · Why each flag is there</h2>
       <span class="meta">five concerns · one command</span>
     </div>
 
@@ -1007,10 +1099,10 @@ uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span>
     </div>
   </section>
 
-  <!-- ==================== 05 PRACTICE ==================== -->
+  <!-- ==================== 06 PRACTICE ==================== -->
   <section id="notes">
     <div class="section-header">
-      <h2>05 · In practice</h2>
+      <h2>06 · In practice</h2>
       <span class="meta">pitfalls · timing</span>
     </div>
     <ul class="rules">
