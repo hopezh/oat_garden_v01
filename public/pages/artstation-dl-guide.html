@@ -217,6 +217,7 @@
       <a href="#batch">List input</a>
       <a href="#troubleshooting">Fixes</a>
       <a href="#recover">Recover</a>
+      <a href="#merge">Merge</a>
       <a href="#reference">Reference</a>
     </div>
     <div class="nav-right">
@@ -228,7 +229,7 @@
 
   <!-- ===== COVER IMAGE (full-width, above title) ===== -->
   <div class="cover">
-    <img src="assets/theartofmarathon.jpg" alt="The Art of Marathon cover">
+    <img src="../assets/theartofmarathon.jpg" alt="The Art of Marathon cover">
   </div>
 
   <!-- ===== SIDEBAR ===== -->
@@ -294,6 +295,14 @@
       </div>
     </div>
     <div class="side-group" data-g>
+      <button>Merge <span class="chev">▾</span></button>
+      <div class="side-links">
+        <a href="#merge">10 · Flatten into one folder</a>
+        <a href="#merge-run">Run the script</a>
+        <a href="#merge-cases">Duplicates &amp; collisions</a>
+      </div>
+    </div>
+    <div class="side-group" data-g>
       <button>End <span class="chev">▾</span></button>
       <div class="side-links">
         <a href="#reference">References</a>
@@ -313,7 +322,7 @@
 
     <div class="tldr">
       <h2>⚡ TL;DR</h2>
-      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar. Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4. Hit a warning mid-run? The troubleshooting table in §8 maps each message to its fix.</p>
+      <p>Spin up an isolated <code>uv</code> project, add <code>gallery-dl</code> + <code>yt-dlp</code> into it, drop in a <code>gallery-dl.conf</code>, then run <code>uv run gallery-dl -c gallery-dl.conf &lt;url&gt;</code> for a single post, a whole artist, or a tag collection (via <em>search</em>). Always dry-run with <code>-s</code>, then a capped <code>--range 1-50</code> batch, then the full run. Everything lands in <code>downloads/artstation/&lt;artist&gt;/</code> beside a <code>.json</code> metadata sidecar. Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4. Hit a warning mid-run? The troubleshooting table in §8 maps each message to its fix. Want everything in one flat folder under its original ArtStation filename instead of the per-artist tree? Run <code>merge_downloads.py</code> afterwards — §10.</p>
     </div>
 
     <!-- 1 + 2 SETUP -->
@@ -765,6 +774,41 @@ uv run python recover_embeds.py download_log.md --dry-run   # just list what it 
       <div class="note"><strong>Why a separate folder.</strong> The log doesn't reliably map each embed back to the post (and artist subfolder) it came from, so recovered videos land together in <code>youtube_embeds/</code> rather than scattered across the per-artist tree.</div>
     </section>
 
+    <!-- MERGE -->
+    <section id="merge">
+      <h2 class="sec"><span class="num">10</span>Flattening the downloads into one folder</h2>
+      <p>The per-artist layout from §6 is ideal for browsing by author, but the filenames in it are gallery-dl's own construction — <code>artstation_&lt;id&gt;_&lt;assetid&gt;_&lt;title&gt;.jpg</code> — not the name you'd get by right-clicking the image on ArtStation. <code>merge_downloads.py</code> copies the whole tree into a <strong>single flat folder</strong>, renaming each file back to that manual-download name, which it reads from the file's <code>.json</code> sidecar (the <code>{filename}.{extension}</code> pair).</p>
+
+      <div class="note"><strong>It copies, never moves.</strong> Your original <code>downloads/</code> tree is left completely untouched, so a bad run costs nothing but disk. Sidecars and <code>.archive.sqlite</code> are skipped — only media files are merged.</div>
+
+      <h3 id="merge-run">Preview, then run</h3>
+<pre><code>uv run python merge_downloads.py ./downloads ./downloads_merged --dry-run   # preview
+uv run python merge_downloads.py ./downloads ./downloads_merged             # do it</code></pre>
+      <p><code>--dry-run</code> prints every planned copy and the full summary without writing anything — the same dry → real ramp as §5.</p>
+
+      <h3 id="merge-cases">Duplicates &amp; name collisions</h3>
+      <p>Flattening a tree means two files can land on the same name. The script decides by <strong>content</strong>, not by name — it compares SHA-256 digests, so it only ever collapses files that are genuinely the same bytes.</p>
+      <table class="tbl">
+        <thead><tr><th>Situation</th><th>What happens</th></tr></thead>
+        <tbody>
+          <tr><td>Two files resolve to the same name and are <strong>byte-identical</strong> — the same artwork reposted, or a re-run over a target you already merged into</td><td>Skipped, counted under <em>skipped (identical)</em>. Re-running against the same target is safe.</td></tr>
+          <tr><td>Two files resolve to the same name but have <strong>different content</strong></td><td>Both kept — the second is written as <code>&lt;name&gt;_1.&lt;ext&gt;</code>, <code>_2</code>, … and logged as <code>WARNING: name collision</code>.</td></tr>
+          <tr><td>A media file has <strong>no usable sidecar</strong> (missing, or malformed JSON)</td><td>Falls back to the source file's own gallery-dl name and logs <code>WARNING: no usable sidecar</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <p>Every run ends with a summary, so a large merge stays auditable at a glance:</p>
+<pre><code>--- summary ---
+media files seen:    1240
+copied:              1187
+skipped (identical): 51
+collision suffixed:  2
+no-sidecar warnings: 0
+time elapsed:        63.41s</code></pre>
+
+      <div class="note"><strong>Same idempotent habit as the rest of the workflow.</strong> Because identical files are skipped, you can download more with gallery-dl and then re-run the exact same merge command — only the new files get copied across.</div>
+    </section>
+
     <!-- REFERENCES -->
     <footer id="reference">
       <h2 class="sec"><span class="num">★</span>References</h2>
@@ -936,6 +980,7 @@ with per-scenario settings handled by a single config file.
 > Always dry-run with `-s` first, then a capped `--range 1-50` batch, then the full run.
 > Every file lands in `downloads/artstation/<artist>/` next to a `.json` metadata sidecar.
 > Posts with embedded YouTube videos additionally need a JS runtime (Deno) plus the yt-dlp EJS solver — see §2 and §4. Hit a warning mid-run? The troubleshooting table in §8 maps each message to its fix.
+> Want everything in one flat folder under its original ArtStation filename instead? Run `merge_downloads.py` afterwards — §10.
 
 ---
 
@@ -1264,6 +1309,51 @@ It re-downloads each video by `watch?v=` URL into `./downloads/youtube_embeds/` 
 own `.ytdl-archive.txt` there, so re-runs only fetch what's still missing. Recovered videos
 land together in that folder because the log doesn't reliably map each embed back to its
 per-artist subfolder.
+
+---
+
+## 10. Flattening the downloads into one folder
+
+The per-artist layout from §6 is ideal for browsing by author, but the filenames in it are
+gallery-dl's own construction — `artstation_<id>_<assetid>_<title>.jpg` — not the name you'd
+get by right-clicking the image on ArtStation. `merge_downloads.py` copies the whole tree into
+a **single flat folder**, renaming each file back to that manual-download name, which it reads
+from the file's `.json` sidecar (the `{filename}.{extension}` pair).
+
+```powershell
+uv run python merge_downloads.py ./downloads ./downloads_merged --dry-run   # preview
+uv run python merge_downloads.py ./downloads ./downloads_merged             # do it
+```
+
+It **copies, never moves** — your original `downloads/` tree is left untouched, so a bad run
+costs nothing but disk. `--dry-run` prints every planned copy and the full summary without
+writing anything. Sidecars and `.archive.sqlite` are skipped; only media files are merged.
+
+Flattening a tree means two files can land on the same name. The script decides by **content**,
+not by name — it compares SHA-256 digests, so it only ever collapses files that are genuinely
+the same bytes:
+
+| Situation | What happens |
+| --- | --- |
+| Same name, **byte-identical** (a repost, or a re-run over a target you already merged into) | Skipped — counted under *skipped (identical)*. Re-running against the same target is safe. |
+| Same name, **different content** | Both kept; the second is written as `<name>_1.<ext>`, `_2`, … and logged as `WARNING: name collision`. |
+| **No usable sidecar** (missing, or malformed JSON) | Falls back to the source file's own gallery-dl name and logs `WARNING: no usable sidecar`. |
+
+Every run ends with a summary, so a large merge stays auditable at a glance:
+
+```text
+--- summary ---
+media files seen:    1240
+copied:              1187
+skipped (identical): 51
+collision suffixed:  2
+no-sidecar warnings: 0
+time elapsed:        63.41s
+```
+
+Because identical files are skipped, the workflow is the same idempotent habit as the rest of
+this guide: download more with gallery-dl, then re-run the exact same merge command — only the
+new files get copied across.
 
 ---
 
