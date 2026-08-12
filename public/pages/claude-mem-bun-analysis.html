@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why claude-mem Wasn't Remembering: The Windows Bun Hook Failure</title>
+<meta name="description" content="Debugging analysis of claude-mem silently capturing nothing on Windows: every hook died because bun-runner spawned a bare bun command cmd.exe could not resolve.">
+<meta name="keywords" content="claude-mem, claude-code, windows-hooks, bun-runtime, debugging, plugin-troubleshooting">
+<meta name="date" content="2026-07-19">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --text: #1c2330;
+    --text-dim: #5a6578;
+    --accent: #2563eb;
+    --accent-soft: #dbe7fd;
+    --ok: #15803d;
+    --ok-soft: #dcf5e4;
+    --bad: #b91c1c;
+    --bad-soft: #fde3e3;
+    --warn: #b45309;
+    --warn-soft: #fdeed3;
+    --border: #d8dee8;
+    --code-bg: #0f1420;
+    --code-text: #d6e2f5;
+    --shadow: 0 2px 12px rgba(15, 25, 50, .07);
+    --cover-sky: #e9eefb;
+    --cover-line: #3b5bdb;
+    --cover-fill: #ffffff;
+    --cover-bad: #dc2626;
+  }
+  [data-theme="dark"] {
+    --bg: #0d1117;
+    --surface: #161c26;
+    --surface-2: #1d2531;
+    --text: #e4e9f2;
+    --text-dim: #93a0b4;
+    --accent: #6ea1ff;
+    --accent-soft: #1c2c4d;
+    --ok: #4ade80;
+    --ok-soft: #12301d;
+    --bad: #f87171;
+    --bad-soft: #3a1616;
+    --warn: #fbbf24;
+    --warn-soft: #382a10;
+    --border: #2a3342;
+    --code-bg: #0a0e16;
+    --code-text: #cdd9ee;
+    --shadow: 0 2px 14px rgba(0, 0, 0, .45);
+    --cover-sky: #101725;
+    --cover-line: #7fa3ff;
+    --cover-fill: #161c26;
+    --cover-bad: #f87171;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.65;
+  }
+
+  /* ---------- Cover ---------- */
+  .cover { width: 100%; height: 240px; overflow: hidden; background: var(--cover-sky); }
+  .cover svg { width: 100%; height: 240px; display: block; }
+
+  /* ---------- Top nav ---------- */
+  .topnav {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center; gap: .25rem;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 1rem; flex-wrap: wrap;
+  }
+  .topnav a, .topnav button {
+    font-size: .86rem; text-decoration: none; color: var(--text-dim);
+    padding: .35rem .7rem; border-radius: 8px; border: none; background: none;
+    cursor: pointer; font-family: inherit;
+  }
+  .topnav a:hover, .topnav button:hover { background: var(--surface-2); color: var(--text); }
+  #sidebarBtn, #themeBtn { border: 1px solid var(--border); }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    position: fixed; top: 70px; left: 12px; z-index: 50;
+    width: 230px; max-height: calc(100vh - 90px); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow);
+    padding: .8rem; font-size: .84rem;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .sidebar.hidden { transform: translateX(-120%); opacity: 0; pointer-events: none; }
+  .sidebar h3 {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: .82rem; margin-bottom: .4rem; color: var(--text);
+  }
+  .sidebar h3 button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: .9rem; }
+  .sb-group { margin-bottom: .35rem; }
+  .sb-group > button {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    color: var(--text); font-weight: 600; font-size: .82rem; padding: .3rem .35rem;
+    border-radius: 6px; font-family: inherit;
+  }
+  .sb-group > button:hover { background: var(--surface-2); }
+  .sb-group > button::before { content: "▾ "; font-size: .7rem; color: var(--text-dim); }
+  .sb-group.closed > button::before { content: "▸ "; }
+  .sb-group ul { list-style: none; padding-left: 1rem; }
+  .sb-group.closed ul { display: none; }
+  .sb-group li a {
+    display: block; color: var(--text-dim); text-decoration: none;
+    padding: .18rem .3rem; border-radius: 6px;
+  }
+  .sb-group li a:hover { color: var(--accent); background: var(--surface-2); }
+
+  /* ---------- Main ---------- */
+  main { max-width: 860px; margin: 0 auto; padding: 2rem 1.4rem 4rem; }
+  .titleblock { margin-bottom: 1.6rem; }
+  .titleblock h1 { font-size: 1.9rem; line-height: 1.25; margin-bottom: .4rem; }
+  .titleblock .subtitle { color: var(--text-dim); font-size: 1.02rem; }
+  .meta-line { margin-top: .5rem; font-size: .8rem; color: var(--text-dim); }
+  .meta-line span { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: .12rem .6rem; margin-right: .4rem; }
+
+  section { margin-top: 2.6rem; }
+  h2 { font-size: 1.4rem; margin-bottom: .8rem; padding-bottom: .35rem; border-bottom: 2px solid var(--accent-soft); }
+  h3 { font-size: 1.05rem; margin: 1.3rem 0 .5rem; }
+  p { margin-bottom: .85rem; }
+  a { color: var(--accent); }
+  strong { color: var(--text); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow); padding: 1.1rem 1.3rem;
+  }
+  .tldr { border-left: 5px solid var(--accent); }
+  .tldr h2 { border: none; margin-bottom: .5rem; font-size: 1.1rem; padding: 0; }
+  .tldr ul { padding-left: 1.2rem; }
+  .tldr li { margin-bottom: .3rem; }
+
+  .callout { border-radius: 12px; padding: .85rem 1.1rem; margin: 1rem 0; font-size: .94rem; }
+  .callout.bad { background: var(--bad-soft); border-left: 4px solid var(--bad); }
+  .callout.ok { background: var(--ok-soft); border-left: 4px solid var(--ok); }
+  .callout.warn { background: var(--warn-soft); border-left: 4px solid var(--warn); }
+
+  code {
+    font-family: Consolas, "Cascadia Code", monospace; font-size: .87em;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 5px; padding: .08em .35em;
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-text);
+    border-radius: 12px; padding: 1rem 1.2rem; overflow-x: auto;
+    font-size: .84rem; line-height: 1.55; margin: .9rem 0;
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
+  th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-2); font-size: .82rem; }
+  .table-wrap { overflow-x: auto; }
+  .pill { display: inline-block; border-radius: 999px; padding: .08rem .6rem; font-size: .76rem; font-weight: 600; white-space: nowrap; }
+  .pill.open { background: var(--ok-soft); color: var(--ok); }
+  .pill.closed { background: var(--bad-soft); color: var(--bad); }
+  .pill.draft { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---------- Flow diagrams ---------- */
+  .flow { display: flex; align-items: stretch; gap: .45rem; flex-wrap: wrap; margin: 1.1rem 0; }
+  .flow .node {
+    flex: 1 1 120px; min-width: 118px; background: var(--surface);
+    border: 1.6px solid var(--border); border-radius: 10px;
+    padding: .55rem .6rem; text-align: center; font-size: .8rem;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .flow .node b { font-size: .84rem; }
+  .flow .node small { color: var(--text-dim); font-size: .72rem; line-height: 1.35; margin-top: .15rem; }
+  .flow .node.ok { border-color: var(--ok); }
+  .flow .node.bad { border-color: var(--bad); background: var(--bad-soft); }
+  .flow .node.accent { border-color: var(--accent); background: var(--accent-soft); }
+  .flow .arrow { align-self: center; color: var(--text-dim); font-size: 1.1rem; flex: 0 0 auto; }
+  .flow .arrow.bad { color: var(--bad); font-weight: 700; }
+
+  .branch { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin: .9rem 0; }
+  .branch .path { border: 1.6px dashed var(--border); border-radius: 12px; padding: .8rem; }
+  .branch .path h4 { font-size: .86rem; margin-bottom: .5rem; }
+  .branch .path.good { border-color: var(--ok); }
+  .branch .path.broken { border-color: var(--bad); }
+
+  .steps { list-style: none; counter-reset: step; margin: 1rem 0; }
+  .steps li {
+    counter-increment: step; position: relative; padding: .35rem 0 .9rem 2.6rem;
+    border-left: 2px solid var(--border); margin-left: 1rem;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: -1rem; top: .3rem;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem; border: 2px solid var(--accent);
+  }
+  .steps li:last-child { border-left-color: transparent; }
+  .steps b { display: block; margin-bottom: .1rem; }
+  .steps small { color: var(--text-dim); }
+
+  sup.cite a { text-decoration: none; font-weight: 700; font-size: .72em; }
+  #references ol { padding-left: 1.4rem; }
+  #references li { margin-bottom: .45rem; font-size: .9rem; }
+
+  footer { text-align: center; color: var(--text-dim); font-size: .78rem; margin-top: 3.5rem; }
+
+  @media (max-width: 1330px) {
+    .sidebar { top: auto; bottom: 12px; max-height: 55vh; }
+  }
+  @media (max-width: 760px) {
+    .cover, .cover svg { height: 170px; }
+    .titleblock h1 { font-size: 1.5rem; }
+    .branch { grid-template-columns: 1fr; }
+    .flow { flex-direction: column; }
+    .flow .arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover" aria-hidden="true">
+  <svg viewBox="0 0 1200 240" preserveAspectRatio="xMidYMid slice">
+    <rect width="1200" height="240" fill="var(--cover-sky)"/>
+    <!-- iso grid floor -->
+    <g stroke="var(--cover-line)" stroke-width="1" opacity=".18">
+      <path d="M0 210 L600 60 L1200 210"/>
+      <path d="M0 240 L600 90 L1200 240"/>
+      <path d="M100 240 L700 90"/><path d="M300 240 L900 90"/>
+      <path d="M500 240 L1100 90"/><path d="M1100 240 L500 90"/>
+      <path d="M900 240 L300 90"/><path d="M700 240 L100 90"/>
+    </g>
+    <!-- pipeline of iso cubes: session -> hook -> [missing bun] -> worker -> db -->
+    <g stroke="var(--cover-line)" stroke-width="2" fill="var(--cover-fill)">
+      <!-- cube 1 -->
+      <g transform="translate(230,120)">
+        <path d="M0 20 L40 0 L80 20 L40 40 Z"/>
+        <path d="M0 20 L0 55 L40 75 L40 40 Z"/>
+        <path d="M80 20 L80 55 L40 75 L40 40 Z"/>
+      </g>
+      <!-- cube 2 -->
+      <g transform="translate(420,105)">
+        <path d="M0 20 L40 0 L80 20 L40 40 Z"/>
+        <path d="M0 20 L0 55 L40 75 L40 40 Z"/>
+        <path d="M80 20 L80 55 L40 75 L40 40 Z"/>
+      </g>
+      <!-- missing cube: dashed ghost -->
+      <g transform="translate(610,90)" fill="none" stroke="var(--cover-bad)" stroke-dasharray="7 6">
+        <path d="M0 20 L40 0 L80 20 L40 40 Z"/>
+        <path d="M0 20 L0 55 L40 75 L40 40 Z"/>
+        <path d="M80 20 L80 55 L40 75 L40 40 Z"/>
+      </g>
+      <!-- cube 4 -->
+      <g transform="translate(800,75)">
+        <path d="M0 20 L40 0 L80 20 L40 40 Z"/>
+        <path d="M0 20 L0 55 L40 75 L40 40 Z"/>
+        <path d="M80 20 L80 55 L40 75 L40 40 Z"/>
+      </g>
+      <!-- cube 5 : db stack -->
+      <g transform="translate(985,70)">
+        <ellipse cx="40" cy="12" rx="40" ry="14"/>
+        <path d="M0 12 L0 52 A40 14 0 0 0 80 52 L80 12" fill="var(--cover-fill)"/>
+        <ellipse cx="40" cy="12" rx="40" ry="14"/>
+      </g>
+    </g>
+    <!-- connectors -->
+    <g stroke="var(--cover-line)" stroke-width="2.4" fill="none">
+      <path d="M315 152 L418 140"/>
+      <path d="M885 120 L983 108"/>
+    </g>
+    <g stroke="var(--cover-bad)" stroke-width="2.4" fill="none" stroke-dasharray="6 6">
+      <path d="M505 137 L608 125"/>
+      <path d="M695 122 L798 110"/>
+    </g>
+    <!-- break mark over missing cube -->
+    <g stroke="var(--cover-bad)" stroke-width="3.4" stroke-linecap="round">
+      <path d="M636 100 L664 128"/><path d="M664 100 L636 128"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ============ TOP NAV ============ -->
+<nav class="topnav">
+  <button id="sidebarBtn" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
+  <a href="#symptom">Symptom</a>
+  <a href="#diagnosis">Diagnosis</a>
+  <a href="#root-cause">Root cause</a>
+  <a href="#fix">Fix</a>
+  <a href="#upstream">Upstream</a>
+  <a href="#session-context">Startup context</a>
+  <a href="#references">References</a>
+  <button id="themeBtn" title="Toggle dark/light theme" aria-label="Toggle theme">🌓</button>
+</nav>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar" aria-label="Detailed contents">
+  <h3>Contents <button id="sidebarClose" title="Collapse sidebar" aria-label="Collapse sidebar">⟨⟨</button></h3>
+  <div class="sb-group">
+    <button aria-expanded="true">Symptom</button>
+    <ul>
+      <li><a href="#symptom">No memory recall</a></li>
+      <li><a href="#empty-db">The empty database</a></li>
+    </ul>
+  </div>
+  <div class="sb-group">
+    <button aria-expanded="true">Diagnosis</button>
+    <ul>
+      <li><a href="#pipeline">How capture works</a></li>
+      <li><a href="#trail">The evidence trail</a></li>
+      <li><a href="#smoking-gun">The smoking gun</a></li>
+    </ul>
+  </div>
+  <div class="sb-group">
+    <button aria-expanded="true">Root cause</button>
+    <ul>
+      <li><a href="#findbun">findBun() logic</a></li>
+      <li><a href="#two-installs">Two bun installs</a></li>
+    </ul>
+  </div>
+  <div class="sb-group">
+    <button aria-expanded="true">Fix &amp; upstream</button>
+    <ul>
+      <li><a href="#fix">The shim fix</a></li>
+      <li><a href="#verify">Verification</a></li>
+      <li><a href="#upstream">GitHub issue status</a></li>
+    </ul>
+  </div>
+  <div class="sb-group">
+    <button aria-expanded="true">Startup context</button>
+    <ul>
+      <li><a href="#session-context">What gets injected</a></li>
+      <li><a href="#context-anatomy">Anatomy of the block</a></li>
+      <li><a href="#context-tuning">Tuning or silencing it</a></li>
+    </ul>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main>
+  <div class="titleblock">
+    <h1>Why claude-mem Wasn't Remembering</h1>
+    <div class="subtitle">A Windows debugging story: every memory-capture hook silently died because the plugin couldn't find Bun.</div>
+    <div class="meta-line">
+      <span>claude-mem v13.11.0</span><span>Windows 11</span><span>Claude Code plugin</span><span>2026-07-19</span>
+    </div>
+  </div>
+
+  <!-- TLDR -->
+  <div class="card tldr">
+    <h2>TL;DR</h2>
+    <ul>
+      <li><strong>Symptom:</strong> claude-mem never recalled anything from previous sessions — its database contained <strong>zero</strong> observations, ever.</li>
+      <li><strong>Cause:</strong> on Windows, every plugin hook failed instantly with <code>'"bun"' is not recognized as an internal or external command</code>. Nothing was ever captured, so there was nothing to recall.</li>
+      <li><strong>Why:</strong> the plugin's launcher only trusts a <code>bun.cmd</code> shim (what an npm install creates). With the official installer's <code>bun.exe</code>, it spawns the bare word <code>bun</code> through <code>cmd.exe</code>, which can't resolve it in the hook's restricted PATH.<sup class="cite"><a href="#ref-1">[1]</a></sup></li>
+      <li><strong>Fix:</strong> a two-line <code>bun.cmd</code> shim next to <code>bun.exe</code>. Capture verified working immediately after.</li>
+      <li><strong>Upstream:</strong> known open bug (issue #3196) with three fix PRs in flight; no official fix merged yet, and the docs don't mention it.<sup class="cite"><a href="#ref-1">[1]</a></sup><sup class="cite"><a href="#ref-5">[5]</a></sup></li>
+    </ul>
+  </div>
+
+  <!-- ============ SYMPTOM ============ -->
+  <section id="symptom">
+    <h2>1 · Symptom: a memory plugin with amnesia</h2>
+    <p>
+      After installing the <strong>claude-mem</strong> plugin (a persistent cross-session memory system for Claude Code) and using it through a
+      full coding-and-debugging session, a later session couldn't retrieve anything about that work.
+      Searching the memory database returned nothing — not for the file that was worked on, not for any related keyword.
+    </p>
+    <div class="callout bad" id="empty-db">
+      <strong>First hard evidence:</strong> the SQLite database at <code>~/.claude-mem/claude-mem.db</code> was structurally healthy but completely empty —
+      <code>sdk_sessions = 0</code>, <code>observations = 0</code>, <code>user_prompts = 0</code>, <code>session_summaries = 0</code>.
+      This wasn't a <em>retrieval</em> failure. Nothing had ever been <em>stored</em>.
+    </div>
+    <p>
+      Crucially, the counts were zero even for the <em>current</em> session — meaning capture was broken right now, not just during the earlier session. That reframed the search: stop looking at search/recall, start looking at ingestion.
+    </p>
+  </section>
+
+  <!-- ============ DIAGNOSIS ============ -->
+  <section id="diagnosis">
+    <h2>2 · Diagnosis: following the pipeline backwards</h2>
+
+    <h3 id="pipeline">How claude-mem capture is supposed to work</h3>
+    <p>
+      claude-mem registers <strong>Claude Code hooks</strong> — small commands the editor fires on lifecycle events
+      (<code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>PostToolUse</code>, <code>Stop</code>).
+      Each hook pipes the event into a launcher script (<code>bun-runner.js</code>), which runs the plugin's worker under the
+      <strong>Bun</strong> JavaScript runtime. The worker stores events in SQLite and has an AI observer distill them into
+      searchable "observations" that get injected into future sessions.<sup class="cite"><a href="#ref-6">[6]</a></sup>
+    </p>
+
+    <div class="flow" role="img" aria-label="Pipeline: Claude Code session events flow through hooks to bun-runner, which failed at the bun step, so the worker, database and future context injection never received anything.">
+      <div class="node"><b>Claude Code</b><small>session events<br>(prompt, tool use, stop)</small></div>
+      <div class="arrow">➜</div>
+      <div class="node"><b>Hooks</b><small>fire per event</small></div>
+      <div class="arrow">➜</div>
+      <div class="node"><b>bun-runner.js</b><small>launcher (Node)</small></div>
+      <div class="arrow bad">✕</div>
+      <div class="node bad"><b>Bun runtime</b><small>"bun" is not recognized</small></div>
+      <div class="arrow">➜</div>
+      <div class="node"><b>Worker + SQLite</b><small>never receives events</small></div>
+      <div class="arrow">➜</div>
+      <div class="node"><b>Next session</b><small>no context to inject</small></div>
+    </div>
+
+    <h3 id="trail">The evidence trail</h3>
+    <ol class="steps">
+      <li><b>Memory search returned nothing</b><small>Queries for the previous session's work found zero matches.</small></li>
+      <li><b>Database inspection: all tables empty</b><small>Schema fine, worker running, logs clean — but 0 rows everywhere, including for the live session.</small></li>
+      <li><b>Worker &amp; MCP server were healthy</b><small>The background worker started, its HTTP API answered, the search tools loaded. So the storage side was fine — events simply never arrived.</small></li>
+      <li><b>Manual hook test succeeded</b><small>Running the hook command by hand in a full shell produced correct output (exit 0). The plumbing worked — <em>outside</em> the hook environment.</small></li>
+      <li><b>Session transcripts held the answer</b><small>Claude Code records hook results in its session transcript files. Every claude-mem hook had logged a <code>hook_non_blocking_error</code>.</small></li>
+    </ol>
+
+    <h3 id="smoking-gun">The smoking gun</h3>
+    <pre><code>hookName: "SessionStart:startup"   → exitCode 1
+hookName: "UserPromptSubmit"       → exitCode 1
+hookName: "PostToolUse"            → exitCode 1
+
+stderr: '"bun"' is not recognized as an internal or external command,
+        operable program or batch file.</code></pre>
+    <p>
+      Every hook, every event type, every session — the same one-line failure. Because the errors were
+      <em>non-blocking</em>, Claude Code swallowed them silently and sessions carried on normally, which is why the
+      plugin appeared installed and healthy while capturing nothing.
+    </p>
+  </section>
+
+  <!-- ============ ROOT CAUSE ============ -->
+  <section id="root-cause">
+    <h2>3 · Root cause: findBun() and the missing shim</h2>
+
+    <h3 id="findbun">What the launcher actually does</h3>
+    <p>
+      The plugin ships a launcher, <code>bun-runner.js</code>, that locates Bun before delegating to it.
+      On Windows its <code>findBun()</code> runs <code>where bun</code> and then makes a fateful choice:
+      it scans the output <strong>only for a line ending in <code>bun.cmd</code></strong>. If it finds one, it uses that
+      absolute path. If it doesn't — even though <code>where</code> just proved bun exists — it returns the bare string
+      <code>'bun'</code> and spawns it through <code>cmd.exe</code> with <code>shell: true</code>.<sup class="cite"><a href="#ref-1">[1]</a></sup>
+    </p>
+
+    <div class="branch">
+      <div class="path good">
+        <h4>✅ npm-installed Bun (<code>npm i -g bun</code>)</h4>
+        <p style="font-size:.86rem"><code>where bun</code> output includes a <code>bun.cmd</code> shim → launcher uses the <strong>absolute path</strong> → spawn succeeds regardless of PATH.</p>
+      </div>
+      <div class="path broken">
+        <h4>❌ Official installer (<code>bun.exe</code> only)</h4>
+        <p style="font-size:.86rem">No <code>bun.cmd</code> line → launcher falls back to the bare word <code>"bun"</code> → <code>cmd.exe</code> must resolve it from PATH → in the hook's restricted environment it can't → <strong>every hook dies</strong>.</p>
+      </div>
+    </div>
+
+    <p>
+      The irony: <code>findBun()</code> even has a fallback that checks <code>~/.bun/bin/bun.exe</code> directly — but it is only
+      reached when <code>where bun</code> fails <em>entirely</em>. Here <code>where</code> succeeded (finding <code>bun.exe</code>), so the broken
+      bare-string branch won. A manual test from a normal terminal masked the bug, because a full user PATH lets
+      <code>cmd.exe</code> resolve <code>bun</code> just fine.
+    </p>
+
+    <h3 id="two-installs">What is a "shim", and why two installs differ</h3>
+    <p>
+      A <strong>shim</strong> is a tiny wrapper file that stands in for a real program and forwards all arguments to it.
+      When you install Bun via npm, npm auto-generates a <code>bun.cmd</code> shim (Windows batch wrapper) — that's the layout
+      the plugin's happy path expects. The official Bun installer instead places a real <code>bun.exe</code> with no shim,
+      which is exactly the case <code>findBun()</code> mishandles.
+    </p>
+  </section>
+
+  <!-- ============ FIX ============ -->
+  <section id="fix">
+    <h2>4 · The fix: give the launcher the shim it wants</h2>
+    <p>
+      Rather than patching plugin code (which updates would overwrite), the minimal reversible fix is to create the
+      <code>bun.cmd</code> shim the launcher is looking for, right next to the existing <code>bun.exe</code>:
+    </p>
+    <pre><code>:: ~\.bun\bin\bun.cmd
+@echo off
+"%~dp0bun.exe" %*</code></pre>
+    <p>
+      <code>%~dp0</code> expands to the directory the <code>.cmd</code> file lives in, so the shim always calls the
+      <code>bun.exe</code> sitting beside it — no PATH dependence at all. Now <code>where bun</code> returns a
+      <code>bun.cmd</code> line, <code>findBun()</code> takes its absolute path, and the spawn can no longer fail on resolution.
+    </p>
+
+    <div class="flow" role="img" aria-label="After the fix: where bun finds bun.cmd, the launcher uses its absolute path, and events reach the worker and database.">
+      <div class="node"><b>where bun</b><small>now lists bun.cmd</small></div>
+      <div class="arrow">➜</div>
+      <div class="node accent"><b>findBun()</b><small>picks absolute<br><code>...\bun.cmd</code></small></div>
+      <div class="arrow">➜</div>
+      <div class="node ok"><b>Bun runs</b><small>PATH-independent</small></div>
+      <div class="arrow">➜</div>
+      <div class="node ok"><b>Events captured</b><small>worker + SQLite</small></div>
+    </div>
+
+    <h3 id="verify">Verification</h3>
+    <div class="callout ok">
+      Minutes after creating the shim — with no restart — the live session registered itself
+      (<code>sdk_sessions: 0 → 1</code>) and the worker log showed the AI observer actively processing tool-event batches.
+      Hooks run as fresh processes on every event, so the fix took effect immediately.
+    </div>
+    <p>Two honest caveats:</p>
+    <ul style="padding-left:1.3rem; margin-bottom:.9rem;">
+      <li>The earlier session's memory is <strong>gone</strong> — nothing was ever captured, though its raw transcript still exists on disk.</li>
+      <li>Context injection into new sessions begins once observations exist, so recall starts from the <em>next</em> session onward.</li>
+    </ul>
+    <p>
+      An equivalent alternative fix: <code>npm install -g bun</code>, which creates the same style of shim in the npm prefix.
+    </p>
+  </section>
+
+  <!-- ============ UPSTREAM ============ -->
+  <section id="upstream">
+    <h2>5 · Upstream status: known bug, fix not yet merged</h2>
+    <p>
+      This exact failure is reported in the official repository and is <strong>open</strong> as of July 2026, with three
+      candidate fix PRs in flight. The official troubleshooting docs do not cover it — their only Windows-specific note
+      concerns Python.<sup class="cite"><a href="#ref-5">[5]</a></sup> The mirror-image bug (npm's <code>bun.cmd</code>-only layout failing under the
+      old spawn logic) was reported earlier and closed "not planned"; the current <code>bun.cmd</code> preference appears to
+      descend from it — which is precisely why official-installer users break today.<sup class="cite"><a href="#ref-4">[4]</a></sup>
+    </p>
+
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Status</th><th>Summary</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="https://github.com/thedotmack/claude-mem/issues/3196">Issue #3196</a><sup class="cite"><a href="#ref-1">[1]</a></sup></td>
+          <td><span class="pill open">Open</span></td>
+          <td><code>findBun()</code> doesn't check for <code>bun.exe</code> via <code>where bun</code> — falls back to bare <code>'bun'</code>, corrupted by shell quoting. <strong>The bug analyzed here.</strong></td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/thedotmack/claude-mem/pull/3247">PR #3247</a><sup class="cite"><a href="#ref-2">[2]</a></sup></td>
+          <td><span class="pill open">Open</span></td>
+          <td>Resolve <code>bun.exe</code> absolute path; skip <code>cmd.exe</code> entirely for <code>.exe</code> targets.</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/thedotmack/claude-mem/pull/3235">PR #3235</a><sup class="cite"><a href="#ref-3">[3]</a></sup></td>
+          <td><span class="pill open">Open</span></td>
+          <td>Prefer the resolved <code>bun.exe</code> path from <code>where</code> output.</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/thedotmack/claude-mem/pull/3220">PR #3220</a></td>
+          <td><span class="pill draft">Draft</span></td>
+          <td>Outer-wrap + verbatim <code>cmd.exe</code> shim payload.</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/thedotmack/claude-mem/issues/1595">Issue #1595</a><sup class="cite"><a href="#ref-4">[4]</a></sup></td>
+          <td><span class="pill closed">Closed — not planned</span></td>
+          <td>The inverse case: npm-installed <code>bun.cmd</code> failed under old <code>shell: false</code> spawn (ENOENT).</td>
+        </tr>
+        <tr>
+          <td><a href="https://docs.claude-mem.ai/troubleshooting">Official docs</a><sup class="cite"><a href="#ref-5">[5]</a></sup></td>
+          <td><span class="pill draft">Gap</span></td>
+          <td>Troubleshooting page has no Windows/bun guidance.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="callout warn">
+      <strong>Takeaway:</strong> keep the shim (or the npm-installed bun) until a fix from #3247 / #3235 ships in a plugin
+      release. When it does, the shim becomes harmless redundancy — safe to keep or delete.
+    </div>
+  </section>
+
+  <!-- ============ SESSION-START CONTEXT ============ -->
+  <section id="session-context">
+    <h2>6 · Epilogue: what claude-mem shows at session start</h2>
+    <p>
+      With capture fixed, the payoff appears the next time Claude Code starts in the project (including after
+      <code>/clear</code> or <code>/compact</code>): claude-mem's <code>SessionStart</code> hook — registered in the plugin's
+      <code>hooks.json</code> with the matcher <code>startup|clear|compact</code> — injects a compressed summary of previous
+      sessions' work into the fresh session. Each session starts with an empty context, so this replay is the entire
+      recall mechanism: it is plugin behavior, not native Claude Code behavior.
+    </p>
+
+    <h3 id="context-anatomy">Anatomy of the injected block</h3>
+    <pre><code># [&lt;project&gt;] recent context, 2026-07-19 9:45pm GMT+8
+Legend: 🎯session ●bugfix ◆feature ↻refactor ✓change ○discovery ⚖decision
+
+1 9:32p ✓ Created Bun Windows command shim
+2   "   ○ claude-mem parser enforces XML output format
+S2 Is the "bun shim" Windows issue in the official repo? (9:38 PM)
+**Investigated**: GitHub issue tracker searched for bun/Windows failures ...
+**Learned**: tracked as Issue #3196, open, three fix PRs in flight ...
+**Completed**: research done; workaround (bun.cmd shim) validated ...
+**Next Steps**: await merge of #3247 / #3235 / #3220 ...
+
+Stats: 5 obs (1,798t read) | 9,494t work | 81% savings</code></pre>
+
+    <ul style="padding-left:1.3rem; margin-bottom:.9rem;">
+      <li><strong>Numbered observation list</strong> — individual observations recorded during past sessions, tagged by type: ✓ change, ○ discovery, ● bugfix, ◆ feature, ↻ refactor, ⚖ decision.</li>
+      <li><strong>S1 / S2 entries</strong> — per-session summaries; the long <em>Investigated / Learned / Completed / Next Steps</em> paragraphs are the structured summary of the most recent session.</li>
+      <li><strong>Stats line</strong> — the compression ratio: here ~9.5k tokens of recorded work injected as only ~1.8k tokens of summary (≈81% savings).</li>
+    </ul>
+
+    <h3 id="context-tuning">Tuning or silencing it</h3>
+    <div class="callout warn">
+      <strong>Caveat:</strong> the displayed text <em>is</em> the injected memory context itself. Silencing it means
+      injecting less memory — it cannot be hidden while kept.
+    </div>
+
+    <p>The block is configurable via <code>~\.claude-mem\settings.json</code>, from mildest to strongest:</p>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Option</th><th>Setting</th><th>Effect</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Drop the verbose session summary</td>
+          <td><code>"CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": "false"</code></td>
+          <td>Removes the <em>Investigated / Learned / Completed / Next Steps</em> section; keeps the compact observation index.</td>
+        </tr>
+        <tr>
+          <td>Slim down the rest</td>
+          <td><code>"CLAUDE_MEM_CONTEXT_OBSERVATIONS": "10"</code>,<br><code>"CLAUDE_MEM_CONTEXT_SESSION_COUNT": "3"</code></td>
+          <td>Fewer observations and sessions listed (defaults were 50 and 10).</td>
+        </tr>
+        <tr>
+          <td>Disable for a project entirely</td>
+          <td><code>"CLAUDE_MEM_EXCLUDED_PROJECTS": "&lt;project&gt;"</code></td>
+          <td>No capture and no recall for that project — undoes the very pipeline fixed above.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <p>
+      Changes take effect on the next session start; the worker re-reads settings, no reinstall needed.
+      <strong>Decision here:</strong> configuration left unchanged — the injected block doubles as living proof that
+      capture works.
+    </p>
+  </section>
+
+  <!-- ============ REFERENCES ============ -->
+  <section id="references">
+    <h2>References</h2>
+    <ol>
+      <li id="ref-1">claude-mem issue #3196 — <em>[Windows] findBun() doesn't check for bun.exe via 'where bun'</em>. <a href="https://github.com/thedotmack/claude-mem/issues/3196">github.com/thedotmack/claude-mem/issues/3196</a></li>
+      <li id="ref-2">claude-mem PR #3247 — <em>fix(windows): resolve bun.exe absolute path and skip cmd.exe for .exe targets</em>. <a href="https://github.com/thedotmack/claude-mem/pull/3247">github.com/thedotmack/claude-mem/pull/3247</a></li>
+      <li id="ref-3">claude-mem PR #3235 — <em>fix(windows): prefer resolved bun.exe from where</em>. <a href="https://github.com/thedotmack/claude-mem/pull/3235">github.com/thedotmack/claude-mem/pull/3235</a></li>
+      <li id="ref-4">claude-mem issue #1595 — <em>[Windows] spawn bun ENOENT when bun installed via npm</em> (closed, not planned). <a href="https://github.com/thedotmack/claude-mem/issues/1595">github.com/thedotmack/claude-mem/issues/1595</a></li>
+      <li id="ref-5">claude-mem official troubleshooting documentation. <a href="https://docs.claude-mem.ai/troubleshooting">docs.claude-mem.ai/troubleshooting</a></li>
+      <li id="ref-6">claude-mem plugin source (v13.11.0): <code>hooks/hooks.json</code> and <code>scripts/bun-runner.js</code>, inspected locally during diagnosis.</li>
+    </ol>
+  </section>
+
+  <footer>Generated 2026-07-19 · Analysis of claude-mem v13.11.0 on Windows 11 · Single-file, self-contained page</footer>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement;
+
+  // ---- Theme: default to system preference, persist choice ----
+  var saved = localStorage.getItem('cm-theme');
+  if (saved) { root.setAttribute('data-theme', saved); }
+  else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    root.setAttribute('data-theme', 'dark');
+  }
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('cm-theme', next);
+  });
+
+  // ---- Sidebar: horizontal collapse; re-open lives in the top nav ----
+  var sidebar = document.getElementById('sidebar');
+  function setSidebar(hidden) {
+    sidebar.classList.toggle('hidden', hidden);
+    localStorage.setItem('cm-sidebar', hidden ? 'hidden' : 'shown');
+  }
+  document.getElementById('sidebarBtn').addEventListener('click', function () {
+    setSidebar(!sidebar.classList.contains('hidden'));
+  });
+  document.getElementById('sidebarClose').addEventListener('click', function () { setSidebar(true); });
+  if (localStorage.getItem('cm-sidebar') === 'hidden' || window.innerWidth < 1330) {
+    sidebar.classList.add('hidden');
+  }
+
+  // ---- Sidebar groups: vertical collapse ----
+  document.querySelectorAll('.sb-group > button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var g = btn.parentElement;
+      g.classList.toggle('closed');
+      btn.setAttribute('aria-expanded', String(!g.classList.contains('closed')));
+    });
+  });
+})();
+</script>
+</body>
+</html>

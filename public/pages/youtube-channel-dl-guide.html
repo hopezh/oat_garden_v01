@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archiving a YouTube Channel with yt-dlp — Highest Resolution, Rate-Safe</title>
+<meta name="description" content="A yt-dlp workflow to archive a YouTube channel's videos and shorts into separate folders at max resolution, with sidecar metadata, request spacing and a resumable download archive.">
+<meta name="keywords" content="yt-dlp, youtube-archive, batch-download, rate-limiting, download-archive, uv-python">
+<meta name="date" content="2026-07-21">
+<!-- Geist via Fontsource CDN; system fallbacks below keep the page intact if blocked -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/600.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@latest/400.css">
+<style>
+/* ============================================================
+   TOKENS — Hairline Grid system.
+   Surfaces live in a narrow lightness band. Text is never pure
+   white (or pure black). One chromatic accent only.
+   ============================================================ */
+:root{
+  --background:     lab(3% 0 0);
+  --surface-raised: lab(7% 0 0);
+  --surface-hover:  lab(9% 0 0);
+  --border:         lab(13% 0 0);
+  --fg-muted:       lab(73% 0 0);
+  --fg:             lab(88% 0 0);
+  --accent:         lab(82.6% 15.9 66.4);
+  --texture:        lab(5.5% 0 0);
+  --scrim:          lab(3% 0 0 / 0.7);
+
+  --font-sans:'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+  /* Geist Mono ligates "--" and eats the space before it, fusing CLI flags.
+     Commands must render character-exact, so ligatures stay off in mono. */
+  --mono-exact:none;
+
+  --hairline:1px;
+  --pad-card:28px;
+  --pad-x:32px;
+  --max-w:1180px;
+  --sidebar-w:252px;
+}
+/* Light variant — the same ladder inverted. Lightness steps mirror the
+   dark band so contrast relationships, not just colors, are preserved. */
+:root[data-theme="light"]{
+  --background:     lab(99% 0 0);
+  --surface-raised: lab(96% 0 0);
+  --surface-hover:  lab(94% 0 0);
+  --border:         lab(87% 0 0);
+  --fg-muted:       lab(42% 0 0);
+  --fg:             lab(16% 0 0);
+  --accent:         lab(56% 22 62);
+  --texture:        lab(96.5% 0 0);
+  --scrim:          lab(30% 0 0 / 0.4);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; scroll-padding-top:76px; }
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ transition:none !important; }
+}
+body{
+  background:var(--background);
+  color:var(--fg);
+  font-family:var(--font-sans);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{ color:inherit; text-decoration:none; }
+a:focus-visible, button:focus-visible{
+  outline:1px solid var(--accent);
+  outline-offset:-1px;
+}
+svg{ display:block; }
+pre, code, .meta, .meta-value, .fl, .sb-toggle, .tablist [role="tab"]{
+  font-variant-ligatures:var(--mono-exact);
+  font-feature-settings:"liga" 0, "calt" 0;
+}
+
+/* ---------- RULE 1: the hairline grid ---------- */
+.hairline-grid{
+  display:grid;
+  gap:var(--hairline);
+  background:var(--border);
+  border-top:var(--hairline) solid var(--border);
+  border-bottom:var(--hairline) solid var(--border);
+}
+.hairline-grid > *{ background:var(--background); }
+.cols-2,.cols-3{ grid-template-columns:1fr; }
+@media (min-width:640px){
+  .cols-2{ grid-template-columns:repeat(2,1fr); }
+  .cols-3{ grid-template-columns:repeat(2,1fr); }
+}
+@media (min-width:960px){
+  .cols-3{ grid-template-columns:repeat(3,1fr); }
+}
+.span-2{ grid-column:span 1; }
+@media (min-width:640px){ .span-2{ grid-column:span 2; } }
+
+/* ---------- mono is the metadata voice ---------- */
+.meta{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--fg-muted);
+}
+.meta-value{ font-family:var(--font-mono); font-size:12px; color:var(--fg-muted); }
+.accent{ color:var(--accent); }
+code{
+  font-family:var(--font-mono); font-size:0.88em;
+  background:var(--surface-raised); padding:1px 5px; color:var(--fg);
+}
+
+/* ---------- top nav ---------- */
+nav{
+  position:sticky; top:0; z-index:40;
+  display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px;
+  padding:14px var(--pad-x);
+  background:var(--background);
+  border-bottom:var(--hairline) solid var(--border);
+}
+nav .wordmark{ font-weight:600; letter-spacing:-0.02em; font-size:15px; white-space:nowrap; }
+nav .navlinks{
+  display:flex; justify-content:center; flex-wrap:wrap; gap:4px 22px;
+  font-family:var(--font-mono); font-size:12px; color:var(--fg-muted);
+}
+nav .navlinks a{ transition:color 150ms ease; }
+nav .navlinks a:hover{ color:var(--fg); }
+nav .tools{ display:flex; align-items:center; gap:8px; }
+.iconbtn{
+  background:none; border:var(--hairline) solid var(--border); color:var(--fg-muted);
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+  padding:7px 10px; cursor:pointer; transition:background-color 150ms ease, color 150ms ease;
+  display:flex; align-items:center; gap:7px; white-space:nowrap;
+}
+.iconbtn:hover{ background:var(--surface-hover); color:var(--fg); }
+@media (max-width:900px){
+  nav{ grid-template-columns:auto auto; }
+  nav .navlinks{ display:none; }
+}
+
+/* ---------- cover band ---------- */
+.cover{
+  width:100%; height:280px; overflow:hidden;
+  border-bottom:var(--hairline) solid var(--border);
+  background:var(--surface-raised);
+}
+.cover svg{ width:100%; height:280px; }
+@media (max-width:640px){ .cover, .cover svg{ height:190px; } }
+
+/* ---------- sidebar ---------- */
+#sidebar{
+  position:fixed; top:57px; bottom:0; left:0; width:var(--sidebar-w); z-index:35;
+  background:var(--background);
+  border-right:var(--hairline) solid var(--border);
+  overflow-y:auto; padding-bottom:40px;
+  transform:translateX(-100%);
+  transition:transform 150ms ease;
+}
+#sidebar.open{ transform:translateX(0); }
+#scrim{
+  position:fixed; inset:57px 0 0 0; z-index:34; background:var(--scrim);
+  display:none;
+}
+#scrim.on{ display:block; }
+.sb-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:var(--hairline) solid var(--border);
+}
+.sb-group{ border-bottom:var(--hairline) solid var(--border); }
+.sb-toggle{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:none; border:none; cursor:pointer; text-align:left;
+  padding:13px 18px; color:var(--fg);
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+  transition:background-color 150ms ease;
+}
+.sb-toggle:hover{ background:var(--surface-hover); }
+.sb-toggle .chev{ color:var(--fg-muted); transition:transform 150ms ease; }
+.sb-toggle[aria-expanded="false"] .chev{ transform:rotate(-90deg); }
+.sb-items{ display:flex; flex-direction:column; padding-bottom:8px; }
+.sb-items[hidden]{ display:none; }
+.sb-items a{
+  padding:8px 18px 8px 24px; font-size:13px; color:var(--fg-muted);
+  transition:background-color 150ms ease, color 150ms ease;
+}
+.sb-items a:hover{ background:var(--surface-hover); color:var(--fg); }
+.sb-items a .hash{ color:var(--accent); margin-right:6px; font-family:var(--font-mono); }
+
+/* ---------- page frame — centered in the window, not to the sidebar ---------- */
+.frame{
+  max-width:var(--max-w); margin:0 auto;
+  border-left:var(--hairline) solid var(--border);
+  border-right:var(--hairline) solid var(--border);
+}
+
+/* ---------- title block ---------- */
+.titleblock{ padding:56px var(--pad-x) 44px; border-bottom:var(--hairline) solid var(--border); }
+.titleblock h1{
+  font-size:clamp(36px,5.2vw,60px); font-weight:400; line-height:1.05;
+  letter-spacing:-1.5px; margin:14px 0 22px;
+}
+.titleblock p.lede{ color:var(--fg-muted); font-size:17px; line-height:1.6; max-width:56ch; }
+
+/* ---------- TLDR ---------- */
+.tldr{
+  padding:30px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+  background:
+    repeating-linear-gradient(45deg, transparent 0 6px, var(--texture) 6px 7px);
+}
+.tldr h2{ font-size:20px; font-weight:600; letter-spacing:-0.4px; margin:10px 0 14px; }
+.tldr p{ color:var(--fg-muted); font-size:15px; line-height:1.62; max-width:78ch; }
+.tldr ul{ margin:14px 0 0; padding:0; list-style:none; display:grid; gap:9px; }
+.tldr li{
+  display:grid; grid-template-columns:18px 1fr; gap:12px;
+  font-size:14px; line-height:1.6; color:var(--fg-muted);
+}
+.tldr li .tick{ color:var(--accent); font-family:var(--font-mono); }
+.tldr li b{ color:var(--fg); font-weight:600; }
+
+/* ---------- sections ---------- */
+section{ border-bottom:var(--hairline) solid var(--border); }
+section:last-of-type{ border-bottom:none; }
+.section-header{
+  display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+  padding:20px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+}
+.section-header h2{ font-size:24px; font-weight:600; letter-spacing:-0.6px; line-height:1.33; }
+.prose{ padding:26px var(--pad-x); }
+.prose + .prose{ border-top:var(--hairline) solid var(--border); }
+.prose h3{ font-size:20px; font-weight:600; letter-spacing:-0.4px; margin-bottom:10px; }
+.prose p{ color:var(--fg-muted); font-size:14px; line-height:1.62; max-width:76ch; }
+.prose p + p{ margin-top:12px; }
+
+/* ---------- cards ---------- */
+.card{
+  display:flex; flex-direction:column; gap:12px; padding:var(--pad-card);
+  transition:background-color 150ms ease;
+}
+.card.link{ cursor:pointer; }
+.card.link:hover{ background:var(--surface-hover); }
+.card .title-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.card h3{ font-size:20px; font-weight:600; letter-spacing:-0.4px; line-height:1.2; }
+.card p{ font-size:14px; line-height:1.62; color:var(--fg-muted); }
+.card .spec{ margin-top:auto; padding-top:8px; }
+.card .arrow{ color:var(--fg-muted); flex:none; transition:color 150ms ease; }
+.card.link:hover .arrow{ color:var(--fg); }
+
+/* ---------- code ---------- */
+pre{
+  font-family:var(--font-mono); font-size:12.5px; line-height:1.7;
+  color:var(--fg-muted); background:var(--surface-raised);
+  padding:24px var(--pad-x); overflow-x:auto;
+}
+pre .c{ color:var(--fg-muted); opacity:0.62; }
+pre .k{ color:var(--fg); }
+pre .a{ color:var(--accent); }
+.codewrap{ position:relative; }
+.copybtn{
+  position:absolute; top:10px; right:10px;
+  background:var(--background); border:var(--hairline) solid var(--border);
+  color:var(--fg-muted); font-family:var(--font-mono); font-size:10px;
+  letter-spacing:0.08em; text-transform:uppercase; padding:6px 9px; cursor:pointer;
+  transition:background-color 150ms ease, color 150ms ease;
+}
+.copybtn:hover{ background:var(--surface-hover); color:var(--fg); }
+
+/* ---------- OS tabs ---------- */
+.ostabs{ border-top:var(--hairline) solid var(--border); }
+.tablist{
+  display:flex; gap:0; overflow-x:auto;
+  border-bottom:var(--hairline) solid var(--border);
+  background:var(--border);
+}
+.tablist [role="tab"]{
+  background:var(--background); border:none; cursor:pointer;
+  padding:12px 20px; margin-right:var(--hairline);
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--fg-muted); white-space:nowrap;
+  transition:background-color 150ms ease, color 150ms ease;
+}
+.tablist [role="tab"]:hover{ background:var(--surface-hover); color:var(--fg); }
+.tablist [role="tab"][aria-selected="true"]{ color:var(--accent); background:var(--surface-raised); }
+[role="tabpanel"][hidden]{ display:none; }
+
+/* ---------- rule list ---------- */
+.rules{ padding:0; }
+.rules li{
+  list-style:none; display:grid; grid-template-columns:20px 1fr; gap:14px;
+  padding:16px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+  font-size:14px; line-height:1.6; color:var(--fg-muted);
+}
+.rules li:last-child{ border-bottom:none; }
+.rules li b{ color:var(--fg); font-weight:600; }
+.rules .tick{ color:var(--accent); font-family:var(--font-mono); }
+
+/* ---------- flag table ---------- */
+.flagrow{
+  display:grid; grid-template-columns:1fr; gap:6px 18px;
+  padding:18px var(--pad-x);
+}
+@media (min-width:760px){ .flagrow{ grid-template-columns:290px 1fr; align-items:baseline; } }
+.flagrow .fl{ font-family:var(--font-mono); font-size:12px; color:var(--accent); word-break:break-word; }
+.flagrow .fd{ font-size:14px; line-height:1.6; color:var(--fg-muted); }
+.flagrow .fd b{ color:var(--fg); font-weight:600; }
+
+/* ---------- figures ---------- */
+figure{ padding:26px var(--pad-x); border-top:var(--hairline) solid var(--border); }
+figure svg{ width:100%; height:auto; }
+figcaption{
+  margin-top:14px; font-family:var(--font-mono); font-size:11px;
+  letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted);
+}
+.fig-line{ stroke:var(--border); stroke-width:1; fill:none; }
+.fig-edge{ stroke:var(--fg-muted); stroke-width:1; fill:none; }
+.fig-accent{ stroke:var(--accent); stroke-width:1.5; fill:none; }
+.fig-fill{ fill:var(--surface-raised); }
+.fig-fill-h{ fill:var(--surface-hover); }
+.fig-accent-fill{ fill:var(--accent); }
+.fig-t{ fill:var(--fg); font-family:var(--font-sans); font-size:12px; }
+.fig-m{ fill:var(--fg-muted); font-family:var(--font-mono); font-size:10px; letter-spacing:0.05em; }
+
+/* ---------- citations ---------- */
+sup.cite a{
+  font-family:var(--font-mono); font-size:10px; color:var(--accent);
+  padding:0 1px; vertical-align:super;
+}
+.reflist li{
+  list-style:none; display:grid; grid-template-columns:26px 1fr; gap:14px;
+  padding:14px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+  font-size:13px; line-height:1.6; color:var(--fg-muted);
+}
+.reflist li:last-child{ border-bottom:none; }
+.reflist .n{ font-family:var(--font-mono); color:var(--accent); font-size:12px; }
+.reflist a{ color:var(--fg); border-bottom:1px solid var(--border); }
+.reflist a:hover{ border-bottom-color:var(--accent); }
+
+footer{
+  display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center;
+  padding:24px var(--pad-x); border-top:var(--hairline) solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="wordmark">yt&#8209;dlp&nbsp;<span class="accent">/</span>&nbsp;channel&nbsp;archive</span>
+  <div class="navlinks">
+    <a href="#prereq">prerequisites</a>
+    <a href="#survey">survey</a>
+    <a href="#commands">commands</a>
+    <a href="#single">single video</a>
+    <a href="#flags">flag rationale</a>
+    <a href="#notes">practice</a>
+    <a href="#refs">references</a>
+  </div>
+  <div class="tools">
+    <button class="iconbtn" id="sbBtn" aria-expanded="false" aria-controls="sidebar" title="Toggle contents sidebar">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M1.5 3h13M1.5 8h13M1.5 13h13" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <span>Contents</span>
+    </button>
+    <button class="iconbtn" id="themeBtn" title="Toggle dark / light theme">
+      <span id="themeIcon">◐</span><span id="themeLabel">Light</span>
+    </button>
+  </div>
+</nav>
+
+<div id="scrim"></div>
+
+<!-- ============================ SIDEBAR ============================ -->
+<aside id="sidebar" aria-label="Detailed contents">
+  <div class="sb-head">
+    <span class="meta">Contents</span>
+    <button class="iconbtn" id="sbClose" title="Collapse sidebar" aria-label="Collapse sidebar">✕</button>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g1">
+      <span>00 · Overview</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g1">
+      <a href="#tldr"><span class="hash">#</span>tldr</a>
+      <a href="#pipeline"><span class="hash">#</span>the pipeline</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g2">
+      <span>01 · Prerequisites</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g2">
+      <a href="#prereq"><span class="hash">#</span>project-scoped yt-dlp</a>
+      <a href="#runtime"><span class="hash">#</span>deno &amp; ffmpeg</a>
+      <a href="#verify"><span class="hash">#</span>verify the toolchain</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g3">
+      <span>02 · Survey first</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g3">
+      <a href="#survey"><span class="hash">#</span>flat-playlist listing</a>
+      <a href="#scope"><span class="hash">#</span>measured scope</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g4">
+      <span>03 · The commands</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g4">
+      <a href="#commands"><span class="hash">#</span>long-form videos</a>
+      <a href="#shorts"><span class="hash">#</span>shorts</a>
+      <a href="#layout"><span class="hash">#</span>resulting layout</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="gsv">
+      <span>04 · Single video</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="gsv">
+      <a href="#single"><span class="hash">#</span>one URL, fewer flags</a>
+      <a href="#transcripts"><span class="hash">#</span>transcripts by language</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g5">
+      <span>05 · Flag rationale</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g5">
+      <a href="#resolution"><span class="hash">#</span>resolution</a>
+      <a href="#spacing"><span class="hash">#</span>request spacing</a>
+      <a href="#sidecars"><span class="hash">#</span>metadata sidecars</a>
+      <a href="#archive"><span class="hash">#</span>archive &amp; naming</a>
+      <a href="#resilience"><span class="hash">#</span>resilience</a>
+    </div>
+  </div>
+
+  <div class="sb-group">
+    <button class="sb-toggle" aria-expanded="true" aria-controls="g6">
+      <span>06 · In practice</span><span class="chev">▾</span>
+    </button>
+    <div class="sb-items" id="g6">
+      <a href="#notes"><span class="hash">#</span>pitfalls</a>
+      <a href="#budget"><span class="hash">#</span>time budget</a>
+      <a href="#refs"><span class="hash">#</span>references</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover" role="img" aria-label="Axonometric wireframe: a channel's video tiles streaming down into two archive slabs">
+<svg viewBox="0 0 1400 280" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <!-- ground grid, axonometric -->
+  <g class="fig-line" opacity="0.85">
+    <path d="M-100 232 L1500 232 M-100 210 L1500 210 M-100 188 L1500 188 M-100 166 L1500 166"/>
+    <path d="M120 280 L260 120 M240 280 L380 120 M360 280 L500 120 M480 280 L620 120 M600 280 L740 120
+             M720 280 L860 120 M840 280 L980 120 M960 280 L1100 120 M1080 280 L1220 120 M1200 280 L1340 120"/>
+  </g>
+
+  <!-- source: channel plane, upper left -->
+  <g transform="translate(150,34)">
+    <path class="fig-edge" d="M0 40 L120 4 L240 40 L120 76 Z"/>
+    <path class="fig-line" d="M30 40 L120 13 L210 40 M60 51 L180 51"/>
+    <text class="fig-m" x="120" y="98" text-anchor="middle">@channel</text>
+  </g>
+
+  <!-- stream of video tiles, descending isometric -->
+  <g>
+    <g transform="translate(430,60)">
+      <path class="fig-fill" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-edge" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-edge" d="M0 26 L0 40 L52 56 L104 40 L104 26" opacity="0.55"/>
+    </g>
+    <g transform="translate(546,96)">
+      <path class="fig-fill" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-edge" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-edge" d="M0 26 L0 40 L52 56 L104 40 L104 26" opacity="0.55"/>
+    </g>
+    <g transform="translate(662,132)">
+      <path class="fig-fill-h" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-accent" d="M0 26 L52 10 L104 26 L52 42 Z"/>
+      <path class="fig-edge" d="M0 26 L0 40 L52 56 L104 40 L104 26" opacity="0.55"/>
+    </g>
+  </g>
+
+  <!-- spacing ticks between tiles: the sleep intervals -->
+  <g class="fig-accent" opacity="0.85">
+    <path d="M540 96 L546 96 M544 90 L544 102"/>
+    <path d="M656 132 L662 132 M660 126 L660 138"/>
+  </g>
+
+  <!-- two destination slabs -->
+  <g transform="translate(900,120)">
+    <path class="fig-fill" d="M0 34 L150 -12 L300 34 L150 80 Z"/>
+    <path class="fig-edge" d="M0 34 L150 -12 L300 34 L150 80 Z"/>
+    <path class="fig-edge" d="M0 34 L0 62 L150 108 L300 62 L300 34" opacity="0.6"/>
+    <path class="fig-line" d="M46 34 L150 2 M104 48 L254 48"/>
+    <text class="fig-m" x="150" y="132" text-anchor="middle">marathon-videos</text>
+  </g>
+  <g transform="translate(1070,44)">
+    <path class="fig-fill" d="M0 26 L92 -2 L184 26 L92 54 Z"/>
+    <path class="fig-edge" d="M0 26 L92 -2 L184 26 L92 54 Z"/>
+    <path class="fig-edge" d="M0 26 L0 46 L92 74 L184 46 L184 26" opacity="0.6"/>
+    <text class="fig-m" x="92" y="96" text-anchor="middle">marathon-shorts</text>
+  </g>
+
+  <!-- flow lines -->
+  <g class="fig-edge" opacity="0.45">
+    <path d="M392 74 L430 86"/>
+    <path d="M766 158 L900 154"/>
+    <path d="M766 158 L1070 70"/>
+  </g>
+
+  <!-- accent tick marks: resolution ladder -->
+  <g transform="translate(1250,150)">
+    <rect class="fig-accent-fill" x="0" y="46" width="12" height="14"/>
+    <rect class="fig-accent-fill" x="20" y="30" width="12" height="30" opacity="0.7"/>
+    <rect class="fig-accent-fill" x="40" y="8" width="12" height="52" opacity="0.45"/>
+    <text class="fig-m" x="0" y="78">2160p</text>
+  </g>
+</svg>
+</div>
+
+<!-- ============================ FRAME ============================ -->
+<div class="frame">
+
+  <div class="titleblock">
+    <p class="meta">Recipe · yt-dlp 2026.06.09 · project-scoped via uv</p>
+    <h1>Archive a whole channel,<br>at <span class="accent">full resolution</span>,<br>without getting blocked.</h1>
+    <p class="lede">Two commands pull a YouTube channel's long-form videos and Shorts into separate folders — best available quality, metadata alongside, request spacing tuned so a 200-item run finishes instead of collecting <code>403</code>s halfway through.</p>
+  </div>
+
+  <!-- TLDR -->
+  <div class="tldr" id="tldr">
+    <p class="meta">TL;DR</p>
+    <h2>Survey, then download — twice, sequentially</h2>
+    <p>List the channel with <code>--flat-playlist</code> before committing. Then run one <code>yt-dlp</code> invocation per tab (<code>/videos</code>, <code>/shorts</code>), each with its own output folder and its own <code>--download-archive</code>. Leave the format selector alone — the default already resolves to the highest quality.</p>
+    <ul>
+      <li><span class="tick">→</span><span><b>No <code>-f</code> flag.</b> The default <code>bv*+ba/b</code> is max resolution; <code>-f best</code> would silently cap you near 720p.<sup class="cite"><a href="#ref2">[2]</a></sup></span></li>
+      <li><span class="tick">→</span><span><b>Three spacing knobs,</b> not one: metadata requests, downloads, and subtitle fetches each burst separately.</span></li>
+      <li><span class="tick">→</span><span><b><code>--download-archive</code> makes the run resumable</b> — re-running the identical command fetches only what is new.<sup class="cite"><a href="#ref5">[5]</a></sup></span></li>
+      <li><span class="tick">→</span><span><b><code>%(upload_date)s</code> leads the filename,</b> or the folder sorts alphabetically by title, which is useless for a channel.</span></li>
+      <li><span class="tick">→</span><span><b>Run the two commands one after the other,</b> never in parallel — concurrency defeats the spacing.</span></li>
+    </ul>
+  </div>
+
+  <!-- ==================== PIPELINE FIGURE ==================== -->
+  <section id="pipeline">
+    <div class="section-header">
+      <h2>What actually happens per video</h2>
+      <span class="meta">overview · one pass</span>
+    </div>
+    <figure style="border-top:none">
+      <svg viewBox="0 0 1120 250" role="img" aria-label="Pipeline: channel URL enumerated to video IDs, each fetched as separate video and audio streams, merged by ffmpeg, written with sidecar files, and recorded in the download archive">
+        <!-- stage boxes -->
+        <g>
+          <rect class="fig-fill" x="8" y="70" width="150" height="62"/>
+          <rect x="8" y="70" width="150" height="62" fill="none" class="fig-edge"/>
+          <text class="fig-t" x="83" y="96" text-anchor="middle">channel URL</text>
+          <text class="fig-m" x="83" y="115" text-anchor="middle">/videos · /shorts</text>
+        </g>
+        <path class="fig-edge" d="M158 101 L206 101"/>
+        <path class="fig-accent-fill" d="M206 101 l-8 -4 v8 z"/>
+
+        <g>
+          <rect class="fig-fill" x="212" y="70" width="164" height="62"/>
+          <rect x="212" y="70" width="164" height="62" fill="none" class="fig-edge"/>
+          <text class="fig-t" x="294" y="96" text-anchor="middle">enumerate</text>
+          <text class="fig-m" x="294" y="115" text-anchor="middle">--flat-playlist</text>
+        </g>
+        <path class="fig-edge" d="M376 101 L424 101"/>
+        <path class="fig-accent-fill" d="M424 101 l-8 -4 v8 z"/>
+
+        <!-- split: video + audio -->
+        <g>
+          <rect class="fig-fill" x="430" y="26" width="176" height="54"/>
+          <rect x="430" y="26" width="176" height="54" fill="none" class="fig-accent"/>
+          <text class="fig-t" x="518" y="48" text-anchor="middle">best video stream</text>
+          <text class="fig-m" x="518" y="66" text-anchor="middle">bv*  ·  av01 / vp9 · 2160p</text>
+        </g>
+        <g>
+          <rect class="fig-fill" x="430" y="122" width="176" height="54"/>
+          <rect x="430" y="122" width="176" height="54" fill="none" class="fig-accent"/>
+          <text class="fig-t" x="518" y="144" text-anchor="middle">best audio stream</text>
+          <text class="fig-m" x="518" y="162" text-anchor="middle">ba  ·  opus / m4a</text>
+        </g>
+        <path class="fig-edge" d="M424 101 L424 53 L430 53 M424 101 L424 149 L430 149" opacity="0.7"/>
+
+        <path class="fig-edge" d="M606 53 L650 53 L650 101 L676 101 M606 149 L650 149 L650 101" opacity="0.7"/>
+        <path class="fig-accent-fill" d="M676 101 l-8 -4 v8 z"/>
+
+        <g>
+          <rect class="fig-fill" x="682" y="70" width="140" height="62"/>
+          <rect x="682" y="70" width="140" height="62" fill="none" class="fig-edge"/>
+          <text class="fig-t" x="752" y="96" text-anchor="middle">ffmpeg merge</text>
+          <text class="fig-m" x="752" y="115" text-anchor="middle">mkv / mp4</text>
+        </g>
+        <path class="fig-edge" d="M822 101 L870 101"/>
+        <path class="fig-accent-fill" d="M870 101 l-8 -4 v8 z"/>
+
+        <g>
+          <rect class="fig-fill" x="876" y="44" width="236" height="114"/>
+          <rect x="876" y="44" width="236" height="114" fill="none" class="fig-edge"/>
+          <text class="fig-t" x="994" y="68" text-anchor="middle">written to disk</text>
+          <path class="fig-line" d="M876 80 L1112 80"/>
+          <text class="fig-m" x="894" y="100">20260602 - Title [id].mkv</text>
+          <text class="fig-m" x="894" y="118">…info.json · …webp · …en.vtt</text>
+          <path class="fig-line" d="M876 130 L1112 130"/>
+          <text class="fig-m" x="894" y="150" fill="var(--accent)">id → .ytdl-archive.txt</text>
+        </g>
+
+        <!-- sleep annotation -->
+        <g transform="translate(212,196)">
+          <path class="fig-accent" d="M0 0 L0 26 M0 13 L700 13 M700 0 L700 26"/>
+          <rect class="fig-fill" x="250" y="0" width="204" height="26"/>
+          <text class="fig-m" x="352" y="17" text-anchor="middle" fill="var(--accent)">spacing applies across this span</text>
+        </g>
+      </svg>
+      <figcaption>Fig. 1 — Default format selection splits every video into two streams, then re-merges them locally. That split is why ffmpeg is mandatory for max resolution.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ==================== 01 PREREQUISITES ==================== -->
+  <section id="prereq">
+    <div class="section-header">
+      <h2>01 · Prerequisites</h2>
+      <span class="meta">three pieces · one project-scoped</span>
+    </div>
+
+    <div class="hairline-grid cols-3" style="border-top:none">
+      <div class="card">
+        <div class="title-row"><h3>yt-dlp</h3></div>
+        <p>Lives inside the project's virtualenv, not on <code>PATH</code>. Every command therefore goes through <code>uv run</code>, which resolves the venv without activation.<sup class="cite"><a href="#ref6">[6]</a></sup></p>
+        <span class="meta-value spec accent">project-scoped</span>
+      </div>
+      <div class="card">
+        <div class="title-row"><h3>Deno</h3></div>
+        <p>YouTube wraps player logic in JavaScript that must be executed to see the full format list and solve the <code>n</code>-parameter challenge. Without a JS runtime, some videos fail with <code>HTTP 403</code>.<sup class="cite"><a href="#ref4">[4]</a></sup></p>
+        <span class="meta-value spec">system-wide</span>
+      </div>
+      <div class="card">
+        <div class="title-row"><h3>FFmpeg</h3></div>
+        <p>The highest-resolution renditions ship as separate video and audio streams. FFmpeg is what merges them back into one file — without it, yt-dlp falls back to lower pre-muxed formats.<sup class="cite"><a href="#ref7">[7]</a></sup></p>
+        <span class="meta-value spec">system-wide</span>
+      </div>
+    </div>
+
+    <div class="prose" id="runtime">
+      <h3>Installing the two system-wide pieces</h3>
+      <p>Only Deno and FFmpeg are installed globally; yt-dlp deliberately is not. Skip this entirely if <code>deno --version</code> and <code>ffmpeg -version</code> already answer.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Install commands by operating system">
+        <button role="tab" data-os="windows" id="t-inst-win" aria-controls="p-inst-win">Windows</button>
+        <button role="tab" data-os="macos" id="t-inst-mac" aria-controls="p-inst-mac">macOS</button>
+        <button role="tab" data-os="linux" id="t-inst-lin" aria-controls="p-inst-lin">Linux</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-inst-win" aria-labelledby="t-inst-win">
+<pre><span class="c"># PowerShell — winget</span>
+winget install <span class="a">DenoLand.Deno</span>
+winget install <span class="a">Gyan.FFmpeg</span>
+
+<span class="c"># reopen the terminal so PATH refreshes, then confirm</span>
+deno --version; ffmpeg -version</pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-inst-mac" aria-labelledby="t-inst-mac" hidden>
+<pre><span class="c"># Homebrew</span>
+brew install <span class="a">deno</span>
+brew install <span class="a">ffmpeg</span>
+
+deno --version &amp;&amp; ffmpeg -version</pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-inst-lin" aria-labelledby="t-inst-lin" hidden>
+<pre><span class="c"># Deno installer + your distro's package manager</span>
+curl -fsSL https://deno.land/install.sh | sh
+sudo apt install <span class="a">ffmpeg</span>   <span class="c"># or dnf / pacman</span>
+
+deno --version &amp;&amp; ffmpeg -version</pre>
+      </div>
+    </div>
+
+    <div class="prose" id="verify">
+      <h3>Verify the toolchain</h3>
+      <p>One command confirms the venv binary resolves. If this prints a version, every later command in this guide will run.</p>
+    </div>
+    <div class="codewrap">
+      <pre><span class="c"># from the project root</span>
+uv run yt-dlp --version
+<span class="c">→ 2026.06.09</span></pre>
+    </div>
+  </section>
+
+  <!-- ==================== 02 SURVEY ==================== -->
+  <section id="survey">
+    <div class="section-header">
+      <h2>02 · Look before you leap</h2>
+      <span class="meta">step one · costs nothing</span>
+    </div>
+
+    <div class="prose" style="border-top:none">
+      <p><code>--flat-playlist</code> enumerates a channel without touching a single media stream: it resolves the tab to a list of IDs and stops. Run it first — it tells you the real size of the job and confirms the URL resolves before you commit to hours of downloading.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Survey command by operating system">
+        <button role="tab" data-os="windows" id="t-sv-win" aria-controls="p-sv-win">Windows</button>
+        <button role="tab" data-os="macos" id="t-sv-mac" aria-controls="p-sv-mac">macOS</button>
+        <button role="tab" data-os="linux" id="t-sv-lin" aria-controls="p-sv-lin">Linux</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-sv-win" aria-labelledby="t-sv-win">
+<pre>uv run yt-dlp --flat-playlist --print <span class="a">"%(id)s  %(title)s"</span> <span class="k">"https://www.youtube.com/@MarathonTheGame/videos"</span>
+uv run yt-dlp --flat-playlist --print <span class="a">"%(id)s  %(title)s"</span> <span class="k">"https://www.youtube.com/@MarathonTheGame/shorts"</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-sv-mac" aria-labelledby="t-sv-mac" hidden>
+<pre>uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span> <span class="k">'https://www.youtube.com/@MarathonTheGame/videos'</span>
+uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span> <span class="k">'https://www.youtube.com/@MarathonTheGame/shorts'</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-sv-lin" aria-labelledby="t-sv-lin" hidden>
+<pre>uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span> <span class="k">'https://www.youtube.com/@MarathonTheGame/videos'</span>
+uv run yt-dlp --flat-playlist --print <span class="a">'%(id)s  %(title)s'</span> <span class="k">'https://www.youtube.com/@MarathonTheGame/shorts'</span></pre>
+      </div>
+    </div>
+
+    <figure id="scope">
+      <svg viewBox="0 0 1120 190" role="img" aria-label="Bar chart: the videos tab holds 50 items, the shorts tab holds 169 items, 219 in total">
+        <text class="fig-m" x="0" y="16">MEASURED SCOPE · ONE CHANNEL · TWO TABS</text>
+        <!-- axis -->
+        <path class="fig-line" d="M150 38 L150 158 M150 158 L1100 158"/>
+        <!-- videos bar -->
+        <text class="fig-t" x="140" y="72" text-anchor="end">/videos</text>
+        <rect class="fig-accent-fill" x="152" y="52" width="216" height="28" opacity="0.45"/>
+        <text class="fig-m" x="382" y="71">50 items · 30 s – 23 min each</text>
+        <!-- shorts bar -->
+        <text class="fig-t" x="140" y="124" text-anchor="end">/shorts</text>
+        <rect class="fig-accent-fill" x="152" y="104" width="730" height="28"/>
+        <text class="fig-m" x="896" y="123">169 items · vertical, &lt; 60 s</text>
+        <!-- total -->
+        <text class="fig-m" x="152" y="180">TOTAL 219 ITEMS — THE SHORTS TAB IS 3.4× THE LONG-FORM TAB</text>
+      </svg>
+      <figcaption>Fig. 2 — Real counts from a survey run. Shorts dominate the item count while contributing a fraction of the bytes; that asymmetry is why request spacing matters more than bandwidth.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ==================== 03 COMMANDS ==================== -->
+  <section id="commands">
+    <div class="section-header">
+      <h2>03 · The download commands</h2>
+      <span class="meta">step two · run sequentially</span>
+    </div>
+
+    <div class="prose" style="border-top:none">
+      <h3>Long-form → <code>./downloads/marathon-videos</code></h3>
+      <p>The commands below are runnable as written against <code>@MarathonTheGame</code>; swap that handle for your own. They differ only in line-continuation syntax — every flag is identical across platforms. A handle that does not resolve fails fast with <code>HTTP Error 404</code> and <code>Requested entity was not found</code>, retried three times before giving up.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Long-form download command by operating system">
+        <button role="tab" data-os="windows" id="t-v-win" aria-controls="p-v-win">Windows · PowerShell</button>
+        <button role="tab" data-os="macos" id="t-v-mac" aria-controls="p-v-mac">macOS · bash/zsh</button>
+        <button role="tab" data-os="linux" id="t-v-lin" aria-controls="p-v-lin">Linux · bash</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-v-win" aria-labelledby="t-v-win">
+<pre>uv run yt-dlp `
+  --download-archive <span class="a">"downloads/marathon-videos/.ytdl-archive.txt"</span> `
+  -o <span class="a">"downloads/marathon-videos/%(upload_date)s - %(title)s [%(id)s].%(ext)s"</span> `
+  --write-info-json --write-thumbnail --write-description `
+  --write-subs --write-auto-subs --sub-langs <span class="a">"en.*"</span> `
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> `
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> `
+  --ignore-errors `
+  <span class="k">"https://www.youtube.com/@MarathonTheGame/videos"</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-v-mac" aria-labelledby="t-v-mac" hidden>
+<pre>uv run yt-dlp \
+  --download-archive <span class="a">'downloads/marathon-videos/.ytdl-archive.txt'</span> \
+  -o <span class="a">'downloads/marathon-videos/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> \
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> \
+  --ignore-errors \
+  <span class="k">'https://www.youtube.com/@MarathonTheGame/videos'</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-v-lin" aria-labelledby="t-v-lin" hidden>
+<pre>uv run yt-dlp \
+  --download-archive <span class="a">'downloads/marathon-videos/.ytdl-archive.txt'</span> \
+  -o <span class="a">'downloads/marathon-videos/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> \
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> \
+  --ignore-errors \
+  <span class="k">'https://www.youtube.com/@MarathonTheGame/videos'</span></pre>
+      </div>
+    </div>
+
+    <div class="prose" id="shorts">
+      <h3>Shorts → <code>./downloads/marathon-shorts</code></h3>
+      <p>Identical invocation. Exactly three things change: the archive path, the output path, and the tab in the URL. Keeping the archives separate keeps the two runs independent and individually resumable.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Shorts download command by operating system">
+        <button role="tab" data-os="windows" id="t-s-win" aria-controls="p-s-win">Windows · PowerShell</button>
+        <button role="tab" data-os="macos" id="t-s-mac" aria-controls="p-s-mac">macOS · bash/zsh</button>
+        <button role="tab" data-os="linux" id="t-s-lin" aria-controls="p-s-lin">Linux · bash</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-s-win" aria-labelledby="t-s-win">
+<pre>uv run yt-dlp `
+  --download-archive <span class="a">"downloads/marathon-shorts/.ytdl-archive.txt"</span> `
+  -o <span class="a">"downloads/marathon-shorts/%(upload_date)s - %(title)s [%(id)s].%(ext)s"</span> `
+  --write-info-json --write-thumbnail --write-description `
+  --write-subs --write-auto-subs --sub-langs <span class="a">"en.*"</span> `
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> `
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> `
+  --ignore-errors `
+  <span class="k">"https://www.youtube.com/@MarathonTheGame/shorts"</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-s-mac" aria-labelledby="t-s-mac" hidden>
+<pre>uv run yt-dlp \
+  --download-archive <span class="a">'downloads/marathon-shorts/.ytdl-archive.txt'</span> \
+  -o <span class="a">'downloads/marathon-shorts/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> \
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> \
+  --ignore-errors \
+  <span class="k">'https://www.youtube.com/@MarathonTheGame/shorts'</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-s-lin" aria-labelledby="t-s-lin" hidden>
+<pre>uv run yt-dlp \
+  --download-archive <span class="a">'downloads/marathon-shorts/.ytdl-archive.txt'</span> \
+  -o <span class="a">'downloads/marathon-shorts/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  --sleep-requests <span class="a">1.5</span> --min-sleep-interval <span class="a">5</span> --max-sleep-interval <span class="a">15</span> --sleep-subtitles <span class="a">3</span> \
+  --retries <span class="a">10</span> --fragment-retries <span class="a">10</span> --retry-sleep <span class="a">fragment:exp=2:60</span> \
+  --ignore-errors \
+  <span class="k">'https://www.youtube.com/@MarathonTheGame/shorts'</span></pre>
+      </div>
+    </div>
+
+    <div class="prose" id="layout">
+      <h3>Resulting layout</h3>
+    </div>
+    <pre><span class="k">downloads/</span>
+├── <span class="a">marathon-videos/</span>
+│   ├── .ytdl-archive.txt              <span class="c">← resume state, 1 id per line</span>
+│   ├── 20260602 - Season 2 Gameplay Trailer [cyIEnxicey8].mkv
+│   ├── 20260602 - Season 2 Gameplay Trailer [cyIEnxicey8].info.json
+│   ├── 20260602 - Season 2 Gameplay Trailer [cyIEnxicey8].webp
+│   ├── 20260602 - Season 2 Gameplay Trailer [cyIEnxicey8].description
+│   └── 20260602 - Season 2 Gameplay Trailer [cyIEnxicey8].en.vtt
+└── <span class="a">marathon-shorts/</span>
+    ├── .ytdl-archive.txt
+    └── …</pre>
+  </section>
+
+  <!-- ==================== 04 SINGLE VIDEO ==================== -->
+  <section id="single">
+    <div class="section-header">
+      <h2>04 · One video, not a channel</h2>
+      <span class="meta">variant · a single URL</span>
+    </div>
+
+    <div class="prose" style="border-top:none">
+      <p>The same tool grabs a single video — point it at a <code>watch?v=&lt;id&gt;</code> URL and drop the two channel-scale flags. There is no playlist to enumerate, so <code>--download-archive</code> and the <code>--sleep-*</code> spacing earn nothing: one video is one burst. Keep the <code>--write-*</code> sidecars; they behave exactly as they do on the channel run.</p>
+    </div>
+
+    <div class="ostabs" data-ostabs>
+      <div class="tablist" role="tablist" aria-label="Single-video download command by operating system">
+        <button role="tab" data-os="windows" id="t-1v-win" aria-controls="p-1v-win">Windows · PowerShell</button>
+        <button role="tab" data-os="macos" id="t-1v-mac" aria-controls="p-1v-mac">macOS · bash/zsh</button>
+        <button role="tab" data-os="linux" id="t-1v-lin" aria-controls="p-1v-lin">Linux · bash</button>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="windows" id="p-1v-win" aria-labelledby="t-1v-win">
+<pre>uv run yt-dlp `
+  -o <span class="a">"downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s"</span> `
+  --write-info-json --write-thumbnail --write-description `
+  --write-subs --write-auto-subs --sub-langs <span class="a">"en.*"</span> `
+  <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="macos" id="p-1v-mac" aria-labelledby="t-1v-mac" hidden>
+<pre>uv run yt-dlp \
+  -o <span class="a">'downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  <span class="k">'https://www.youtube.com/watch?v=&lt;id&gt;'</span></pre>
+      </div>
+      <div class="codewrap" role="tabpanel" data-os="linux" id="p-1v-lin" aria-labelledby="t-1v-lin" hidden>
+<pre>uv run yt-dlp \
+  -o <span class="a">'downloads/youtube-single/%(upload_date)s - %(title)s [%(id)s].%(ext)s'</span> \
+  --write-info-json --write-thumbnail --write-description \
+  --write-subs --write-auto-subs --sub-langs <span class="a">'en.*'</span> \
+  <span class="k">'https://www.youtube.com/watch?v=&lt;id&gt;'</span></pre>
+      </div>
+    </div>
+
+    <div class="prose" id="transcripts">
+      <h3>Transcripts come in whatever language the video has</h3>
+      <p><code>--sub-langs</code> is a filter, not a request: it writes only tracks that already exist. <code>"en.*"</code> against a video with no English captions matches nothing and writes no <code>.vtt</code> — silently, with no error. A missing subtitle file usually means the filter missed, not that a fetch failed. Confirm what a video actually carries before assuming:</p>
+    </div>
+    <div class="codewrap">
+      <pre><span class="c"># list every caption track without downloading anything</span>
+uv run yt-dlp --list-subs <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>Then aim <code>--sub-langs</code> at a track that exists. A Traditional-Chinese talk, for instance, may carry only a human <code>zh-TW</code> track and <em>no</em> auto-captions at all — so <code>--write-auto-subs</code> adds nothing, and only the explicit language pulls the transcript:</p>
+    </div>
+    <div class="codewrap">
+      <pre><span class="c"># transcript only, in the language the video actually has</span>
+uv run yt-dlp --skip-download --write-subs --sub-langs <span class="a">"zh-TW"</span> <span class="k">"https://www.youtube.com/watch?v=&lt;id&gt;"</span></pre>
+    </div>
+
+    <div class="hairline-grid" style="grid-template-columns:1fr">
+      <div class="flagrow">
+        <span class="fl">--sub-langs "en.*"</span>
+        <span class="fd"><b>Every English variant.</b> The <code>.*</code> glob catches <code>en</code>, <code>en-US</code>, <code>en-GB</code> and yt-dlp's <code>en-orig</code>. A bare <code>"en"</code> misses the regional tags.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--sub-langs "zh-TW"  ·  "zh.*"</span>
+        <span class="fd"><b>One language, or a whole family.</b> Name the exact code for a single track, or glob the family (<code>zh.*</code> → <code>zh-TW</code>, <code>zh-Hans</code>, <code>zh-HK</code>) when you are unsure which regional variant the uploader used.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--sub-langs "all"</span>
+        <span class="fd"><b>Whatever exists, regardless of language.</b> The safe choice for a mixed-language channel where no single code fits every video — at the cost of many tracks per video.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--write-subs  vs  --write-auto-subs</span>
+        <span class="fd"><b>Human-authored vs machine-generated.</b> A video may carry one, both, or neither. Keep both for a complete archive; drop <code>--write-auto-subs</code> when only real captions matter. Neither invents a track YouTube does not serve.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--convert-subs srt</span>
+        <span class="fd"><b>Reshape after download.</b> Captions arrive as <code>.vtt</code>; add this to convert them to <code>.srt</code>, <code>.ass</code> or <code>.lrc</code> for players that expect a different format.<sup class="cite"><a href="#ref1">[1]</a></sup></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 05 FLAG RATIONALE ==================== -->
+  <section id="flags">
+    <div class="section-header">
+      <h2>05 · Why each flag is there</h2>
+      <span class="meta">five concerns · one command</span>
+    </div>
+
+    <div class="prose" id="resolution" style="border-top:none">
+      <h3>Resolution — by omission</h3>
+      <p>There is no <code>-f</code> flag in the command, on purpose. yt-dlp's default format selector is <code>bv*+ba/b</code>: take the best video-only stream, take the best audio-only stream, merge them, and fall back to a pre-muxed stream only if that is impossible.<sup class="cite"><a href="#ref2">[2]</a></sup> Adding <code>-f best</code> is the single most common way people accidentally cap themselves at 720p — it restricts selection to streams that already contain both tracks, and YouTube stops publishing those above 720p.</p>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 1120 210" role="img" aria-label="Comparison: -f best tops out at 720p pre-muxed, while the default selector reaches 2160p by merging separate streams">
+        <text class="fig-m" x="0" y="16">WHAT EACH SELECTOR ACTUALLY RETURNS</text>
+        <!-- left: -f best -->
+        <g transform="translate(0,34)">
+          <rect class="fig-fill" x="0" y="0" width="530" height="150"/>
+          <rect x="0" y="0" width="530" height="150" fill="none" class="fig-edge"/>
+          <text class="fig-t" x="24" y="30">-f best  <tspan class="fig-m">(don't)</tspan></text>
+          <rect x="24" y="52" width="120" height="18" fill="var(--surface-hover)"/>
+          <rect x="24" y="52" width="120" height="18" fill="none" class="fig-edge"/>
+          <text class="fig-m" x="156" y="66">720p · pre-muxed · ceiling</text>
+          <path class="fig-line" d="M24 90 L506 90"/>
+          <text class="fig-m" x="24" y="112">1080p  ✕ not selectable</text>
+          <text class="fig-m" x="24" y="132">2160p  ✕ not selectable</text>
+        </g>
+        <!-- right: default -->
+        <g transform="translate(590,34)">
+          <rect class="fig-fill" x="0" y="0" width="530" height="150"/>
+          <rect x="0" y="0" width="530" height="150" fill="none" class="fig-accent"/>
+          <text class="fig-t" x="24" y="30">default  <tspan class="fig-m">bv*+ba/b</tspan></text>
+          <rect class="fig-accent-fill" x="24" y="52" width="420" height="18"/>
+          <text class="fig-m" x="24" y="88" fill="var(--accent)">2160p video  +  opus audio  →  merged</text>
+          <path class="fig-line" d="M24 100 L506 100"/>
+          <text class="fig-m" x="24" y="122">requires ffmpeg on PATH</text>
+          <text class="fig-m" x="24" y="142">requires deno for full format list</text>
+        </g>
+      </svg>
+      <figcaption>Fig. 3 — The default is not a compromise; it is the maximum. Explicit format flags almost always lower the ceiling.</figcaption>
+    </figure>
+
+    <div class="prose" id="spacing">
+      <h3>Request spacing — three knobs, three different bursts</h3>
+      <p>Throttling and <code>403</code>s on long channel runs are driven by request <em>rate</em>, not by bytes transferred. Three separate phases each burst independently, so a single sleep flag does not cover them.</p>
+    </div>
+
+    <div class="hairline-grid cols-3">
+      <div class="card">
+        <div class="title-row"><h3>Metadata calls</h3></div>
+        <p><code>--sleep-requests 1.5</code> pauses between API calls during enumeration and per-video info extraction. On a 169-item tab this phase fires hundreds of requests before a single byte of video moves — it is the highest-risk phase.</p>
+        <span class="meta-value spec accent">1.5 s between requests</span>
+      </div>
+      <div class="card">
+        <div class="title-row"><h3>Between downloads</h3></div>
+        <p><code>--min-sleep-interval 5</code> with <code>--max-sleep-interval 15</code> waits a <em>randomized</em> 5–15 s between videos. Randomized rather than fixed, so the request pattern does not look mechanically scripted.</p>
+        <span class="meta-value spec accent">5–15 s, randomized</span>
+      </div>
+      <div class="card">
+        <div class="title-row"><h3>Subtitle fetches</h3></div>
+        <p><code>--sleep-subtitles 3</code> covers a phase people forget: subtitles are fetched as their own requests, once per language per video. Without it they burst immediately after each download completes.</p>
+        <span class="meta-value spec accent">3 s per subtitle</span>
+      </div>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 1120 180" role="img" aria-label="Timeline showing where each sleep flag inserts a pause across enumeration, download and subtitle phases">
+        <text class="fig-m" x="0" y="16">WHERE EACH PAUSE LANDS ON THE TIMELINE</text>
+        <path class="fig-line" d="M0 150 L1120 150"/>
+        <!-- enumeration -->
+        <g>
+          <rect class="fig-fill" x="0" y="40" width="300" height="34"/>
+          <rect x="0" y="40" width="300" height="34" fill="none" class="fig-edge"/>
+          <text class="fig-m" x="12" y="61">ENUMERATION · METADATA</text>
+          <g class="fig-accent">
+            <path d="M40 88 L40 108 M80 88 L80 108 M120 88 L120 108 M160 88 L160 108 M200 88 L200 108 M240 88 L240 108 M280 88 L280 108"/>
+          </g>
+          <text class="fig-m" x="12" y="128" fill="var(--accent)">--sleep-requests 1.5</text>
+        </g>
+        <!-- downloads -->
+        <g>
+          <rect class="fig-fill" x="320" y="40" width="520" height="34"/>
+          <rect x="320" y="40" width="520" height="34" fill="none" class="fig-edge"/>
+          <text class="fig-m" x="332" y="61">DOWNLOAD · MERGE · PER VIDEO</text>
+          <g class="fig-accent">
+            <path d="M440 84 L440 112 M600 84 L600 112 M760 84 L760 112"/>
+          </g>
+          <text class="fig-m" x="332" y="128" fill="var(--accent)">--min/--max-sleep-interval 5..15  (randomized)</text>
+        </g>
+        <!-- subtitles -->
+        <g>
+          <rect class="fig-fill" x="860" y="40" width="260" height="34"/>
+          <rect x="860" y="40" width="260" height="34" fill="none" class="fig-edge"/>
+          <text class="fig-m" x="872" y="61">SUBTITLE FETCHES</text>
+          <g class="fig-accent">
+            <path d="M920 88 L920 108 M980 88 L980 108 M1040 88 L1040 108"/>
+          </g>
+          <text class="fig-m" x="872" y="128" fill="var(--accent)">--sleep-subtitles 3</text>
+        </g>
+      </svg>
+      <figcaption>Fig. 4 — Each flag governs a phase the others do not touch. Removing any one re-opens a burst window.</figcaption>
+    </figure>
+
+    <div class="prose" id="sidecars">
+      <h3>Metadata alongside the media</h3>
+      <p>The <code>--write-*</code> family produces sidecar files next to each video rather than embedding data inside the container. This matches the sidecar convention the ArtStation half of this project already uses,<sup class="cite"><a href="#ref3">[3]</a></sup> and it keeps the metadata greppable without re-muxing.</p>
+    </div>
+
+    <div class="hairline-grid cols-2">
+      <div class="card">
+        <div class="title-row"><h3>Sidecar files (used here)</h3></div>
+        <p><code>--write-info-json</code>, <code>--write-thumbnail</code>, <code>--write-description</code>, <code>--write-subs</code>, <code>--write-auto-subs</code>. Produces <code>.info.json</code>, <code>.webp</code>, <code>.description</code> and <code>.en.vtt</code> beside every media file.</p>
+        <span class="meta-value spec">readable without touching the video</span>
+      </div>
+      <div class="card">
+        <div class="title-row"><h3>Embedded alternative</h3></div>
+        <p>Swap in <code>--embed-metadata --embed-thumbnail --embed-subs</code> to fold everything inside the mkv/mp4 instead. One self-contained file per video, at the cost of a post-processing pass and losing easy text search.</p>
+        <span class="meta-value spec">one file per video</span>
+      </div>
+    </div>
+
+    <div class="prose" id="archive">
+      <h3>Archive and naming — the two channel-specific flags</h3>
+    </div>
+    <div class="hairline-grid" style="grid-template-columns:1fr">
+      <div class="flagrow">
+        <span class="fl">--download-archive &lt;path&gt;</span>
+        <span class="fd"><b>Makes the run resumable.</b> Every completed video ID is appended to the file; on a re-run those IDs are skipped before any network request is made. This is what makes it safe to interrupt a 219-item job with Ctrl-C and simply re-issue the same command later. Failed videos are deliberately <em>not</em> recorded, so a re-run retries exactly them. The same pattern is used by this project's <code>recover_embeds.py</code>.<sup class="cite"><a href="#ref5">[5]</a></sup></span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">-o "%(upload_date)s - %(title)s [%(id)s].%(ext)s"</span>
+        <span class="fd"><b>Puts chronology in the filename.</b> Without the date prefix the folder sorts alphabetically by title — meaningless for a channel, where publication order <em>is</em> the structure. The trailing <code>[%(id)s]</code> guarantees uniqueness when two uploads share a title and gives you the ID back for any follow-up fetch.</span>
+      </div>
+    </div>
+
+    <div class="prose" id="resilience">
+      <h3>Resilience on a long run</h3>
+    </div>
+    <div class="hairline-grid" style="grid-template-columns:1fr">
+      <div class="flagrow">
+        <span class="fl">--ignore-errors</span>
+        <span class="fd"><b>One bad video must not end the run.</b> Across a couple hundred items you will hit a region-locked, private or removed upload. Without this flag the whole job aborts there; with it the failure is logged and skipped — and since it never enters the archive, the next run retries it.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--retries 10 --fragment-retries 10</span>
+        <span class="fd"><b>Transient failures are the norm,</b> not the exception, on multi-hour runs. Fragmented DASH downloads in particular drop individual fragments that succeed on a second attempt.</span>
+      </div>
+      <div class="flagrow">
+        <span class="fl">--retry-sleep fragment:exp=2:60</span>
+        <span class="fd"><b>Backs off exponentially</b> — 2 s, 4 s, 8 s … capped at 60 s — instead of retrying immediately. Retrying a rate-limited request without backoff is what converts a soft throttle into a hard block.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 06 PRACTICE ==================== -->
+  <section id="notes">
+    <div class="section-header">
+      <h2>06 · In practice</h2>
+      <span class="meta">pitfalls · timing</span>
+    </div>
+    <ul class="rules">
+      <li><span class="tick">→</span><span><b>Run the two commands sequentially, never in parallel.</b> Two concurrent yt-dlp processes against one channel double the request rate and defeat every sleep flag above. Sequential is the entire point.</span></li>
+      <li><span class="tick">→</span><span><b>Use the explicit tab URL.</b> The bare <code>youtube.com/@MarathonTheGame</code> root pulls every tab — videos, shorts, live, releases — which is far more than intended and mixes the two target folders together.</span></li>
+      <li><span class="tick">→</span><span><b><code>--write-auto-subs</code> roughly doubles subtitle requests.</b> It pulls machine-generated captions wherever human ones are absent. Drop it if only real subtitles matter; keep it for a complete archive.</span></li>
+      <li><span class="tick">→</span><span><b>Emoji and pipes in titles are handled automatically.</b> Shorts titles routinely contain <code>|</code>, <code>?</code> and emoji; yt-dlp sanitizes characters illegal on the host filesystem. Add <code>--restrict-filenames</code> only if the archive will later move to a stricter filesystem.</span></li>
+      <li><span class="tick">→</span><span><b>Narrow the job when testing.</b> <code>--playlist-items 1:5</code> verifies the whole pipeline — naming, sidecars, merge — in a couple of minutes before committing to the full run.</span></li>
+      <li><span class="tick">→</span><span><b>Rewrite embed URLs before feeding them in.</b> A <code>youtube-nocookie.com/embed/&lt;id&gt;?list=…</code> link is mis-routed to the generic extractor and fails with <code>Unsupported URL</code>; the plain <code>watch?v=&lt;id&gt;</code> form works.<sup class="cite"><a href="#ref5">[5]</a></sup></span></li>
+    </ul>
+
+    <figure id="budget">
+      <svg viewBox="0 0 1120 150" role="img" aria-label="Time budget: sleep intervals alone add roughly thirty to fifty-five minutes across 219 items">
+        <text class="fig-m" x="0" y="16">TIME BUDGET · 219 ITEMS · SLEEP CONTRIBUTION ALONE</text>
+        <path class="fig-line" d="M0 118 L1120 118"/>
+        <rect class="fig-accent-fill" x="0" y="44" width="300" height="26" opacity="0.35"/>
+        <rect class="fig-accent-fill" x="300" y="44" width="250" height="26" opacity="0.6"/>
+        <rect class="fig-accent-fill" x="550" y="44" width="570" height="26" opacity="0.9"/>
+        <text class="fig-m" x="12" y="62">ENUMERATION</text>
+        <text class="fig-m" x="312" y="62">TRANSFER + MERGE</text>
+        <text class="fig-m" x="562" y="62" fill="var(--background)">DELIBERATE IDLE · 30–55 MIN</text>
+        <text class="fig-m" x="0" y="100">THE MAJORITY OF WALL-CLOCK TIME IS SLEEP — THAT IS THE DESIGN, NOT A FAULT</text>
+      </svg>
+      <figcaption>Fig. 5 — At 5–15 s per item, spacing alone contributes roughly 30–55 minutes across 219 items. That is the price of finishing the run in one pass.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ==================== REFERENCES ==================== -->
+  <section id="refs">
+    <div class="section-header">
+      <h2>References</h2>
+      <span class="meta">7 sources</span>
+    </div>
+    <ul class="reflist">
+      <li id="ref1"><span class="n">[1]</span><span>yt-dlp — source and full option reference. <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">github.com/yt-dlp/yt-dlp</a></span></li>
+      <li id="ref2"><span class="n">[2]</span><span>yt-dlp — format selection, default selector <code>bv*+ba/b</code> and the <code>-f best</code> caveat. <a href="https://github.com/yt-dlp/yt-dlp#format-selection" target="_blank" rel="noopener">Format Selection</a></span></li>
+      <li id="ref3"><span class="n">[3]</span><span>Project <code>README.md</code> §4 — sidecar/JSON metadata convention used by the ArtStation half of this repository.</span></li>
+      <li id="ref4"><span class="n">[4]</span><span>Project <code>README.md</code> §2 — “Install a JavaScript runtime (Deno)”: why a JS runtime is required for the full format list and the <code>n</code>-parameter challenge.</span></li>
+      <li id="ref5"><span class="n">[5]</span><span>Project <code>recover_embeds.py</code> — <code>--download-archive</code> resume pattern and the <code>watch?v=</code> rewrite for failed <code>embed/…?list=</code> URLs.</span></li>
+      <li id="ref6"><span class="n">[6]</span><span>uv — project-scoped environments and <code>uv run</code>. <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener">docs.astral.sh/uv</a></span></li>
+      <li id="ref7"><span class="n">[7]</span><span>FFmpeg — required to merge separate video and audio streams. <a href="https://ffmpeg.org" target="_blank" rel="noopener">ffmpeg.org</a></span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <span class="meta-value">verified against yt-dlp 2026.06.09</span>
+    <span class="meta-value">·</span>
+    <span class="meta-value">hairline grid design system</span>
+    <span class="meta-value">·</span>
+    <span class="meta-value">fonts: Geist / Geist Mono</span>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var root = document.documentElement;
+
+  /* ---------- theme ---------- */
+  var stored = null;
+  try { stored = localStorage.getItem('theme'); } catch(e){}
+  var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  setTheme(stored || (prefersLight ? 'light' : 'dark'));
+
+  function setTheme(t){
+    root.setAttribute('data-theme', t);
+    document.getElementById('themeLabel').textContent = (t === 'dark') ? 'Light' : 'Dark';
+    document.getElementById('themeIcon').textContent  = (t === 'dark') ? '◐' : '◑';
+    try { localStorage.setItem('theme', t); } catch(e){}
+  }
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---------- sidebar: horizontal collapse ----------
+     The re-open control lives in the sticky nav, never inside the sidebar,
+     so a collapsed sidebar is always recoverable. */
+  var sidebar = document.getElementById('sidebar');
+  var scrim   = document.getElementById('scrim');
+  var sbBtn   = document.getElementById('sbBtn');
+  var WIDE    = 1240;
+
+  function setSidebar(open){
+    sidebar.classList.toggle('open', open);
+    sbBtn.setAttribute('aria-expanded', String(open));
+    scrim.classList.toggle('on', open && window.innerWidth < WIDE);
+  }
+  setSidebar(window.innerWidth >= WIDE);
+
+  sbBtn.addEventListener('click', function(){
+    setSidebar(!sidebar.classList.contains('open'));
+  });
+  document.getElementById('sbClose').addEventListener('click', function(){ setSidebar(false); });
+  scrim.addEventListener('click', function(){ setSidebar(false); });
+  window.addEventListener('resize', function(){
+    scrim.classList.toggle('on', sidebar.classList.contains('open') && window.innerWidth < WIDE);
+  });
+  sidebar.querySelectorAll('.sb-items a').forEach(function(a){
+    a.addEventListener('click', function(){ if (window.innerWidth < WIDE) setSidebar(false); });
+  });
+
+  /* ---------- sidebar: vertical collapse per group ---------- */
+  sidebar.querySelectorAll('.sb-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      document.getElementById(btn.getAttribute('aria-controls')).hidden = open;
+    });
+  });
+
+  /* ---------- OS tabs: synced across every group, persisted ---------- */
+  var groups = Array.prototype.slice.call(document.querySelectorAll('[data-ostabs]'));
+  var OSES = ['windows','macos','linux'];
+
+  function detectOS(){
+    var p = (navigator.platform || navigator.userAgent || '').toLowerCase();
+    if (p.indexOf('win') > -1) return 'windows';
+    if (p.indexOf('mac') > -1) return 'macos';
+    if (p.indexOf('linux') > -1 || p.indexOf('x11') > -1) return 'linux';
+    return 'windows';
+  }
+
+  var os = null;
+  try { os = localStorage.getItem('os'); } catch(e){}
+  if (OSES.indexOf(os) === -1) os = detectOS();
+
+  function selectOS(next){
+    os = next;
+    try { localStorage.setItem('os', os); } catch(e){}
+    groups.forEach(function(g){
+      var tabs = Array.prototype.slice.call(g.querySelectorAll('[role="tab"]'));
+      var hit = tabs.some(function(t){ return t.dataset.os === os; });
+      var target = hit ? os : (tabs[0] && tabs[0].dataset.os);
+      tabs.forEach(function(t){
+        var on = t.dataset.os === target;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+      });
+      g.querySelectorAll('[role="tabpanel"]').forEach(function(p){
+        p.hidden = p.dataset.os !== target;
+      });
+    });
+  }
+
+  groups.forEach(function(g){
+    var tabs = Array.prototype.slice.call(g.querySelectorAll('[role="tab"]'));
+    tabs.forEach(function(tab, i){
+      tab.addEventListener('click', function(){ selectOS(tab.dataset.os); });
+      tab.addEventListener('keydown', function(e){
+        var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (d){
+          e.preventDefault();
+          var n = tabs[(i + d + tabs.length) % tabs.length];
+          n.focus(); selectOS(n.dataset.os);
+        } else if (e.key === 'Enter' || e.key === ' '){
+          e.preventDefault(); selectOS(tab.dataset.os);
+        }
+      });
+    });
+  });
+  selectOS(os);
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll('.codewrap').forEach(function(w){
+    var pre = w.querySelector('pre');
+    if (!pre) return;
+    var b = document.createElement('button');
+    b.className = 'copybtn';
+    b.type = 'button';
+    b.textContent = 'Copy';
+    b.addEventListener('click', function(){
+      navigator.clipboard.writeText(pre.innerText).then(function(){
+        b.textContent = 'Copied';
+        setTimeout(function(){ b.textContent = 'Copy'; }, 1400);
+      });
+    });
+    w.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>

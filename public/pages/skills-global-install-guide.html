@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where Do &ldquo;Global&rdquo; Skills Install With Two Claude Config Dirs?</title>
+<meta name="description" content="How the skills CLI resolves the global install path when you run multiple Claude Code config directories, and how to install into each one.">
+<meta name="keywords" content="claude-code, skills-cli, claude-config-dir, global-install, mattpocock-skills, config-directories">
+<meta name="date" content="2026-07-23">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist@latest/600.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@latest/400.css">
+<style>
+/* ============================================================
+   HAIRLINE GRID SYSTEM (aihero) — dark native, light ladder added.
+   Narrow lightness band · zero radius · zero shadow · one amber accent.
+   ============================================================ */
+:root{
+  --background:      lab(3% 0 0);
+  --surface-raised:  lab(7% 0 0);
+  --surface-hover:   lab(9% 0 0);
+  --border:          lab(13% 0 0);
+  --fg-muted:        lab(73% 0 0);
+  --fg:              lab(88% 0 0);
+  --accent:          lab(82.6% 15.9 66.4);
+  --cover-a:         lab(82.6% 15.9 66.4);
+  --cover-line:      lab(28% 0 0);
+  --cover-bg:        lab(4% 0 0);
+
+  --font-sans:'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+  --hairline:1px;
+  --pad-x:32px;
+  --max-w:1180px;
+  --nav-h:57px;
+}
+:root[data-theme="light"]{
+  --background:      lab(98% 0 0);
+  --surface-raised:  lab(94% 0 0);
+  --surface-hover:   lab(93% 0 0);
+  --border:          lab(85% 0 0);
+  --fg-muted:        lab(40% 0 0);
+  --fg:              lab(20% 0 0);
+  --accent:          lab(56% 26 62);
+  --cover-a:         lab(56% 26 62);
+  --cover-line:      lab(80% 0 0);
+  --cover-bg:        lab(96% 0 0);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ transition:none !important; }
+}
+body{
+  background:var(--background);
+  color:var(--fg);
+  font-family:var(--font-sans);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{ color:inherit; text-decoration:none; }
+a:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+  outline:1px solid var(--accent);
+  outline-offset:-1px;
+}
+
+/* ---- voices -------------------------------------------------- */
+.meta{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--fg-muted);
+}
+.meta-value{ font-family:var(--font-mono); font-size:12px; color:var(--fg-muted); }
+.accent{ color:var(--accent); }
+
+/* ---- the hairline grid --------------------------------------- */
+.hairline-grid{
+  display:grid; gap:var(--hairline); background:var(--border);
+  border-top:var(--hairline) solid var(--border);
+  border-bottom:var(--hairline) solid var(--border);
+}
+.hairline-grid > *{ background:var(--background); }
+.cols-2{ grid-template-columns:1fr; }
+.cols-3{ grid-template-columns:1fr; }
+@media (min-width:640px){
+  .cols-2{ grid-template-columns:repeat(2,1fr); }
+  .cols-3{ grid-template-columns:repeat(3,1fr); }
+}
+
+/* ============================================================
+   NAV — sticky. Holds the always-visible sidebar re-expand control.
+   ============================================================ */
+nav.topbar{
+  position:sticky; top:0; z-index:40;
+  display:flex; align-items:center; gap:16px;
+  padding:0 var(--pad-x); height:var(--nav-h);
+  background:var(--background);
+  border-bottom:var(--hairline) solid var(--border);
+}
+nav.topbar .wordmark{ font-weight:600; letter-spacing:-0.02em; white-space:nowrap; }
+nav.topbar .navlinks{
+  display:flex; gap:22px; margin:0 auto;
+  font-family:var(--font-mono); font-size:12px; color:var(--fg-muted);
+}
+nav.topbar .navlinks a{ transition:color 150ms ease; }
+nav.topbar .navlinks a:hover{ color:var(--fg); }
+.iconbtn{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--fg-muted);
+  background:transparent; border:var(--hairline) solid var(--border);
+  padding:8px 12px; cursor:pointer; transition:color 150ms ease, background-color 150ms ease;
+  white-space:nowrap;
+}
+.iconbtn:hover{ color:var(--fg); background:var(--surface-hover); }
+.nav-right{ display:flex; gap:10px; align-items:center; }
+
+/* ============================================================
+   COVER — full width, fixed height, axonometric wireframe.
+   ============================================================ */
+.cover{ width:100%; height:300px; display:block; overflow:hidden; background:var(--cover-bg);
+  border-bottom:var(--hairline) solid var(--border); }
+.cover svg{ width:100%; height:100%; display:block; }
+@media (max-width:640px){ .cover{ height:210px; } }
+
+/* ============================================================
+   SHELL — sidebar (fixed) + centered content column.
+   Content is centered in the WINDOW, not aligned to the sidebar.
+   ============================================================ */
+.sidebar{
+  position:fixed; top:var(--nav-h); left:0; bottom:0; width:264px; z-index:30;
+  background:var(--background);
+  border-right:var(--hairline) solid var(--border);
+  overflow-y:auto; padding:8px 0;
+  transition:transform 180ms ease;
+}
+.sidebar.collapsed{ transform:translateX(-100%); }
+.sb-group{ border-bottom:var(--hairline) solid var(--border); }
+.sb-head{
+  width:100%; text-align:left; cursor:pointer;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:14px 20px; background:transparent; border:none;
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em;
+  text-transform:uppercase; color:var(--fg);
+  transition:background-color 150ms ease;
+}
+.sb-head:hover{ background:var(--surface-hover); }
+.sb-head .chev{ color:var(--fg-muted); transition:transform 180ms ease; }
+.sb-group.closed .chev{ transform:rotate(-90deg); }
+.sb-items{ overflow:hidden; }
+.sb-group.closed .sb-items{ display:none; }
+.sb-items a{
+  display:block; padding:9px 20px 9px 32px;
+  font-size:13px; color:var(--fg-muted); transition:color 150ms ease, background-color 150ms ease;
+}
+.sb-items a:hover{ color:var(--fg); background:var(--surface-hover); }
+.sb-items a .idx{ font-family:var(--font-mono); color:var(--accent); margin-right:8px; }
+
+.content{
+  max-width:var(--max-w); margin:0 auto;
+  border-left:var(--hairline) solid var(--border);
+  border-right:var(--hairline) solid var(--border);
+}
+
+/* ---- title block --------------------------------------------- */
+.titleblock{ padding:56px var(--pad-x) 40px; border-bottom:var(--hairline) solid var(--border); }
+.titleblock h1{
+  font-size:clamp(34px, 5vw, 56px); font-weight:400; line-height:1.06;
+  letter-spacing:-1.4px; margin:14px 0 22px; max-width:20ch;
+}
+.titleblock p.lede{ color:var(--fg-muted); font-size:17px; line-height:1.6; max-width:60ch; }
+
+/* ---- tldr ---------------------------------------------------- */
+.tldr{ padding:28px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+  display:grid; grid-template-columns:1fr; gap:14px; }
+@media (min-width:760px){ .tldr{ grid-template-columns:140px 1fr; } }
+.tldr .tldr-body p{ color:var(--fg-muted); font-size:15px; line-height:1.62; }
+.tldr .tldr-body p + p{ margin-top:10px; }
+.tldr code, .content code{ font-family:var(--font-mono); font-size:0.86em; color:var(--fg);
+  background:var(--surface-raised); padding:1px 6px; }
+.content code .accent{ color:var(--accent); }
+
+/* ---- sections ------------------------------------------------ */
+section{ border-bottom:var(--hairline) solid var(--border); scroll-margin-top:var(--nav-h); }
+.section-header{
+  display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+  padding:20px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+}
+.section-header h2{ font-size:24px; font-weight:600; letter-spacing:-0.6px; line-height:1.33; }
+.prose{ padding:26px var(--pad-x); }
+.prose > * + *{ margin-top:16px; }
+.prose p{ color:var(--fg-muted); font-size:15px; line-height:1.65; max-width:74ch; }
+.prose h3{ font-size:18px; font-weight:600; letter-spacing:-0.3px; margin-top:26px; }
+.prose ul{ list-style:none; max-width:74ch; }
+.prose ul li{
+  display:grid; grid-template-columns:18px 1fr; gap:12px;
+  color:var(--fg-muted); font-size:15px; line-height:1.62; padding:5px 0;
+}
+.prose ul li .tick{ color:var(--accent); font-family:var(--font-mono); }
+.prose b, .prose strong{ color:var(--fg); font-weight:600; }
+
+/* ---- code ---------------------------------------------------- */
+pre{
+  font-family:var(--font-mono); font-size:12.5px; line-height:1.7; color:var(--fg-muted);
+  background:var(--surface-raised); padding:22px var(--pad-x); overflow-x:auto;
+}
+pre .c{ color:var(--fg-muted); opacity:.8; }
+pre .k{ color:var(--fg); }
+pre .a{ color:var(--accent); }
+
+/* ---- callout ------------------------------------------------- */
+.callout{ display:grid; grid-template-columns:20px 1fr; gap:14px;
+  padding:18px var(--pad-x); background:var(--surface-raised);
+  border-top:var(--hairline) solid var(--border); }
+.callout .mark{ color:var(--accent); font-family:var(--font-mono); font-size:13px; }
+.callout p{ color:var(--fg-muted); font-size:14px; line-height:1.6; }
+.callout b{ color:var(--fg); }
+
+/* ============================================================
+   FLOW DIAGRAM — hairline nodes, mono labels, no radius.
+   ============================================================ */
+.flow{ padding:30px var(--pad-x); display:flex; flex-direction:column; align-items:center; gap:0; }
+.node{
+  border:var(--hairline) solid var(--border); background:var(--background);
+  padding:14px 18px; text-align:center; width:100%; max-width:560px;
+}
+.node .lab{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--fg-muted); display:block; margin-bottom:4px; }
+.node .val{ font-family:var(--font-mono); font-size:13px; color:var(--fg); word-break:break-all; }
+.node.hot{ border-color:var(--accent); }
+.node.hot .val{ color:var(--accent); }
+.conn{ font-family:var(--font-mono); font-size:11px; color:var(--fg-muted); padding:8px 0; text-align:center; }
+.conn .bar{ color:var(--border); }
+.branch{ display:grid; grid-template-columns:1fr; gap:var(--hairline);
+  background:var(--border); width:100%; max-width:560px;
+  border:var(--hairline) solid var(--border); }
+@media (min-width:640px){ .branch{ grid-template-columns:1fr 1fr; } }
+.branch > div{ background:var(--background); padding:16px 18px; }
+.branch .cond{ font-family:var(--font-mono); font-size:11px; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--fg-muted); margin-bottom:8px; }
+.branch .res{ font-family:var(--font-mono); font-size:13px; word-break:break-all; }
+
+/* two-config map */
+.map{ padding:8px 0 0; }
+
+/* ============================================================
+   OS TABS
+   ============================================================ */
+.ostabs{ border-top:var(--hairline) solid var(--border); }
+.ostab-bar{ display:flex; flex-wrap:wrap; gap:0; border-bottom:var(--hairline) solid var(--border); }
+.ostab{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.04em;
+  color:var(--fg-muted); background:transparent; border:none; cursor:pointer;
+  padding:14px 20px; border-right:var(--hairline) solid var(--border);
+  transition:color 150ms ease, background-color 150ms ease; position:relative;
+}
+.ostab:hover{ color:var(--fg); background:var(--surface-hover); }
+.ostab[aria-selected="true"]{ color:var(--fg); }
+.ostab[aria-selected="true"]::after{
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--accent); }
+.ospanel[hidden]{ display:none; }
+
+/* ---- references ---------------------------------------------- */
+.refs{ padding:8px 0; }
+.refs li{ list-style:none; display:grid; grid-template-columns:34px 1fr; gap:12px;
+  padding:14px var(--pad-x); border-bottom:var(--hairline) solid var(--border);
+  font-size:14px; line-height:1.55; color:var(--fg-muted); }
+.refs li:last-child{ border-bottom:none; }
+.refs li .n{ font-family:var(--font-mono); color:var(--accent); font-size:12px; }
+.refs li a{ color:var(--fg); border-bottom:1px solid var(--border); }
+.refs li a:hover{ border-color:var(--accent); }
+.refs .src{ font-family:var(--font-mono); font-size:12px; color:var(--fg-muted); word-break:break-all; }
+
+sup.cite a{ font-family:var(--font-mono); font-size:0.72em; color:var(--accent);
+  padding:0 1px; vertical-align:super; }
+
+footer.pagefoot{ display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center;
+  padding:24px var(--pad-x); }
+
+@media (max-width:640px){
+  :root{ --pad-x:24px; }
+  nav.topbar .navlinks{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<nav class="topbar">
+  <span class="wordmark">Global&nbsp;Skills&nbsp;&amp;&nbsp;Config&nbsp;Dirs</span>
+  <span class="navlinks">
+    <a href="#tldr">tldr</a>
+    <a href="#where">where-global-goes</a>
+    <a href="#resolve">resolution</a>
+    <a href="#both">install-both</a>
+    <a href="#notes">notes</a>
+    <a href="#refs">refs</a>
+  </span>
+  <span class="nav-right">
+    <button class="iconbtn" id="sidebarToggle" aria-label="Toggle sidebar">&#9776; Menu</button>
+    <button class="iconbtn" id="themeToggle" aria-label="Toggle theme">&#9681; Theme</button>
+  </span>
+</nav>
+
+<!-- ===================== SIDEBAR ===================== -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-group">
+    <button class="sb-head" data-group>Answer <span class="chev">&#9662;</span></button>
+    <div class="sb-items">
+      <a href="#tldr"><span class="idx">00</span>TL;DR</a>
+      <a href="#where"><span class="idx">01</span>Where &ldquo;global&rdquo; goes</a>
+      <a href="#resolve"><span class="idx">02</span>How the path resolves</a>
+    </div>
+  </div>
+  <div class="sb-group">
+    <button class="sb-head" data-group>Install <span class="chev">&#9662;</span></button>
+    <div class="sb-items">
+      <a href="#both"><span class="idx">03</span>Install into both configs</a>
+      <a href="#flags"><span class="idx">04</span>The flags</a>
+    </div>
+  </div>
+  <div class="sb-group">
+    <button class="sb-head" data-group>Caveats <span class="chev">&#9662;</span></button>
+    <div class="sb-items">
+      <a href="#notes"><span class="idx">05</span>Notes &amp; caveats</a>
+      <a href="#plugin"><span class="idx">06</span>Plugin alternative</a>
+      <a href="#refs"><span class="idx">07</span>References</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== COVER ===================== -->
+<div class="cover">
+  <svg viewBox="0 0 1180 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Axonometric wireframe of two config directories, one active">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="skewX(-30)">
+        <path d="M40 0 L0 0 0 40" fill="none" stroke="var(--cover-line)" stroke-width="0.6"/>
+      </pattern>
+    </defs>
+    <rect x="0" y="0" width="1180" height="300" fill="url(#grid)" opacity="0.5"/>
+
+    <!-- axonometric edges: dx=52, dy=30 for the receding axis -->
+    <!-- CUBE A (inactive)  ~ .claude-work -->
+    <g fill="none" stroke="var(--cover-line)" stroke-width="1.4">
+      <polygon points="360,150 470,150 470,240 360,240"/>
+      <polygon points="360,150 412,120 522,120 470,150"/>
+      <polygon points="470,150 522,120 522,210 470,240"/>
+    </g>
+    <!-- CUBE B (active) ~ $CLAUDE_CONFIG_DIR -->
+    <g fill="none" stroke="var(--cover-a)" stroke-width="1.7">
+      <polygon points="640,140 750,140 750,236 640,236"/>
+      <polygon points="640,140 692,108 802,108 750,140"/>
+      <polygon points="750,140 802,108 802,204 750,236"/>
+    </g>
+    <!-- accent node marking the active dir -->
+    <circle cx="695" cy="124" r="6" fill="var(--cover-a)"/>
+    <line x1="695" y1="124" x2="695" y2="70" stroke="var(--cover-a)" stroke-width="1.2"/>
+    <circle cx="695" cy="70" r="3" fill="var(--cover-a)"/>
+
+    <!-- connector between the two cubes -->
+    <line x1="522" y1="165" x2="640" y2="188" stroke="var(--cover-line)" stroke-width="1.2" stroke-dasharray="4 5"/>
+
+    <!-- horizon hairline -->
+    <line x1="0" y1="256" x2="1180" y2="256" stroke="var(--cover-line)" stroke-width="1"/>
+  </svg>
+</div>
+
+<!-- ===================== CONTENT ===================== -->
+<main class="content">
+
+  <div class="titleblock" id="top">
+    <p class="meta">Claude Code &middot; skills CLI &middot; multi config-dir</p>
+    <h1>Where does <span class="accent">&ldquo;global&rdquo;</span> install with two config dirs?</h1>
+    <p class="lede">Installing Matt Pocock&rsquo;s skills lets you pick <em>project</em> or <em>global</em>. With two config folders in play, &ldquo;global&rdquo; is not one fixed place &mdash; it follows an environment variable. Here is exactly where it lands, and how to cover both.</p>
+  </div>
+
+  <!-- TLDR -->
+  <div class="tldr" id="tldr">
+    <span class="meta">TL;DR</span>
+    <div class="tldr-body">
+      <p>The <code>skills</code> CLI resolves Claude Code&rsquo;s global directory as <code>&lt;claudeHome&gt;/skills</code>, where <code>claudeHome&nbsp;=&nbsp;CLAUDE_CONFIG_DIR&nbsp;||&nbsp;~/.claude</code>. It <b class="accent">does respect <code>CLAUDE_CONFIG_DIR</code></b> &mdash; the README just never mentions it.<sup class="cite"><a href="#r3">[3]</a></sup></p>
+      <p>Your variable currently points at <code>~/.claude-orion</code>, so &ldquo;global&rdquo; lands in <code>~/.claude-orion/skills</code> &mdash; <b>not</b> <code>~/.claude/skills</code>. To also cover <code>~/.claude-work</code>, run the installer a second time with the variable overridden.</p>
+    </div>
+  </div>
+
+  <!-- WHERE -->
+  <section id="where">
+    <div class="section-header">
+      <h2>Where &ldquo;global&rdquo; goes</h2>
+      <span class="meta">rule 01 &middot; follows the env var</span>
+    </div>
+    <div class="prose">
+      <p>The installer offers two scopes. <b>Project</b> writes to <code>.claude/skills</code> in the current repo. <b>Global</b> writes to a per-agent global directory. For the <code>claude-code</code> agent that global directory is defined in the CLI source as:<sup class="cite"><a href="#r3">[3]</a></sup></p>
+    </div>
+<pre><span class="c">// dist/cli.mjs — resolved once at startup</span>
+<span class="k">const</span> claudeHome = process.env.<span class="a">CLAUDE_CONFIG_DIR</span>?.trim() || join(home, <span class="a">".claude"</span>);
+
+<span class="c">// agent definition for Claude Code</span>
+<span class="k">"claude-code"</span>: {
+  skillsDir:       <span class="a">".claude/skills"</span>,      <span class="c">// project scope</span>
+  globalSkillsDir: join(claudeHome, <span class="a">"skills"</span>), <span class="c">// global scope &larr; follows the env var</span>
+}</pre>
+    <div class="callout">
+      <span class="mark">&rarr;</span>
+      <p><b>So &ldquo;global&rdquo; is not hard-wired to <code>~/.claude</code>.</b> When <code>CLAUDE_CONFIG_DIR</code> is set, that value wins; the <code>~/.claude</code> default only applies when the variable is unset.<sup class="cite"><a href="#r4">[4]</a></sup></p>
+    </div>
+  </section>
+
+  <!-- RESOLVE -->
+  <section id="resolve">
+    <div class="section-header">
+      <h2>How the path resolves</h2>
+      <span class="meta">rule 02 &middot; one branch</span>
+    </div>
+    <div class="flow">
+      <div class="node">
+        <span class="lab">You choose</span>
+        <span class="val">npx skills add &hellip; &nbsp;&mdash;global &nbsp;&mdash;agent claude-code</span>
+      </div>
+      <div class="conn"><span class="bar">&#9474;</span></div>
+      <div class="node">
+        <span class="lab">CLI computes claudeHome</span>
+        <span class="val">CLAUDE_CONFIG_DIR &nbsp;?? &nbsp;~/.claude</span>
+      </div>
+      <div class="conn"><span class="bar">&#9474;</span></div>
+      <div class="branch">
+        <div>
+          <div class="cond">If var is SET (your case)</div>
+          <div class="res"><span class="accent">$CLAUDE_CONFIG_DIR</span>/skills</div>
+        </div>
+        <div>
+          <div class="cond">If var is UNSET (default)</div>
+          <div class="res">~/.claude/skills</div>
+        </div>
+      </div>
+      <div class="conn"><span class="bar">&#9474;</span></div>
+      <div class="node hot">
+        <span class="lab">Resolved for you now</span>
+        <span class="val">~/.claude-orion/skills</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTH -->
+  <section id="both">
+    <div class="section-header">
+      <h2>Install into both configs</h2>
+      <span class="meta">rule 03 &middot; one run per dir</span>
+    </div>
+    <div class="prose">
+      <p>Each run targets exactly one config dir &mdash; whatever <code>CLAUDE_CONFIG_DIR</code> points at when the command executes. To cover both, run the installer twice, overriding the variable for each run. The <code>npx skills add</code> command itself is identical everywhere; only the way you set the variable differs by OS.</p>
+    </div>
+
+    <div class="ostabs">
+      <div class="ostab-bar" role="tablist" aria-label="Operating system">
+        <button class="ostab" role="tab" id="tab-windows" aria-controls="panel-windows" data-os="windows">Windows &middot; PowerShell</button>
+        <button class="ostab" role="tab" id="tab-macos" aria-controls="panel-macos" data-os="macos">macOS &middot; bash/zsh</button>
+        <button class="ostab" role="tab" id="tab-linux" aria-controls="panel-linux" data-os="linux">Linux &middot; bash</button>
+      </div>
+
+      <div class="ospanel" id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" data-os="windows">
+<pre><span class="c"># override the var just for each run, then install globally</span>
+$env:<span class="k">CLAUDE_CONFIG_DIR</span> = <span class="a">"$HOME\.claude-orion"</span>; npx skills@latest add mattpocock/skills -g -a claude-code -y
+$env:<span class="k">CLAUDE_CONFIG_DIR</span> = <span class="a">"$HOME\.claude-work"</span>;  npx skills@latest add mattpocock/skills -g -a claude-code -y</pre>
+      </div>
+
+      <div class="ospanel" id="panel-macos" role="tabpanel" aria-labelledby="tab-macos" data-os="macos" hidden>
+<pre><span class="c"># inline env prefix scopes the var to that single command</span>
+<span class="k">CLAUDE_CONFIG_DIR</span>=<span class="a">~/.claude-orion</span> npx skills@latest add mattpocock/skills -g -a claude-code -y
+<span class="k">CLAUDE_CONFIG_DIR</span>=<span class="a">~/.claude-work</span>  npx skills@latest add mattpocock/skills -g -a claude-code -y</pre>
+      </div>
+
+      <div class="ospanel" id="panel-linux" role="tabpanel" aria-labelledby="tab-linux" data-os="linux" hidden>
+<pre><span class="c"># inline env prefix scopes the var to that single command</span>
+<span class="k">CLAUDE_CONFIG_DIR</span>=<span class="a">~/.claude-orion</span> npx skills@latest add mattpocock/skills -g -a claude-code -y
+<span class="k">CLAUDE_CONFIG_DIR</span>=<span class="a">~/.claude-work</span>  npx skills@latest add mattpocock/skills -g -a claude-code -y</pre>
+      </div>
+    </div>
+
+    <div class="prose" id="flags">
+      <h3>The flags</h3>
+      <ul>
+        <li><span class="tick">&rarr;</span><span><b><code>-g</code>, <code>--global</code></b> &mdash; install to the user (global) directory instead of the project.<sup class="cite"><a href="#r2">[2]</a></sup></span></li>
+        <li><span class="tick">&rarr;</span><span><b><code>-a claude-code</code></b> &mdash; target the Claude Code agent explicitly, so the run doesn&rsquo;t prompt you to pick one.</span></li>
+        <li><span class="tick">&rarr;</span><span><b><code>-y</code>, <code>--yes</code></b> &mdash; skip all confirmation prompts, making the two runs non-interactive.</span></li>
+      </ul>
+      <p>Drop <code>-a</code> and <code>-y</code> if you&rsquo;d rather answer the scope and agent prompts interactively &mdash; the scope prompt is exactly the &ldquo;project vs global&rdquo; choice you mentioned.</p>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section id="notes">
+    <div class="section-header">
+      <h2>Notes &amp; caveats</h2>
+      <span class="meta">before you run</span>
+    </div>
+    <div class="prose">
+      <h3>Per-repo setup step</h3>
+      <p>Matt&rsquo;s skills expect <code>/setup-matt-pocock-skills</code> to be run once <em>per repository</em> (issue tracker, triage labels, docs location).<sup class="cite"><a href="#r1">[1]</a></sup> That&rsquo;s project-side configuration, independent of which global config dir holds the skills &mdash; installing globally into both dirs doesn&rsquo;t change that this step is per-repo.</p>
+
+      <h3>Env-var scope</h3>
+      <p>Setting the variable in a shell session only affects that session. Since it&rsquo;s already pointing at <code>~/.claude-orion</code>, that&rsquo;s presumably your machine default (a persistent user variable). The two commands above <b>temporarily</b> override it for each install and won&rsquo;t disturb that default &mdash; a fresh shell still starts on <code>~/.claude-orion</code>.</p>
+
+      <h3 id="plugin">Plugin alternative</h3>
+      <p>If you&rsquo;d prefer a read-only, auto-updating bundle over editable copies, the plugin route installs under the active <code>CLAUDE_CONFIG_DIR</code> too, so the same two-run pattern applies:<sup class="cite"><a href="#r1">[1]</a></sup></p>
+    </div>
+<pre><span class="c"># run once per config dir (override CLAUDE_CONFIG_DIR the same way as above)</span>
+claude plugin marketplace add mattpocock/skills
+claude plugin install mattpocock-skills@mattpocock</pre>
+    <div class="callout">
+      <span class="mark">&#9432;</span>
+      <p><b>Sanity check after installing:</b> confirm the skill folders exist under each dir &mdash; <code>~/.claude-orion/skills</code> and <code>~/.claude-work/skills</code> &mdash; then restart Claude Code so it re-scans skills.</p>
+    </div>
+  </section>
+
+  <!-- REFERENCES -->
+  <section id="refs">
+    <div class="section-header">
+      <h2>References</h2>
+      <span class="meta">sources</span>
+    </div>
+    <ul class="refs">
+      <li id="r1"><span class="n">[1]</span><span>Matt Pocock &mdash; <code>skills</code> repo &amp; install / plugin instructions. <a href="https://github.com/mattpocock/skills/tree/main">github.com/mattpocock/skills</a></span></li>
+      <li id="r2"><span class="n">[2]</span><span>The <code>skills</code> CLI &mdash; command flags (<code>-g/--global</code>, <code>-a/--agent</code>, <code>-y/--yes</code>). <span class="src">skills.sh &middot; npm: skills</span></span></li>
+      <li id="r3"><span class="n">[3]</span><span>skills CLI source &mdash; path resolution: <code>claudeHome = CLAUDE_CONFIG_DIR || ~/.claude</code> and the <code>claude-code</code> agent&rsquo;s <code>globalSkillsDir</code>. <span class="src">dist/cli.mjs</span></span></li>
+      <li id="r4"><span class="n">[4]</span><span>Claude Code &mdash; <code>CLAUDE_CONFIG_DIR</code> selects the active config directory; unset defaults to <code>~/.claude</code>. <span class="src">verified against the live environment</span></span></li>
+    </ul>
+  </section>
+
+  <footer class="pagefoot">
+    <span class="meta-value">design: Hairline Grid (aihero) system</span>
+    <span class="meta-value">&middot;</span>
+    <span class="meta-value">fonts: Geist / Geist Mono</span>
+    <span class="meta-value">&middot;</span>
+    <span class="meta-value">2026-07-23</span>
+  </footer>
+
+</main>
+
+<script>
+/* ---- theme ---- */
+(function(){
+  const root = document.documentElement;
+  const saved = localStorage.getItem('hg-theme');
+  const initial = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  root.setAttribute('data-theme', initial);
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('hg-theme', next);
+  });
+})();
+
+/* ---- sidebar: horizontal collapse (nav button) + vertical group collapse ---- */
+(function(){
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('sidebarToggle').addEventListener('click', function(){
+    sidebar.classList.toggle('collapsed');
+  });
+  document.querySelectorAll('[data-group]').forEach(function(btn){
+    btn.addEventListener('click', function(){ btn.parentElement.classList.toggle('closed'); });
+  });
+  /* default collapsed so the window-centered content is never overlapped;
+     the always-visible MENU button in the nav reopens it as an overlay */
+  sidebar.classList.add('collapsed');
+})();
+
+/* ---- OS tabs: synced + persisted + keyboard nav ---- */
+(function(){
+  const tabs = Array.from(document.querySelectorAll('.ostab'));
+  const detect = function(){
+    const p = (navigator.userAgentData && navigator.userAgentData.platform || navigator.platform || '').toLowerCase();
+    if (p.indexOf('win') > -1) return 'windows';
+    if (p.indexOf('mac') > -1) return 'macos';
+    if (p.indexOf('linux') > -1) return 'linux';
+    return 'windows';
+  };
+  function select(os){
+    document.querySelectorAll('.ostab').forEach(function(t){
+      t.setAttribute('aria-selected', String(t.dataset.os === os));
+      t.tabIndex = t.dataset.os === os ? 0 : -1;
+    });
+    document.querySelectorAll('.ospanel').forEach(function(p){ p.hidden = p.dataset.os !== os; });
+    localStorage.setItem('hg-os', os);
+  }
+  tabs.forEach(function(t, i){
+    t.addEventListener('click', function(){ select(t.dataset.os); });
+    t.addEventListener('keydown', function(e){
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(i + dir + tabs.length) % tabs.length];
+      select(next.dataset.os); next.focus();
+    });
+  });
+  select(localStorage.getItem('hg-os') || detect());
+})();
+</script>
+</body>
+</html>
